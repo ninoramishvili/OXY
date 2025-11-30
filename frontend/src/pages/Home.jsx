@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { getCourses, getCoaches } from '../api'
 
-function Home() {
+function Home({ user }) {
   const [courses, setCourses] = useState([])
   const [coaches, setCoaches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -124,16 +124,36 @@ function Home() {
       {/* CTA Section */}
       <section className="hero" style={{ background: 'linear-gradient(135deg, #D5E8D4 0%, #FFF3CD 100%)' }}>
         <div className="hero-content">
-          <h1>Ready to Start Your Journey?</h1>
-          <p>
-            Join thousands of people who have transformed their lives with OXY. 
-            Take the first step today.
-          </p>
-          <div className="hero-buttons">
-            <Link to="/login" className="btn btn-primary btn-large">
-              Get Started Free
-            </Link>
-          </div>
+          {user ? (
+            <>
+              <h1>Welcome Back, {user.name}! 👋</h1>
+              <p>
+                Continue your self-development journey. Explore new courses 
+                or book a session with our expert coaches.
+              </p>
+              <div className="hero-buttons">
+                <Link to="/courses" className="btn btn-primary btn-large">
+                  Browse Courses
+                </Link>
+                <Link to="/coaches" className="btn btn-secondary btn-large">
+                  Book a Session
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1>Ready to Start Your Journey?</h1>
+              <p>
+                Join thousands of people who have transformed their lives with OXY. 
+                Take the first step today.
+              </p>
+              <div className="hero-buttons">
+                <Link to="/login" className="btn btn-primary btn-large">
+                  Get Started Free
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>

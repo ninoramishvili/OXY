@@ -556,6 +556,61 @@ body {
   font-weight: 500;
 }
 
+/* ============ Guest Banner ============ */
+
+.guest-banner {
+  background: linear-gradient(135deg, var(--coral-light) 0%, var(--teal-light) 100%);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 2px solid var(--border);
+}
+
+[data-theme="dark"] .guest-banner {
+  background: linear-gradient(135deg, var(--coral-light) 0%, var(--teal-light) 100%);
+}
+
+.guest-banner-content {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.guest-banner-icon {
+  font-size: 2.5rem;
+}
+
+.guest-banner-text {
+  flex: 1;
+  min-width: 250px;
+}
+
+.guest-banner-text strong {
+  display: block;
+  font-size: 1.1rem;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+
+.guest-banner-text p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .guest-banner-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .guest-banner-text {
+    min-width: auto;
+  }
+}
+
 /* ============ Page Headers ============ */
 
 .page-header {

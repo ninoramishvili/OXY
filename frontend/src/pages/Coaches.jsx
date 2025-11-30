@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { getCoaches, getUserBookings, cancelBooking } from '../api'
 import BookingModal from '../components/BookingModal'
 
@@ -33,6 +34,7 @@ function Coaches({ user }) {
   }, [user])
 
   const handleOpenBooking = (coach) => {
+    if (!user) return // Prevent booking modal if not logged in
     setSelectedCoach(coach)
   }
 
@@ -97,6 +99,22 @@ function Coaches({ user }) {
         <p>Expert coaches ready to guide your personal growth journey</p>
       </div>
 
+      {/* Guest Banner */}
+      {!user && (
+        <div className="guest-banner">
+          <div className="guest-banner-content">
+            <span className="guest-banner-icon">🗓️</span>
+            <div className="guest-banner-text">
+              <strong>Book a session with our expert coaches!</strong>
+              <p>Login or create an account to schedule your personalized coaching session.</p>
+            </div>
+            <Link to="/login" className="btn btn-primary">
+              Login to Book
+            </Link>
+          </div>
+        </div>
+      )}
+
       {message.text && (
         <div style={{ 
           background: message.type === 'success' ? '#D5E8D4' : '#FFE5E5', 
@@ -159,12 +177,18 @@ function Coaches({ user }) {
                 <span>📅 {coach.sessions}+ sessions</span>
               </div>
               <p className="coach-price">${coach.price}/session</p>
-              <button 
-                className="btn btn-primary"
-                onClick={() => handleOpenBooking(coach)}
-              >
-                Book Session
-              </button>
+              {user ? (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => handleOpenBooking(coach)}
+                >
+                  Book Session
+                </button>
+              ) : (
+                <Link to="/login" className="btn btn-secondary">
+                  Login to Book
+                </Link>
+              )}
             </div>
           ))}
         </div>

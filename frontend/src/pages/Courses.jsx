@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { getCourses, purchaseCourse } from '../api'
 
 function Courses({ user }) {
@@ -23,9 +24,10 @@ function Courses({ user }) {
   }, [])
 
   const handlePurchase = async (course) => {
+    if (!user) return // Prevent purchase if not logged in
+    
     try {
-      const userId = user?.id || 1
-      const data = await purchaseCourse(course.id, userId)
+      const data = await purchaseCourse(course.id, user.id)
       
       if (data.success) {
         setMessage({ text: `🎉 "${course.title}" purchased successfully!`, type: 'success' })
@@ -53,6 +55,22 @@ function Courses({ user }) {
         <h1>Our Courses</h1>
         <p>Explore our collection of self-development courses</p>
       </div>
+
+      {/* Guest Banner */}
+      {!user && (
+        <div className="guest-banner">
+          <div className="guest-banner-content">
+            <span className="guest-banner-icon">🎓</span>
+            <div className="guest-banner-text">
+              <strong>Ready to start learning?</strong>
+              <p>Login or create an account to purchase courses and track your progress.</p>
+            </div>
+            <Link to="/login" className="btn btn-primary">
+              Login to Get Started
+            </Link>
+          </div>
+        </div>
+      )}
 
       {message.text && (
         <div style={{ 
@@ -83,12 +101,18 @@ function Courses({ user }) {
                 </div>
                 <div className="course-footer">
                   <span className="course-price">${course.price}</span>
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => handlePurchase(course)}
-                  >
-                    Buy Now
-                  </button>
+                  {user ? (
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => handlePurchase(course)}
+                    >
+                      Buy Now
+                    </button>
+                  ) : (
+                    <Link to="/login" className="btn btn-secondary">
+                      Login to Purchase
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
