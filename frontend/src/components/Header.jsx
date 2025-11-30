@@ -1,6 +1,26 @@
 import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 
 function Header({ user, onLogout }) {
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    return saved === 'dark'
+  })
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [darkMode])
+
+  const toggleTheme = () => {
+    setDarkMode(!darkMode)
+  }
+
   return (
     <header className="header">
       <div className="header-content">
@@ -13,6 +33,14 @@ function Header({ user, onLogout }) {
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/courses" className="nav-link">Courses</Link>
           <Link to="/coaches" className="nav-link">Coaches</Link>
+          
+          <button 
+            onClick={toggleTheme} 
+            className="theme-toggle"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? '☀️' : '🌙'}
+          </button>
           
           {user ? (
             <div className="user-info">
