@@ -4,6 +4,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import Courses from './pages/Courses'
 import Coaches from './pages/Coaches'
 
@@ -25,6 +26,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home user={user} />} />
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/courses" element={<Courses user={user} />} />
           <Route path="/coaches" element={<Coaches user={user} />} />
         </Routes>

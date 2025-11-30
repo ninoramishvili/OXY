@@ -45,15 +45,26 @@ app.post('/api/users', async (req, res) => {
   try {
     const { username, password, name, email } = req.body;
     
+    // Validate required fields
+    if (!username || !password || !name || !email) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+    
     // Check if username already exists
-    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ success: false, message: 'Username already exists' });
+    const existingUsername = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existingUsername.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'Username already taken' });
+    }
+    
+    // Check if email already exists
+    const existingEmail = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
     }
     
     const result = await pool.query(
       'INSERT INTO users (username, password, name, email) VALUES ($1, $2, $3, $4) RETURNING id, username, name, email, created_at',
-      [username, password, name, email]
+      [username, password, name, email.toLowerCase()]
     );
     
     res.status(201).json({ 

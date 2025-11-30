@@ -556,6 +556,73 @@ body {
   font-weight: 500;
 }
 
+/* ============ Registration ============ */
+
+.register-card {
+  max-width: 420px;
+}
+
+.register-subtitle {
+  text-align: center;
+  color: var(--text-light);
+  margin-bottom: var(--space-lg);
+  font-size: 0.95rem;
+}
+
+.auth-switch {
+  text-align: center;
+  margin-top: var(--space-lg);
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.auth-switch a {
+  color: var(--coral);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.auth-switch a:hover {
+  color: var(--coral-dark);
+  text-decoration: underline;
+}
+
+.input-error {
+  border-color: #DC2626 !important;
+}
+
+.field-error {
+  display: block;
+  color: #DC2626;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .field-error {
+  color: #FCA5A5;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: 6px;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
 /* ============ Guest Banner ============ */
 
 .guest-banner {

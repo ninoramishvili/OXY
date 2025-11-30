@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { login } from '../api'
 
 function Login({ onLogin }) {
@@ -77,8 +77,12 @@ function Login({ onLogin }) {
           </button>
         </form>
         
-        <p style={{ textAlign: 'center', marginTop: '1.5rem', color: '#888', fontSize: '0.9rem' }}>
-          Hint: username "admin", password "password"
+        <p className="auth-switch">
+          Don't have an account? <Link to="/register">Sign up here</Link>
+        </p>
+        
+        <p style={{ textAlign: 'center', marginTop: '0.5rem', color: '#888', fontSize: '0.8rem' }}>
+          Demo: username "admin", password "password"
         </p>
       </div>
     </div>
