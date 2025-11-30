@@ -1836,3 +1836,273 @@ body {
   }
 }
 
+/* ============ About Page ============ */
+
+.about-page {
+  min-height: 100vh;
+}
+
+.about-hero {
+  background: linear-gradient(135deg, var(--coral-light) 0%, var(--teal-light) 100%);
+  padding: var(--space-xxl) var(--space-lg);
+  text-align: center;
+}
+
+.about-hero-content h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-sm);
+}
+
+.about-tagline {
+  font-size: 1.3rem;
+  color: var(--text);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.about-section {
+  padding: var(--space-xxl) var(--space-lg);
+}
+
+.about-section-alt {
+  background: var(--background);
+}
+
+.about-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Mission */
+.about-mission {
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.about-icon {
+  font-size: 3.5rem;
+  margin-bottom: var(--space-md);
+}
+
+.about-mission h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-md);
+}
+
+.about-mission p {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+/* Values */
+.values-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-lg);
+}
+
+.value-card {
+  background: var(--surface);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  text-align: center;
+  border: 2px solid var(--border);
+  transition: all var(--transition);
+}
+
+.value-card:hover {
+  border-color: var(--coral);
+  transform: translateY(-4px);
+}
+
+.value-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.value-card h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-xs);
+}
+
+.value-card p {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Offerings */
+.offerings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-lg);
+}
+
+.offering-card {
+  background: var(--surface);
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border);
+  text-align: center;
+}
+
+.offering-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+}
+
+.offering-card h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-sm);
+}
+
+.offering-card p {
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: var(--space-lg);
+}
+
+/* Why OXY */
+.why-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-lg);
+}
+
+.why-item {
+  padding: var(--space-md);
+}
+
+.why-number {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--coral);
+  margin-bottom: var(--space-sm);
+}
+
+.why-item h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-xs);
+}
+
+.why-item p {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Contact Box */
+.contact-box {
+  background: var(--surface);
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border);
+  text-align: center;
+}
+
+.contact-box h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-sm);
+}
+
+.contact-box > p {
+  color: var(--text);
+  margin-bottom: var(--space-lg);
+}
+
+.contact-info {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+}
+
+.contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  text-align: left;
+}
+
+.contact-icon {
+  font-size: 1.5rem;
+}
+
+.contact-item strong {
+  display: block;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+}
+
+.contact-item p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* CTA Section */
+.about-cta {
+  background: linear-gradient(135deg, var(--teal-light) 0%, var(--coral-light) 100%);
+  padding: var(--space-xxl) var(--space-lg);
+  text-align: center;
+}
+
+.about-cta h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-sm);
+}
+
+.about-cta > .about-container > p {
+  color: var(--text);
+  font-size: 1.1rem;
+  margin-bottom: var(--space-lg);
+}
+
+.about-cta-buttons {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* About Page Responsive */
+@media (max-width: 768px) {
+  .about-hero-content h1 {
+    font-size: 2rem;
+  }
+  
+  .about-tagline {
+    font-size: 1.1rem;
+  }
+  
+  .contact-info {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .contact-item {
+    justify-content: center;
+    text-align: center;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+

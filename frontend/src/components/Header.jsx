@@ -33,6 +33,7 @@ function Header({ user, onLogout }) {
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/courses" className="nav-link">Courses</Link>
           <Link to="/coaches" className="nav-link">Coaches</Link>
+          <Link to="/about" className="nav-link">About</Link>
           
           <button 
             onClick={toggleTheme} 

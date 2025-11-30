@@ -8,6 +8,7 @@ import Register from './pages/Register'
 import Courses from './pages/Courses'
 import CourseDetails from './pages/CourseDetails'
 import Coaches from './pages/Coaches'
+import About from './pages/About'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -31,6 +32,7 @@ function App() {
           <Route path="/courses" element={<Courses user={user} />} />
           <Route path="/courses/:id" element={<CourseDetails user={user} />} />
           <Route path="/coaches" element={<Coaches user={user} />} />
+          <Route path="/about" element={<About />} />
         </Routes>
       </main>
       <Footer />
