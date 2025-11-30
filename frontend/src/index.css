@@ -1648,6 +1648,175 @@ body {
   color: var(--text-light);
 }
 
+.course-price-note {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-top: -8px;
+  margin-bottom: var(--space-md);
+}
+
+/* Live Course Badge */
+.live-badge {
+  display: inline-block;
+  background: #DC2626;
+  color: white;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-sm);
+  animation: pulse-live 2s infinite;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Live Benefits */
+.live-benefits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-md);
+}
+
+.benefit-item {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.benefit-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.benefit-item h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.benefit-item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Session Schedule */
+.schedule-note {
+  color: var(--text-light);
+  margin-bottom: var(--space-md);
+  font-size: 0.9rem;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition);
+}
+
+.session-item:hover {
+  border-color: var(--coral);
+}
+
+.session-date {
+  background: var(--coral);
+  color: white;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  min-width: 60px;
+}
+
+.session-day {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.session-month {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.session-time {
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+
+.session-duration {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--teal-dark);
+  background: var(--teal-light);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+/* Course Format */
+.format-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.format-item {
+  text-align: center;
+  padding: var(--space-md);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.format-icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: var(--space-xs);
+}
+
+.format-item strong {
+  display: block;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+
+.format-item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
 /* Course Content Sections */
 .course-details-content {
   max-width: 900px;

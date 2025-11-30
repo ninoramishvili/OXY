@@ -63,12 +63,12 @@ function About() {
           <h2 className="section-title">What We Offer</h2>
           <div className="offerings-grid">
             <div className="offering-card">
-              <div className="offering-icon">📚</div>
-              <h3>Self-Paced Courses</h3>
+              <div className="offering-icon">🔴</div>
+              <h3>Live Group Courses</h3>
               <p>
-                Expertly crafted courses on anxiety management, productivity, 
-                focus, motivation, and more. Learn at your own pace with 
-                practical exercises and actionable insights.
+                Interactive live sessions on anxiety management, productivity, 
+                focus, motivation, and more. Learn in small groups with 
+                real-time instruction and personalized feedback.
               </p>
               <Link to="/courses" className="btn btn-secondary">
                 Explore Courses

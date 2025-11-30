@@ -41,7 +41,7 @@ function Home({ user }) {
         <div className="hero-content">
           <h1>Transform Your Life with OXY</h1>
           <p>
-            Discover courses and coaching that help you manage anxiety, 
+            Join live courses and coaching sessions that help you manage anxiety, 
             boost productivity, and live your best life. Your journey to 
             personal growth starts here.
           </p>
@@ -59,7 +59,7 @@ function Home({ user }) {
       {/* Courses Preview */}
       <section className="section">
         <h2 className="section-title">
-          Popular <span>Courses</span>
+          Upcoming Live <span>Courses</span>
         </h2>
         <div className="cards-grid">
           {courses.map(course => (
@@ -72,10 +72,10 @@ function Home({ user }) {
                   <span className="course-category">{course.category}</span>
                   <h3>{course.title}</h3>
                   <p>{course.description}</p>
-                  <div className="course-meta">
-                    <span>📚 {course.lessons} lessons</span>
-                    <span>⏱️ {course.duration}</span>
-                  </div>
+                <div className="course-meta">
+                  <span>🔴 {course.lessons} live sessions</span>
+                  <span>⏱️ {course.duration}</span>
+                </div>
                 </div>
               </Link>
               <div className="course-footer">

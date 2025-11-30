@@ -42,15 +42,15 @@ function CourseDetails({ user }) {
       const data = await purchaseCourse(course.id, user.id)
       
       if (data.success) {
-        setMessage({ text: '🎉 Course purchased successfully!', type: 'success' })
+        setMessage({ text: '🎉 Enrolled successfully! Check your email for session details.', type: 'success' })
       } else {
-        setMessage({ text: data.message || 'Purchase failed', type: 'error' })
+        setMessage({ text: data.message || 'Enrollment failed', type: 'error' })
       }
     } catch (error) {
-      setMessage({ text: 'Failed to complete purchase', type: 'error' })
+      setMessage({ text: 'Failed to complete enrollment', type: 'error' })
     }
     
-    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+    setTimeout(() => setMessage({ text: '', type: '' }), 4000)
   }
 
   if (loading) {
@@ -72,12 +72,8 @@ function CourseDetails({ user }) {
     )
   }
 
-  // Sample curriculum based on course lessons count
-  const curriculum = Array.from({ length: course.lessons || 8 }, (_, i) => ({
-    id: i + 1,
-    title: getCurriculumTitle(course.category, i + 1),
-    duration: `${10 + Math.floor(Math.random() * 20)} min`
-  }))
+  // Generate upcoming live session dates
+  const upcomingSessions = generateUpcomingSessions(course.lessons || 8)
 
   return (
     <div className="course-details-page">
@@ -88,20 +84,22 @@ function CourseDetails({ user }) {
           
           <div className="course-hero-grid">
             <div className="course-hero-info">
+              <div className="live-badge">🔴 LIVE COURSE</div>
               <span className="course-category">{course.category}</span>
               <h1>{course.title}</h1>
               <p className="course-hero-description">{course.description}</p>
               
               <div className="course-hero-meta">
-                <span>📚 {course.lessons} lessons</span>
+                <span>📅 {course.lessons} live sessions</span>
                 <span>⏱️ {course.duration}</span>
-                <span>📊 All Levels</span>
+                <span>👥 Small group (max 15)</span>
               </div>
             </div>
             
             <div className="course-hero-card">
               <div className="course-hero-icon">{course.image}</div>
               <div className="course-hero-price">${course.price}</div>
+              <p className="course-price-note">Full course access</p>
               
               {message.text && (
                 <div className={`course-message ${message.type}`}>
@@ -115,15 +113,15 @@ function CourseDetails({ user }) {
                   onClick={handlePurchase}
                   style={{ width: '100%' }}
                 >
-                  Purchase Course
+                  Enroll Now
                 </button>
               ) : (
                 <Link to="/login" className="btn btn-primary btn-large" style={{ width: '100%', textAlign: 'center' }}>
-                  Login to Purchase
+                  Login to Enroll
                 </Link>
               )}
               
-              <p className="course-guarantee">30-day money-back guarantee</p>
+              <p className="course-guarantee">Limited spots available</p>
             </div>
           </div>
         </div>
@@ -131,6 +129,41 @@ function CourseDetails({ user }) {
 
       {/* Course Content */}
       <div className="course-details-content">
+        {/* Live Course Benefits */}
+        <section className="course-section">
+          <h2>Why Live Sessions?</h2>
+          <div className="live-benefits">
+            <div className="benefit-item">
+              <span className="benefit-icon">🎯</span>
+              <div>
+                <h4>Real-time Interaction</h4>
+                <p>Ask questions and get immediate answers from your instructor</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">👥</span>
+              <div>
+                <h4>Group Learning</h4>
+                <p>Learn alongside others and benefit from shared experiences</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">📝</span>
+              <div>
+                <h4>Practical Exercises</h4>
+                <p>Participate in live exercises and get real-time feedback</p>
+              </div>
+            </div>
+            <div className="benefit-item">
+              <span className="benefit-icon">🔄</span>
+              <div>
+                <h4>Session Recordings</h4>
+                <p>Access recordings if you miss a session (available for 30 days)</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* What You'll Learn */}
         <section className="course-section">
           <h2>What You'll Learn</h2>
@@ -144,20 +177,51 @@ function CourseDetails({ user }) {
           </div>
         </section>
 
-        {/* Curriculum */}
+        {/* Session Schedule */}
         <section className="course-section">
-          <h2>Course Curriculum</h2>
-          <div className="curriculum-list">
-            {curriculum.map((lesson, i) => (
-              <div key={lesson.id} className="curriculum-item">
-                <div className="curriculum-number">{i + 1}</div>
-                <div className="curriculum-info">
-                  <h4>{lesson.title}</h4>
-                  <span className="curriculum-duration">{lesson.duration}</span>
+          <h2>Upcoming Live Sessions</h2>
+          <p className="schedule-note">Sessions are held via Zoom. Links will be sent after enrollment.</p>
+          <div className="sessions-list">
+            {upcomingSessions.map((session, i) => (
+              <div key={i} className="session-item">
+                <div className="session-date">
+                  <span className="session-day">{session.day}</span>
+                  <span className="session-month">{session.month}</span>
                 </div>
-                <span className="curriculum-lock">🔒</span>
+                <div className="session-info">
+                  <h4>Session {i + 1}: {getSessionTitle(course.category, i + 1)}</h4>
+                  <span className="session-time">{session.time}</span>
+                </div>
+                <span className="session-duration">60 min</span>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Course Format */}
+        <section className="course-section">
+          <h2>Course Format</h2>
+          <div className="format-grid">
+            <div className="format-item">
+              <span className="format-icon">📅</span>
+              <strong>Schedule</strong>
+              <p>Weekly sessions, same day & time</p>
+            </div>
+            <div className="format-item">
+              <span className="format-icon">⏰</span>
+              <strong>Duration</strong>
+              <p>60 minutes per session</p>
+            </div>
+            <div className="format-item">
+              <span className="format-icon">💻</span>
+              <strong>Platform</strong>
+              <p>Zoom (link provided after enrollment)</p>
+            </div>
+            <div className="format-item">
+              <span className="format-icon">📧</span>
+              <strong>Materials</strong>
+              <p>Worksheets sent before each session</p>
+            </div>
           </div>
         </section>
 
@@ -189,61 +253,79 @@ function CourseDetails({ user }) {
   )
 }
 
-// Helper function for curriculum titles
-function getCurriculumTitle(category, lessonNum) {
+// Generate upcoming session dates
+function generateUpcomingSessions(count) {
+  const sessions = []
+  const startDate = new Date()
+  startDate.setDate(startDate.getDate() + 7) // Start next week
+  
+  // Find next Tuesday
+  while (startDate.getDay() !== 2) {
+    startDate.setDate(startDate.getDate() + 1)
+  }
+  
+  for (let i = 0; i < count; i++) {
+    const sessionDate = new Date(startDate)
+    sessionDate.setDate(sessionDate.getDate() + (i * 7)) // Weekly sessions
+    
+    sessions.push({
+      day: sessionDate.getDate(),
+      month: sessionDate.toLocaleString('en-US', { month: 'short' }),
+      time: '7:00 PM - 8:00 PM (GMT+4)',
+      fullDate: sessionDate
+    })
+  }
+  
+  return sessions
+}
+
+// Helper function for session titles
+function getSessionTitle(category, sessionNum) {
   const titles = {
     'Wellbeing': [
-      'Introduction to Mental Wellbeing',
-      'Understanding Your Emotions',
-      'Building Healthy Habits',
-      'Mindfulness Basics',
-      'Stress Recognition',
-      'Self-Care Strategies',
+      'Introduction & Goal Setting',
+      'Understanding Your Patterns',
+      'Building Daily Practices',
+      'Mindfulness Techniques',
+      'Managing Stress',
+      'Self-Care Planning',
       'Building Resilience',
-      'Creating Balance',
-      'Long-term Wellness Planning',
-      'Final Assessment'
+      'Integration & Next Steps'
     ],
     'Productivity': [
-      'Productivity Foundations',
-      'Goal Setting Mastery',
-      'Time Blocking Techniques',
+      'Productivity Assessment',
+      'Goal Setting & Prioritization',
+      'Time Blocking Workshop',
       'Eliminating Distractions',
       'Energy Management',
-      'Workflow Optimization',
-      'Tools & Systems',
-      'Building Momentum',
-      'Sustainable Productivity',
-      'Final Project'
+      'Systems & Tools',
+      'Building Habits',
+      'Sustainable Success'
     ],
     'Mindfulness': [
-      'What is Mindfulness?',
-      'Breath Awareness',
-      'Body Scan Meditation',
-      'Mindful Movement',
-      'Dealing with Thoughts',
-      'Emotional Awareness',
+      'Foundations of Mindfulness',
+      'Breath & Body Awareness',
+      'Working with Thoughts',
+      'Emotional Regulation',
+      'Mindful Communication',
       'Daily Practice Integration',
       'Advanced Techniques',
-      'Mindfulness in Relationships',
-      'Continuing Your Journey'
+      'Living Mindfully'
     ],
     'Focus': [
-      'The Science of Focus',
-      'Attention Training',
-      'Deep Work Principles',
+      'The Science of Attention',
+      'Focus Assessment',
+      'Deep Work Strategies',
       'Environment Design',
-      'Digital Minimalism',
-      'Flow State Access',
-      'Focus Rituals',
-      'Recovery & Rest',
-      'Long-term Focus Building',
-      'Mastery Assessment'
+      'Digital Wellness',
+      'Flow State Training',
+      'Building Focus Habits',
+      'Mastery & Maintenance'
     ]
   }
   
   const categoryTitles = titles[category] || titles['Wellbeing']
-  return categoryTitles[lessonNum - 1] || `Lesson ${lessonNum}`
+  return categoryTitles[sessionNum - 1] || `Session ${sessionNum}`
 }
 
 // Helper function for learning outcomes
@@ -287,4 +369,3 @@ function getLearnOutcomes(category) {
 }
 
 export default CourseDetails
-

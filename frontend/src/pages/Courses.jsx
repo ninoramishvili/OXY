@@ -52,21 +52,21 @@ function Courses({ user }) {
   return (
     <div className="courses-page">
       <div className="page-header">
-        <h1>Our Courses</h1>
-        <p>Explore our collection of self-development courses</p>
+        <h1>Live Courses</h1>
+        <p>Join interactive live sessions led by expert instructors</p>
       </div>
 
       {/* Guest Banner */}
       {!user && (
         <div className="guest-banner">
           <div className="guest-banner-content">
-            <span className="guest-banner-icon">🎓</span>
+            <span className="guest-banner-icon">🔴</span>
             <div className="guest-banner-text">
-              <strong>Ready to start learning?</strong>
-              <p>Login or create an account to purchase courses and track your progress.</p>
+              <strong>Join our live courses!</strong>
+              <p>Login or create an account to enroll in interactive live sessions with expert instructors.</p>
             </div>
             <Link to="/login" className="btn btn-primary">
-              Login to Get Started
+              Login to Enroll
             </Link>
           </div>
         </div>
@@ -96,10 +96,10 @@ function Courses({ user }) {
                   <span className="course-category">{course.category}</span>
                   <h3>{course.title}</h3>
                   <p>{course.description}</p>
-                  <div className="course-meta">
-                    <span>📚 {course.lessons} lessons</span>
-                    <span>⏱️ {course.duration}</span>
-                  </div>
+                <div className="course-meta">
+                  <span>🔴 {course.lessons} live sessions</span>
+                  <span>⏱️ {course.duration}</span>
+                </div>
                 </div>
               </Link>
               <div className="course-footer">
