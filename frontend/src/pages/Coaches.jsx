@@ -4,18 +4,21 @@ import { getCoaches, getUserBookings, cancelBooking } from '../api'
 import BookingModal from '../components/BookingModal'
 
 function Coaches({ user }) {
-  const [coaches, setCoaches] = useState([])
+  const [coach, setCoach] = useState(null)
   const [myBookings, setMyBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
-  const [selectedCoach, setSelectedCoach] = useState(null)
-  const [showBookings, setShowBookings] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [showBookings, setShowBookings] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const coachesData = await getCoaches()
-        setCoaches(coachesData)
+        // Get the single coach
+        if (coachesData.length > 0) {
+          setCoach(coachesData[0])
+        }
         
         // Fetch user's bookings if logged in
         if (user?.id) {
@@ -24,7 +27,7 @@ function Coaches({ user }) {
         }
       } catch (error) {
         console.error('Error fetching data:', error)
-        setMessage({ text: 'Failed to load coaches', type: 'error' })
+        setMessage({ text: 'Failed to load coach', type: 'error' })
       } finally {
         setLoading(false)
       }
@@ -33,25 +36,23 @@ function Coaches({ user }) {
     fetchData()
   }, [user])
 
-  const handleOpenBooking = (coach) => {
-    if (!user) return // Prevent booking modal if not logged in
-    setSelectedCoach(coach)
+  const handleOpenBooking = () => {
+    if (!user) return
+    setShowBookingModal(true)
   }
 
   const handleCloseModal = () => {
-    setSelectedCoach(null)
+    setShowBookingModal(false)
   }
 
   const handleBookingComplete = async (booking) => {
-    // Refresh bookings
     if (user?.id) {
       const bookingsData = await getUserBookings(user.id)
       setMyBookings(bookingsData.filter(b => b.status !== 'cancelled'))
     }
-    // Update coach session count in UI
-    setCoaches(prev => prev.map(c => 
-      c.id === booking.coach_id ? { ...c, sessions: c.sessions + 1 } : c
-    ))
+    if (coach) {
+      setCoach(prev => ({ ...prev, sessions: prev.sessions + 1 }))
+    }
   }
 
   const handleCancelBooking = async (bookingId) => {
@@ -75,45 +76,81 @@ function Coaches({ user }) {
   const formatBookingDate = (date, time) => {
     const d = new Date(date)
     const dateStr = d.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
+      weekday: 'long', 
+      month: 'long', 
       day: 'numeric' 
     })
     const hour = parseInt(time.split(':')[0])
     const timeStr = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`
-    return `${dateStr} at ${timeStr}`
+    return { dateStr, timeStr }
   }
 
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem' }}>
-        <p>Loading coaches...</p>
+        <p>Loading...</p>
+      </div>
+    )
+  }
+
+  if (!coach) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem' }}>
+        <h2>Coach not available</h2>
       </div>
     )
   }
 
   return (
-    <div className="coaches-page">
-      <div className="page-header" style={{ background: 'linear-gradient(135deg, #D5E8D4 0%, #D4E5F7 100%)' }}>
-        <h1>Our Coaches</h1>
-        <p>Expert coaches ready to guide your personal growth journey</p>
-      </div>
-
-      {/* Guest Banner */}
-      {!user && (
-        <div className="guest-banner">
-          <div className="guest-banner-content">
-            <span className="guest-banner-icon">🗓️</span>
-            <div className="guest-banner-text">
-              <strong>Book a session with our expert coaches!</strong>
-              <p>Login or create an account to schedule your personalized coaching session.</p>
+    <div className="coach-profile-page">
+      {/* Hero Section */}
+      <section className="coach-hero">
+        <div className="coach-hero-content">
+          <div className="coach-hero-avatar">
+            <div className="coach-avatar-large" style={{ background: coach.color }}>
+              {coach.image}
             </div>
-            <Link to="/login" className="btn btn-primary">
-              Login to Book
-            </Link>
+            <div className="coach-status">
+              <span className="status-dot"></span>
+              Available for booking
+            </div>
+          </div>
+          
+          <div className="coach-hero-info">
+            <h1>{coach.name}</h1>
+            <p className="coach-hero-title">{coach.title}</p>
+            <span className="coach-hero-specialty">{coach.specialty}</span>
+            
+            <div className="coach-hero-stats">
+              <div className="stat-item">
+                <span className="stat-value">⭐ {coach.rating}</span>
+                <span className="stat-label">Rating</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value">{coach.sessions}+</span>
+                <span className="stat-label">Sessions</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value">${coach.price}</span>
+                <span className="stat-label">Per Session</span>
+              </div>
+            </div>
+            
+            {user ? (
+              <button 
+                className="btn btn-primary btn-large"
+                onClick={handleOpenBooking}
+              >
+                Book a Session
+              </button>
+            ) : (
+              <Link to="/login" className="btn btn-primary btn-large">
+                Login to Book
+              </Link>
+            )}
           </div>
         </div>
-      )}
+      </section>
 
       {message.text && (
         <div style={{ 
@@ -127,77 +164,157 @@ function Coaches({ user }) {
         </div>
       )}
 
-      {/* My Bookings Section */}
-      {user && myBookings.length > 0 && (
-        <section className="my-bookings-section">
-          <div className="my-bookings-header" onClick={() => setShowBookings(!showBookings)}>
-            <h3>📅 My Upcoming Sessions ({myBookings.length})</h3>
-            <span className="toggle-icon">{showBookings ? '▼' : '▶'}</span>
+      {/* Main Content */}
+      <div className="coach-profile-content">
+        {/* My Upcoming Sessions */}
+        {user && myBookings.length > 0 && (
+          <section className="coach-section">
+            <div className="section-header" onClick={() => setShowBookings(!showBookings)}>
+              <h2>📅 Your Upcoming Sessions</h2>
+              <span className="toggle-icon">{showBookings ? '▼' : '▶'}</span>
+            </div>
+            
+            {showBookings && (
+              <div className="upcoming-sessions-list">
+                {myBookings.map(booking => {
+                  const { dateStr, timeStr } = formatBookingDate(booking.booking_date, booking.booking_time)
+                  return (
+                    <div key={booking.id} className="upcoming-session-card">
+                      <div className="session-date-box">
+                        <span className="session-day">{new Date(booking.booking_date).getDate()}</span>
+                        <span className="session-month">{new Date(booking.booking_date).toLocaleString('en-US', { month: 'short' })}</span>
+                      </div>
+                      <div className="session-details">
+                        <h4>Coaching Session with {coach.name}</h4>
+                        <p>📅 {dateStr}</p>
+                        <p>🕐 {timeStr} (1 hour)</p>
+                        <span className={`session-status ${booking.status}`}>{booking.status}</span>
+                      </div>
+                      <button 
+                        className="btn-cancel-session"
+                        onClick={() => handleCancelBooking(booking.id)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* About Section */}
+        <section className="coach-section">
+          <h2>About {coach.name}</h2>
+          <p className="coach-bio-full">{coach.bio}</p>
+        </section>
+
+        {/* What to Expect */}
+        <section className="coach-section">
+          <h2>What to Expect</h2>
+          <div className="expect-grid">
+            <div className="expect-item">
+              <span className="expect-icon">🎯</span>
+              <h4>1-on-1 Sessions</h4>
+              <p>Private, focused sessions tailored to your specific needs and goals</p>
+            </div>
+            <div className="expect-item">
+              <span className="expect-icon">💬</span>
+              <h4>Safe Space</h4>
+              <p>A judgment-free environment to explore your thoughts and challenges</p>
+            </div>
+            <div className="expect-item">
+              <span className="expect-icon">📋</span>
+              <h4>Action Plans</h4>
+              <p>Leave each session with clear steps and strategies to implement</p>
+            </div>
+            <div className="expect-item">
+              <span className="expect-icon">🔄</span>
+              <h4>Ongoing Support</h4>
+              <p>Continuous guidance on your personal growth journey</p>
+            </div>
           </div>
-          
-          {showBookings && (
-            <div className="my-bookings-list">
-              {myBookings.map(booking => (
-                <div key={booking.id} className="booking-item">
-                  <div className="booking-coach-avatar" style={{ background: '#E8D5E0' }}>
-                    {booking.image}
-                  </div>
-                  <div className="booking-details">
-                    <h4>{booking.coach_name}</h4>
-                    <p>{formatBookingDate(booking.booking_date, booking.booking_time)}</p>
-                    <span className={`booking-status ${booking.status}`}>{booking.status}</span>
-                  </div>
-                  <button 
-                    className="btn btn-cancel"
-                    onClick={() => handleCancelBooking(booking.id)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ))}
+        </section>
+
+        {/* Areas of Focus */}
+        <section className="coach-section">
+          <h2>Areas of Focus</h2>
+          <div className="focus-areas">
+            <span className="focus-tag">Life Transitions</span>
+            <span className="focus-tag">Career Decisions</span>
+            <span className="focus-tag">Mindset Shifts</span>
+            <span className="focus-tag">Personal Growth</span>
+            <span className="focus-tag">Goal Setting</span>
+            <span className="focus-tag">Confidence Building</span>
+            <span className="focus-tag">Work-Life Balance</span>
+            <span className="focus-tag">Stress Management</span>
+          </div>
+        </section>
+
+        {/* Session Details */}
+        <section className="coach-section">
+          <h2>Session Details</h2>
+          <div className="session-info-grid">
+            <div className="session-info-item">
+              <span className="info-icon">⏱️</span>
+              <div>
+                <strong>Duration</strong>
+                <p>60 minutes per session</p>
+              </div>
+            </div>
+            <div className="session-info-item">
+              <span className="info-icon">💻</span>
+              <div>
+                <strong>Format</strong>
+                <p>Video call via Zoom</p>
+              </div>
+            </div>
+            <div className="session-info-item">
+              <span className="info-icon">📅</span>
+              <div>
+                <strong>Availability</strong>
+                <p>Monday - Friday, 9am - 5pm</p>
+              </div>
+            </div>
+            <div className="session-info-item">
+              <span className="info-icon">💰</span>
+              <div>
+                <strong>Investment</strong>
+                <p>${coach.price} per session</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="coach-cta">
+          <h2>Ready to Start Your Journey?</h2>
+          <p>Book a session with {coach.name} and take the first step towards positive change.</p>
+          {user ? (
+            <button 
+              className="btn btn-primary btn-large"
+              onClick={handleOpenBooking}
+            >
+              Book Your Session Now
+            </button>
+          ) : (
+            <div className="cta-buttons">
+              <Link to="/login" className="btn btn-primary btn-large">
+                Login to Book
+              </Link>
+              <Link to="/register" className="btn btn-secondary btn-large">
+                Create Account
+              </Link>
             </div>
           )}
         </section>
-      )}
-
-      {/* Coaches Grid */}
-      <section className="section">
-        <div className="cards-grid">
-          {coaches.map(coach => (
-            <div key={coach.id} className="coach-card">
-              <div className="coach-avatar" style={{ background: coach.color }}>
-                {coach.image}
-              </div>
-              <h3>{coach.name}</h3>
-              <p className="coach-title">{coach.title}</p>
-              <span className="coach-specialty">{coach.specialty}</span>
-              <p className="coach-bio">{coach.bio}</p>
-              <div className="coach-stats">
-                <span>⭐ {coach.rating}</span>
-                <span>📅 {coach.sessions}+ sessions</span>
-              </div>
-              <p className="coach-price">${coach.price}/session</p>
-              {user ? (
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => handleOpenBooking(coach)}
-                >
-                  Book Session
-                </button>
-              ) : (
-                <Link to="/login" className="btn btn-secondary">
-                  Login to Book
-                </Link>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
+      </div>
 
       {/* Booking Modal */}
-      {selectedCoach && (
+      {showBookingModal && coach && (
         <BookingModal
-          coach={selectedCoach}
+          coach={coach}
           user={user}
           onClose={handleCloseModal}
           onBookingComplete={handleBookingComplete}

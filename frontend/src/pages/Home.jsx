@@ -92,35 +92,32 @@ function Home({ user }) {
         </div>
       </section>
 
-      {/* Coaches Preview */}
+      {/* Coach Preview */}
       <section className="section section-alt">
         <h2 className="section-title">
-          Meet Our <span>Coaches</span>
+          Meet Your <span>Coach</span>
         </h2>
-        <div className="cards-grid">
-          {coaches.map(coach => (
-            <div key={coach.id} className="coach-card">
-              <div className="coach-avatar" style={{ background: coach.color }}>
-                {coach.image}
-              </div>
-              <h3>{coach.name}</h3>
-              <p className="coach-title">{coach.title}</p>
-              <span className="coach-specialty">{coach.specialty}</span>
-              <p className="coach-bio">{coach.bio}</p>
-              <div className="coach-stats">
-                <span>⭐ {coach.rating}</span>
-                <span>📅 {coach.sessions}+ sessions</span>
-              </div>
-              <p className="coach-price">${coach.price}/session</p>
-              <Link to="/coaches" className="btn btn-primary">Book Session</Link>
+        {coaches.length > 0 && (
+          <div className="coach-preview">
+            <div className="coach-preview-avatar" style={{ background: coaches[0].color }}>
+              {coaches[0].image}
             </div>
-          ))}
-        </div>
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <Link to="/coaches" className="btn btn-secondary btn-large">
-            View All Coaches
-          </Link>
-        </div>
+            <div className="coach-preview-info">
+              <h3>{coaches[0].name}</h3>
+              <p className="coach-preview-title">{coaches[0].title}</p>
+              <span className="coach-preview-specialty">{coaches[0].specialty}</span>
+              <p className="coach-preview-bio">{coaches[0].bio}</p>
+              <div className="coach-preview-stats">
+                <span>⭐ {coaches[0].rating} rating</span>
+                <span>📅 {coaches[0].sessions}+ sessions</span>
+                <span>💰 ${coaches[0].price}/session</span>
+              </div>
+              <Link to="/coaches" className="btn btn-primary btn-large">
+                Book a Session
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* CTA Section */}

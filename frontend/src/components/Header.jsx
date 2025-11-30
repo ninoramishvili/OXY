@@ -32,7 +32,7 @@ function Header({ user, onLogout }) {
         <nav className="nav">
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/courses" className="nav-link">Courses</Link>
-          <Link to="/coaches" className="nav-link">Coaches</Link>
+          <Link to="/coaches" className="nav-link">Coach</Link>
           <Link to="/about" className="nav-link">About</Link>
           
           <button 

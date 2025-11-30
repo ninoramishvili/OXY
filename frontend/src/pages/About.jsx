@@ -75,15 +75,15 @@ function About() {
               </Link>
             </div>
             <div className="offering-card">
-              <div className="offering-icon">👥</div>
+              <div className="offering-icon">👤</div>
               <h3>1-on-1 Coaching</h3>
               <p>
-                Connect with certified life coaches and wellness experts for 
-                personalized guidance. Book sessions that fit your schedule 
-                and get the support you need.
+                Connect with Nino Coach for personalized guidance on life 
+                transitions, mindset shifts, and personal growth. Book sessions 
+                that fit your schedule.
               </p>
               <Link to="/coaches" className="btn btn-secondary">
-                Meet Our Coaches
+                Meet Nino Coach
               </Link>
             </div>
           </div>
