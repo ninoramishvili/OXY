@@ -56,7 +56,7 @@ function CourseDetails({ user }) {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem' }}>
-        <p>Loading course...</p>
+        <p>Loading masterclass...</p>
       </div>
     )
   }
@@ -64,34 +64,34 @@ function CourseDetails({ user }) {
   if (!course) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem' }}>
-        <h2>Course not found</h2>
+        <h2>Masterclass not found</h2>
         <Link to="/courses" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-          Back to Courses
+          Back to Masterclasses
         </Link>
       </div>
     )
   }
 
-  // Generate upcoming live session dates
-  const upcomingSessions = generateUpcomingSessions(course.lessons || 8)
+  // Get next available masterclass date (next Saturday)
+  const nextSession = getNextMasterclassDate()
 
   return (
     <div className="course-details-page">
       {/* Hero Section */}
       <div className="course-hero" style={{ background: course.color }}>
         <div className="course-hero-content">
-          <Link to="/courses" className="back-link">← Back to Courses</Link>
+          <Link to="/courses" className="back-link">← Back to Masterclasses</Link>
           
           <div className="course-hero-grid">
             <div className="course-hero-info">
-              <div className="live-badge">🔴 LIVE COURSE</div>
+              <div className="live-badge">🔴 LIVE MASTERCLASS</div>
               <span className="course-category">{course.category}</span>
               <h1>{course.title}</h1>
               <p className="course-hero-description">{course.description}</p>
               
               <div className="course-hero-meta">
-                <span>📅 {course.lessons} live sessions</span>
-                <span>⏱️ {course.duration}</span>
+                <span>⏱️ 2 hours intensive</span>
+                <span>🎯 Single session</span>
                 <span>👥 Small group (max 15)</span>
               </div>
             </div>
@@ -99,7 +99,7 @@ function CourseDetails({ user }) {
             <div className="course-hero-card">
               <div className="course-hero-icon">{course.image}</div>
               <div className="course-hero-price">${course.price}</div>
-              <p className="course-price-note">Full course access</p>
+              <p className="course-price-note">One-time payment</p>
               
               {message.text && (
                 <div className={`course-message ${message.type}`}>
@@ -129,37 +129,49 @@ function CourseDetails({ user }) {
 
       {/* Course Content */}
       <div className="course-details-content">
-        {/* Live Course Benefits */}
+        {/* Next Session */}
         <section className="course-section">
-          <h2>Why Live Sessions?</h2>
-          <div className="live-benefits">
-            <div className="benefit-item">
-              <span className="benefit-icon">🎯</span>
-              <div>
-                <h4>Real-time Interaction</h4>
-                <p>Ask questions and get immediate answers from your instructor</p>
-              </div>
+          <h2>Upcoming Masterclass</h2>
+          <div className="masterclass-date-card">
+            <div className="masterclass-calendar">
+              <span className="masterclass-day">{nextSession.day}</span>
+              <span className="masterclass-month">{nextSession.month}</span>
             </div>
-            <div className="benefit-item">
-              <span className="benefit-icon">👥</span>
-              <div>
-                <h4>Group Learning</h4>
-                <p>Learn alongside others and benefit from shared experiences</p>
-              </div>
+            <div className="masterclass-details">
+              <h3>{course.title} Masterclass</h3>
+              <p className="masterclass-time">📅 {nextSession.fullDate}</p>
+              <p className="masterclass-time">🕐 {nextSession.time}</p>
+              <p className="masterclass-time">💻 Live on Zoom</p>
             </div>
-            <div className="benefit-item">
-              <span className="benefit-icon">📝</span>
-              <div>
-                <h4>Practical Exercises</h4>
-                <p>Participate in live exercises and get real-time feedback</p>
-              </div>
+            <div className="masterclass-duration-badge">
+              2 HOURS
             </div>
-            <div className="benefit-item">
-              <span className="benefit-icon">🔄</span>
-              <div>
-                <h4>Session Recordings</h4>
-                <p>Access recordings if you miss a session (available for 30 days)</p>
-              </div>
+          </div>
+        </section>
+
+        {/* What's Included */}
+        <section className="course-section">
+          <h2>What's Included</h2>
+          <div className="included-grid">
+            <div className="included-item">
+              <span className="included-icon">🎯</span>
+              <h4>2-Hour Intensive Session</h4>
+              <p>Deep dive into the topic with expert guidance</p>
+            </div>
+            <div className="included-item">
+              <span className="included-icon">👥</span>
+              <h4>Live Q&A</h4>
+              <p>Get your questions answered in real-time</p>
+            </div>
+            <div className="included-item">
+              <span className="included-icon">📝</span>
+              <h4>Workbook & Resources</h4>
+              <p>Take-home materials to continue your practice</p>
+            </div>
+            <div className="included-item">
+              <span className="included-icon">🔄</span>
+              <h4>Session Recording</h4>
+              <p>Access the recording for 30 days</p>
             </div>
           </div>
         </section>
@@ -177,58 +189,39 @@ function CourseDetails({ user }) {
           </div>
         </section>
 
-        {/* Session Schedule */}
+        {/* Masterclass Agenda */}
         <section className="course-section">
-          <h2>Upcoming Live Sessions</h2>
-          <p className="schedule-note">Sessions are held via Zoom. Links will be sent after enrollment.</p>
-          <div className="sessions-list">
-            {upcomingSessions.map((session, i) => (
-              <div key={i} className="session-item">
-                <div className="session-date">
-                  <span className="session-day">{session.day}</span>
-                  <span className="session-month">{session.month}</span>
+          <h2>Masterclass Agenda</h2>
+          <div className="agenda-list">
+            {getAgenda(course.category).map((item, i) => (
+              <div key={i} className="agenda-item">
+                <div className="agenda-time">{item.time}</div>
+                <div className="agenda-content">
+                  <h4>{item.title}</h4>
+                  <p>{item.description}</p>
                 </div>
-                <div className="session-info">
-                  <h4>Session {i + 1}: {getSessionTitle(course.category, i + 1)}</h4>
-                  <span className="session-time">{session.time}</span>
-                </div>
-                <span className="session-duration">60 min</span>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Course Format */}
+        {/* Who Is This For */}
         <section className="course-section">
-          <h2>Course Format</h2>
-          <div className="format-grid">
-            <div className="format-item">
-              <span className="format-icon">📅</span>
-              <strong>Schedule</strong>
-              <p>Weekly sessions, same day & time</p>
-            </div>
-            <div className="format-item">
-              <span className="format-icon">⏰</span>
-              <strong>Duration</strong>
-              <p>60 minutes per session</p>
-            </div>
-            <div className="format-item">
-              <span className="format-icon">💻</span>
-              <strong>Platform</strong>
-              <p>Zoom (link provided after enrollment)</p>
-            </div>
-            <div className="format-item">
-              <span className="format-icon">📧</span>
-              <strong>Materials</strong>
-              <p>Worksheets sent before each session</p>
-            </div>
+          <h2>Who Is This For?</h2>
+          <div className="audience-list">
+            {getAudience(course.category).map((item, i) => (
+              <div key={i} className="audience-item">
+                <span className="audience-check">👤</span>
+                <span>{item}</span>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* Related Courses */}
         {relatedCourses.length > 0 && (
           <section className="course-section">
-            <h2>Related Courses</h2>
+            <h2>More Masterclasses</h2>
             <div className="related-courses-grid">
               {relatedCourses.map(relCourse => (
                 <Link 
@@ -253,119 +246,132 @@ function CourseDetails({ user }) {
   )
 }
 
-// Generate upcoming session dates
-function generateUpcomingSessions(count) {
-  const sessions = []
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() + 7) // Start next week
+// Get next available masterclass date (next Saturday)
+function getNextMasterclassDate() {
+  const today = new Date()
+  const daysUntilSaturday = (6 - today.getDay() + 7) % 7 || 7
+  const nextSaturday = new Date(today)
+  nextSaturday.setDate(today.getDate() + daysUntilSaturday)
   
-  // Find next Tuesday
-  while (startDate.getDay() !== 2) {
-    startDate.setDate(startDate.getDate() + 1)
+  return {
+    day: nextSaturday.getDate(),
+    month: nextSaturday.toLocaleString('en-US', { month: 'short' }),
+    fullDate: nextSaturday.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    }),
+    time: '10:00 AM - 12:00 PM (GMT+4)'
   }
-  
-  for (let i = 0; i < count; i++) {
-    const sessionDate = new Date(startDate)
-    sessionDate.setDate(sessionDate.getDate() + (i * 7)) // Weekly sessions
-    
-    sessions.push({
-      day: sessionDate.getDate(),
-      month: sessionDate.toLocaleString('en-US', { month: 'short' }),
-      time: '7:00 PM - 8:00 PM (GMT+4)',
-      fullDate: sessionDate
-    })
-  }
-  
-  return sessions
 }
 
-// Helper function for session titles
-function getSessionTitle(category, sessionNum) {
-  const titles = {
-    'Wellbeing': [
-      'Introduction & Goal Setting',
-      'Understanding Your Patterns',
-      'Building Daily Practices',
-      'Mindfulness Techniques',
-      'Managing Stress',
-      'Self-Care Planning',
-      'Building Resilience',
-      'Integration & Next Steps'
+// Masterclass agenda by category
+function getAgenda(category) {
+  const agendas = {
+    'Mental Health': [
+      { time: '0:00', title: 'Welcome & Introduction', description: 'Setting intentions and understanding what we\'ll cover' },
+      { time: '0:15', title: 'Understanding Anxiety', description: 'The science behind anxiety and how it affects us' },
+      { time: '0:45', title: 'Practical Techniques', description: 'Hands-on exercises for managing anxious thoughts' },
+      { time: '1:15', title: 'Building Your Toolkit', description: 'Creating a personalized anxiety management plan' },
+      { time: '1:45', title: 'Q&A & Closing', description: 'Open discussion and next steps' }
     ],
     'Productivity': [
-      'Productivity Assessment',
-      'Goal Setting & Prioritization',
-      'Time Blocking Workshop',
-      'Eliminating Distractions',
-      'Energy Management',
-      'Systems & Tools',
-      'Building Habits',
-      'Sustainable Success'
+      { time: '0:00', title: 'Welcome & Assessment', description: 'Understanding your current productivity patterns' },
+      { time: '0:15', title: 'Core Principles', description: 'The science of peak performance and focus' },
+      { time: '0:45', title: 'Systems & Tools', description: 'Setting up your productivity system' },
+      { time: '1:15', title: 'Implementation Workshop', description: 'Apply what you\'ve learned to your real goals' },
+      { time: '1:45', title: 'Q&A & Action Planning', description: 'Finalize your productivity plan' }
     ],
-    'Mindfulness': [
-      'Foundations of Mindfulness',
-      'Breath & Body Awareness',
-      'Working with Thoughts',
-      'Emotional Regulation',
-      'Mindful Communication',
-      'Daily Practice Integration',
-      'Advanced Techniques',
-      'Living Mindfully'
+    'Mental Skills': [
+      { time: '0:00', title: 'Welcome & Focus Assessment', description: 'Measuring your current focus capabilities' },
+      { time: '0:15', title: 'The Science of Attention', description: 'Understanding how focus works in the brain' },
+      { time: '0:45', title: 'Deep Work Techniques', description: 'Practical methods for achieving deep focus' },
+      { time: '1:15', title: 'Environment Design', description: 'Creating your ideal focus environment' },
+      { time: '1:45', title: 'Q&A & Habit Building', description: 'Making focus a daily habit' }
     ],
-    'Focus': [
-      'The Science of Attention',
-      'Focus Assessment',
-      'Deep Work Strategies',
-      'Environment Design',
-      'Digital Wellness',
-      'Flow State Training',
-      'Building Focus Habits',
-      'Mastery & Maintenance'
+    'Personal Growth': [
+      { time: '0:00', title: 'Welcome & Reflection', description: 'Understanding where you are and where you want to be' },
+      { time: '0:15', title: 'Core Concepts', description: 'Key principles for personal transformation' },
+      { time: '0:45', title: 'Practical Exercises', description: 'Hands-on activities for growth' },
+      { time: '1:15', title: 'Creating Your Plan', description: 'Building your personal development roadmap' },
+      { time: '1:45', title: 'Q&A & Commitments', description: 'Setting intentions for the future' }
     ]
   }
   
-  const categoryTitles = titles[category] || titles['Wellbeing']
-  return categoryTitles[sessionNum - 1] || `Session ${sessionNum}`
+  return agendas[category] || agendas['Personal Growth']
+}
+
+// Target audience by category
+function getAudience(category) {
+  const audiences = {
+    'Mental Health': [
+      'Anyone experiencing stress or anxiety in daily life',
+      'Professionals dealing with work-related pressure',
+      'People going through life transitions',
+      'Those wanting to build emotional resilience'
+    ],
+    'Productivity': [
+      'Professionals looking to achieve more in less time',
+      'Entrepreneurs and business owners',
+      'Students preparing for exams or projects',
+      'Anyone feeling overwhelmed by their to-do list'
+    ],
+    'Mental Skills': [
+      'Knowledge workers needing deep concentration',
+      'Creatives seeking flow state',
+      'Students needing better study habits',
+      'Anyone struggling with digital distractions'
+    ],
+    'Personal Growth': [
+      'People seeking positive life changes',
+      'Those at a career or life crossroads',
+      'Anyone wanting to discover their potential',
+      'Individuals looking for direction and motivation'
+    ]
+  }
+  
+  return audiences[category] || audiences['Personal Growth']
 }
 
 // Helper function for learning outcomes
 function getLearnOutcomes(category) {
   const outcomes = {
-    'Wellbeing': [
-      'Understand the foundations of mental and emotional wellbeing',
-      'Develop daily practices for stress reduction',
-      'Build lasting habits that support your health',
-      'Create a personalized self-care routine',
-      'Learn techniques to manage difficult emotions',
-      'Build resilience for life\'s challenges'
+    'Mental Health': [
+      'Understand the root causes of anxiety and stress',
+      'Master 3 proven techniques for instant calm',
+      'Build a daily practice for mental wellness',
+      'Create your personalized anxiety toolkit',
+      'Develop resilience for challenging situations',
+      'Learn when and how to seek additional support'
     ],
     'Productivity': [
-      'Master time management and prioritization',
-      'Create systems that automate your workflow',
-      'Eliminate procrastination and build momentum',
+      'Identify and eliminate your biggest time wasters',
+      'Master the art of prioritization',
+      'Create systems that work on autopilot',
       'Design your ideal productive environment',
-      'Balance high performance with wellbeing',
-      'Achieve more in less time'
+      'Build sustainable high-performance habits',
+      'Achieve work-life balance'
     ],
-    'Mindfulness': [
-      'Develop a consistent meditation practice',
-      'Reduce anxiety through breath work',
-      'Improve focus and mental clarity',
-      'Build emotional intelligence',
-      'Practice mindfulness in daily activities',
-      'Create inner peace and calm'
+    'Mental Skills': [
+      'Train your attention like a muscle',
+      'Achieve flow state on command',
+      'Eliminate digital distractions permanently',
+      'Design your focus-optimized environment',
+      'Build unbreakable concentration habits',
+      'Boost cognitive performance naturally'
     ],
-    'Focus': [
-      'Train your attention for deep work',
-      'Eliminate digital distractions effectively',
-      'Access flow states on demand',
-      'Design your environment for focus',
-      'Build sustainable concentration habits',
-      'Improve cognitive performance'
+    'Personal Growth': [
+      'Clarify your values and life vision',
+      'Build unshakeable self-confidence',
+      'Master the art of change and adaptation',
+      'Develop lasting motivation and drive',
+      'Create meaningful goals and achieve them',
+      'Build resilience for life\'s challenges'
     ]
   }
   
-  return outcomes[category] || outcomes['Wellbeing']
+  return outcomes[category] || outcomes['Personal Growth']
 }
 
 export default CourseDetails

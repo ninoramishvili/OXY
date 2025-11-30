@@ -52,18 +52,18 @@ function Courses({ user }) {
   return (
     <div className="courses-page">
       <div className="page-header">
-        <h1>Live Courses</h1>
-        <p>Join interactive live sessions led by expert instructors</p>
+        <h1>Live Masterclasses</h1>
+        <p>2-hour intensive sessions led by expert instructors</p>
       </div>
 
       {/* Guest Banner */}
       {!user && (
         <div className="guest-banner">
           <div className="guest-banner-content">
-            <span className="guest-banner-icon">🔴</span>
+            <span className="guest-banner-icon">🎓</span>
             <div className="guest-banner-text">
-              <strong>Join our live courses!</strong>
-              <p>Login or create an account to enroll in interactive live sessions with expert instructors.</p>
+              <strong>Join our 2-hour masterclasses!</strong>
+              <p>Login or create an account to enroll in intensive live sessions with expert instructors.</p>
             </div>
             <Link to="/login" className="btn btn-primary">
               Login to Enroll
@@ -97,7 +97,7 @@ function Courses({ user }) {
                   <h3>{course.title}</h3>
                   <p>{course.description}</p>
                 <div className="course-meta">
-                  <span>🔴 {course.lessons} live sessions</span>
+                  <span>🔴 Live masterclass</span>
                   <span>⏱️ {course.duration}</span>
                 </div>
                 </div>

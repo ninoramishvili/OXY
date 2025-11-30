@@ -1817,6 +1817,201 @@ body {
   color: var(--text);
 }
 
+/* Masterclass Date Card */
+.masterclass-date-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 2px solid var(--coral);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.masterclass-calendar {
+  background: var(--coral);
+  color: white;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  text-align: center;
+  min-width: 80px;
+}
+
+.masterclass-day {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.masterclass-month {
+  display: block;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.masterclass-details {
+  flex: 1;
+  min-width: 200px;
+}
+
+.masterclass-details h3 {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.masterclass-time {
+  margin: 4px 0;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.masterclass-duration-badge {
+  background: var(--teal);
+  color: white;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+
+/* What's Included Grid */
+.included-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+}
+
+.included-item {
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: border-color var(--transition);
+}
+
+.included-item:hover {
+  border-color: var(--teal);
+}
+
+.included-icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: var(--space-sm);
+}
+
+.included-item h4 {
+  margin: 0 0 var(--space-xs) 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.included-item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Agenda List */
+.agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.agenda-item {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition);
+}
+
+.agenda-item:hover {
+  border-color: var(--coral);
+}
+
+.agenda-time {
+  background: var(--coral-light);
+  color: var(--coral-dark);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.85rem;
+  height: fit-content;
+  min-width: 50px;
+  text-align: center;
+}
+
+.agenda-content h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.agenda-content p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* Audience List */
+.audience-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.audience-item {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  padding: var(--space-md);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.audience-check {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.audience-item span:last-child {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .masterclass-date-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .masterclass-details {
+    text-align: center;
+  }
+  
+  .agenda-item {
+    flex-direction: column;
+  }
+  
+  .agenda-time {
+    align-self: flex-start;
+  }
+}
+
 /* Course Content Sections */
 .course-details-content {
   max-width: 900px;

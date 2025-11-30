@@ -63,15 +63,15 @@ function About() {
           <h2 className="section-title">What We Offer</h2>
           <div className="offerings-grid">
             <div className="offering-card">
-              <div className="offering-icon">🔴</div>
-              <h3>Live Group Courses</h3>
+              <div className="offering-icon">🎓</div>
+              <h3>2-Hour Masterclasses</h3>
               <p>
-                Interactive live sessions on anxiety management, productivity, 
-                focus, motivation, and more. Learn in small groups with 
-                real-time instruction and personalized feedback.
+                Intensive live masterclasses on anxiety management, productivity, 
+                focus, motivation, and more. Deep dive into each topic with 
+                expert-led sessions and take-home resources.
               </p>
               <Link to="/courses" className="btn btn-secondary">
-                Explore Courses
+                View Masterclasses
               </Link>
             </div>
             <div className="offering-card">
