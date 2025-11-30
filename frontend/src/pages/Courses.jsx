@@ -88,32 +88,34 @@ function Courses({ user }) {
         <div className="cards-grid">
           {courses.map(course => (
             <div key={course.id} className="course-card">
-              <div className="course-image" style={{ background: course.color }}>
-                {course.image}
-              </div>
-              <div className="course-content">
-                <span className="course-category">{course.category}</span>
-                <h3>{course.title}</h3>
-                <p>{course.description}</p>
-                <div className="course-meta">
-                  <span>📚 {course.lessons} lessons</span>
-                  <span>⏱️ {course.duration}</span>
+              <Link to={`/courses/${course.id}`} className="course-card-link">
+                <div className="course-image" style={{ background: course.color }}>
+                  {course.image}
                 </div>
-                <div className="course-footer">
-                  <span className="course-price">${course.price}</span>
-                  {user ? (
-                    <button 
-                      className="btn btn-primary"
-                      onClick={() => handlePurchase(course)}
-                    >
-                      Buy Now
-                    </button>
-                  ) : (
-                    <Link to="/login" className="btn btn-secondary">
-                      Login to Purchase
-                    </Link>
-                  )}
+                <div className="course-content">
+                  <span className="course-category">{course.category}</span>
+                  <h3>{course.title}</h3>
+                  <p>{course.description}</p>
+                  <div className="course-meta">
+                    <span>📚 {course.lessons} lessons</span>
+                    <span>⏱️ {course.duration}</span>
+                  </div>
                 </div>
+              </Link>
+              <div className="course-footer">
+                <span className="course-price">${course.price}</span>
+                {user ? (
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => handlePurchase(course)}
+                  >
+                    Buy Now
+                  </button>
+                ) : (
+                  <Link to="/login" className="btn btn-secondary">
+                    Login to Purchase
+                  </Link>
+                )}
               </div>
             </div>
           ))}
