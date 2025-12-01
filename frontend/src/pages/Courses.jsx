@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { getCourses, purchaseCourse } from '../api'
+import { getCourses, purchaseCourse, getUserFavorites, addFavorite, removeFavorite } from '../api'
 
 function Courses({ user }) {
   const [courses, setCourses] = useState([])
+  const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
   const [showFilters, setShowFilters] = useState(false)
@@ -24,20 +25,26 @@ function Courses({ user }) {
   })
 
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getCourses()
-        setCourses(data)
+        const coursesData = await getCourses()
+        setCourses(coursesData)
+        
+        // Fetch favorites if user is logged in
+        if (user?.id) {
+          const favoritesData = await getUserFavorites(user.id)
+          setFavorites(favoritesData.map(f => f.course_id))
+        }
       } catch (error) {
-        console.error('Error fetching courses:', error)
+        console.error('Error fetching data:', error)
         setMessage({ text: 'Failed to load courses', type: 'error' })
       } finally {
         setLoading(false)
       }
     }
     
-    fetchCourses()
-  }, [])
+    fetchData()
+  }, [user])
 
   // Save sort preferences to localStorage
   useEffect(() => {
@@ -168,6 +175,35 @@ function Courses({ user }) {
     
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
+
+  const toggleFavorite = async (e, courseId) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!user) {
+      setMessage({ text: 'Please login to save favorites', type: 'error' })
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+      return
+    }
+    
+    try {
+      if (favorites.includes(courseId)) {
+        await removeFavorite(courseId, user.id)
+        setFavorites(prev => prev.filter(id => id !== courseId))
+        setMessage({ text: '💔 Removed from favorites', type: 'success' })
+      } else {
+        await addFavorite(user.id, courseId)
+        setFavorites(prev => [...prev, courseId])
+        setMessage({ text: '❤️ Added to favorites!', type: 'success' })
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to update favorites', type: 'error' })
+    }
+    
+    setTimeout(() => setMessage({ text: '', type: '' }), 2000)
+  }
+
+  const isFavorite = (courseId) => favorites.includes(courseId)
 
   if (loading) {
     return (
@@ -367,6 +403,13 @@ function Courses({ user }) {
           <div className="cards-grid">
             {filteredAndSortedCourses.map(course => (
               <div key={course.id} className="course-card">
+                <button 
+                  className={`favorite-btn ${isFavorite(course.id) ? 'active' : ''}`}
+                  onClick={(e) => toggleFavorite(e, course.id)}
+                  title={isFavorite(course.id) ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  {isFavorite(course.id) ? '❤️' : '🤍'}
+                </button>
                 <Link to={`/courses/${course.id}`} className="course-card-link">
                   <div className="course-image" style={{ background: course.color }}>
                     {course.image}

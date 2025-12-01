@@ -273,6 +273,92 @@ app.post('/api/coaches', async (req, res) => {
   }
 });
 
+// ============ FAVORITES ENDPOINTS ============
+
+// GET /api/favorites/user/:userId - Get user's favorites
+app.get('/api/favorites/user/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT f.id, f.course_id, f.created_at,
+             c.title as course_title, c.description, c.category, 
+             c.price, c.duration, c.image, c.color
+      FROM user_favorites f
+      JOIN courses c ON f.course_id = c.id
+      WHERE f.user_id = $1
+      ORDER BY f.created_at DESC
+    `, [req.params.userId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/favorites - Add to favorites
+app.post('/api/favorites', async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+    
+    // Check if already favorited
+    const existing = await pool.query(
+      'SELECT id FROM user_favorites WHERE user_id = $1 AND course_id = $2',
+      [userId, courseId]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.json({ success: true, message: 'Already in favorites', favoriteId: existing.rows[0].id });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO user_favorites (user_id, course_id) VALUES ($1, $2) RETURNING *',
+      [userId, courseId]
+    );
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Added to favorites',
+      favorite: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error adding favorite:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/favorites/:courseId/user/:userId - Remove from favorites
+app.delete('/api/favorites/:courseId/user/:userId', async (req, res) => {
+  try {
+    const { courseId, userId } = req.params;
+    
+    await pool.query(
+      'DELETE FROM user_favorites WHERE course_id = $1 AND user_id = $2',
+      [courseId, userId]
+    );
+    
+    res.json({ success: true, message: 'Removed from favorites' });
+  } catch (error) {
+    console.error('Error removing favorite:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/favorites/check/:courseId/user/:userId - Check if course is favorited
+app.get('/api/favorites/check/:courseId/user/:userId', async (req, res) => {
+  try {
+    const { courseId, userId } = req.params;
+    
+    const result = await pool.query(
+      'SELECT id FROM user_favorites WHERE course_id = $1 AND user_id = $2',
+      [courseId, userId]
+    );
+    
+    res.json({ isFavorite: result.rows.length > 0 });
+  } catch (error) {
+    console.error('Error checking favorite:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ PURCHASE ENDPOINTS ============
 
 // GET /api/purchases - Get all purchases

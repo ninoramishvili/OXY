@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getUser, updateUser, changePassword, getUserPurchases, getUserBookings, cancelBooking } from '../api'
+import { getUser, updateUser, changePassword, getUserPurchases, getUserBookings, cancelBooking, getUserFavorites, removeFavorite } from '../api'
 
 function Profile({ user, onUpdateUser }) {
   const navigate = useNavigate()
@@ -19,9 +19,10 @@ function Profile({ user, onUpdateUser }) {
     confirmPassword: ''
   })
   
-  // Purchases and bookings
+  // Purchases, bookings, and favorites
   const [purchases, setPurchases] = useState([])
   const [bookings, setBookings] = useState([])
+  const [favorites, setFavorites] = useState([])
 
   useEffect(() => {
     if (!user) {
@@ -31,15 +32,17 @@ function Profile({ user, onUpdateUser }) {
     
     const fetchData = async () => {
       try {
-        const [userData, purchasesData, bookingsData] = await Promise.all([
+        const [userData, purchasesData, bookingsData, favoritesData] = await Promise.all([
           getUser(user.id),
           getUserPurchases(user.id),
-          getUserBookings(user.id)
+          getUserBookings(user.id),
+          getUserFavorites(user.id)
         ])
         
         setProfile({ name: userData.name || '', email: userData.email || '' })
         setPurchases(purchasesData)
         setBookings(bookingsData)
+        setFavorites(favoritesData)
       } catch (error) {
         console.error('Error fetching profile data:', error)
         setMessage({ text: 'Failed to load profile data', type: 'error' })
@@ -125,6 +128,20 @@ function Profile({ user, onUpdateUser }) {
     }
   }
 
+  const handleRemoveFavorite = async (courseId) => {
+    try {
+      const result = await removeFavorite(courseId, user.id)
+      if (result.success) {
+        setFavorites(prev => prev.filter(f => f.course_id !== courseId))
+        showMessage('💔 Removed from favorites', 'success')
+      } else {
+        showMessage(result.message || 'Failed to remove', 'error')
+      }
+    } catch (error) {
+      showMessage('Failed to remove from favorites', 'error')
+    }
+  }
+
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -184,6 +201,12 @@ function Profile({ user, onUpdateUser }) {
           onClick={() => setActiveTab('profile')}
         >
           👤 Profile
+        </button>
+        <button 
+          className={`profile-tab ${activeTab === 'favorites' ? 'active' : ''}`}
+          onClick={() => setActiveTab('favorites')}
+        >
+          ❤️ Favorites ({favorites.length})
         </button>
         <button 
           className={`profile-tab ${activeTab === 'courses' ? 'active' : ''}`}
@@ -266,6 +289,48 @@ function Profile({ user, onUpdateUser }) {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Favorites Tab */}
+        {activeTab === 'favorites' && (
+          <div className="profile-section">
+            <h2>My Favorite Courses</h2>
+            
+            {favorites.length > 0 ? (
+              <div className="favorites-grid">
+                {favorites.map(fav => (
+                  <div key={fav.id} className="favorite-card">
+                    <button 
+                      className="remove-favorite-btn"
+                      onClick={() => handleRemoveFavorite(fav.course_id)}
+                      title="Remove from favorites"
+                    >
+                      ❤️
+                    </button>
+                    <Link to={`/courses/${fav.course_id}`} className="favorite-card-link">
+                      <div className="favorite-image" style={{ background: fav.color || '#E8D5E0' }}>
+                        {fav.image || '📚'}
+                      </div>
+                      <div className="favorite-info">
+                        <span className="favorite-category">{fav.category}</span>
+                        <h4>{fav.course_title}</h4>
+                        <p className="favorite-price">${fav.price}</p>
+                      </div>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <span className="empty-icon">❤️</span>
+                <h3>No favorites yet</h3>
+                <p>Save courses you're interested in by clicking the heart icon.</p>
+                <Link to="/courses" className="btn btn-primary">
+                  Browse Courses
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

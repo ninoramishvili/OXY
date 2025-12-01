@@ -119,6 +119,38 @@ export const getCoachSlots = async (coachId, date) => {
   return response.json();
 };
 
+// ============ FAVORITES ============
+
+// Get user's favorites
+export const getUserFavorites = async (userId) => {
+  const response = await fetch(`${API_BASE}/favorites/user/${userId}`);
+  return response.json();
+};
+
+// Add to favorites
+export const addFavorite = async (userId, courseId) => {
+  const response = await fetch(`${API_BASE}/favorites`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, courseId })
+  });
+  return response.json();
+};
+
+// Remove from favorites
+export const removeFavorite = async (courseId, userId) => {
+  const response = await fetch(`${API_BASE}/favorites/${courseId}/user/${userId}`, {
+    method: 'DELETE'
+  });
+  return response.json();
+};
+
+// Check if course is favorited
+export const checkFavorite = async (courseId, userId) => {
+  const response = await fetch(`${API_BASE}/favorites/check/${courseId}/user/${userId}`);
+  return response.json();
+};
+
 // ============ PURCHASES ============
 
 // Get all purchases
@@ -202,6 +234,12 @@ const api = {
   getUser,
   updateUser,
   changePassword,
+  
+  // Favorites
+  getUserFavorites,
+  addFavorite,
+  removeFavorite,
+  checkFavorite,
   
   // Courses
   getCourses,
