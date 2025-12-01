@@ -9,6 +9,7 @@ import Courses from './pages/Courses'
 import CourseDetails from './pages/CourseDetails'
 import Coaches from './pages/Coaches'
 import About from './pages/About'
+import Profile from './pages/Profile'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -19,6 +20,10 @@ function App() {
 
   const handleLogout = () => {
     setUser(null)
+  }
+
+  const handleUpdateUser = (updatedUser) => {
+    setUser(prev => ({ ...prev, ...updatedUser }))
   }
 
   return (
@@ -33,6 +38,7 @@ function App() {
           <Route path="/courses/:id" element={<CourseDetails user={user} />} />
           <Route path="/coaches" element={<Coaches user={user} />} />
           <Route path="/about" element={<About />} />
+          <Route path="/profile" element={<Profile user={user} onUpdateUser={handleUpdateUser} />} />
         </Routes>
       </main>
       <Footer />

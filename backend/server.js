@@ -107,6 +107,72 @@ app.get('/api/users/:id', async (req, res) => {
   }
 });
 
+// Update user profile
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const userId = req.params.id;
+    
+    // Check if email is already taken by another user
+    if (email) {
+      const emailCheck = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
+        [email, userId]
+      );
+      if (emailCheck.rows.length > 0) {
+        return res.status(400).json({ success: false, message: 'Email already in use' });
+      }
+    }
+    
+    const result = await pool.query(
+      'UPDATE users SET name = COALESCE($1, name), email = COALESCE($2, email) WHERE id = $3 RETURNING id, username, name, email, created_at',
+      [name, email, userId]
+    );
+    
+    if (result.rows.length > 0) {
+      res.json({ success: true, message: 'Profile updated successfully', user: result.rows[0] });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Change user password
+app.put('/api/users/:id/password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.params.id;
+    
+    // Verify current password
+    const user = await pool.query(
+      'SELECT password FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (user.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    if (user.rows[0].password !== currentPassword) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+    
+    // Update password
+    await pool.query(
+      'UPDATE users SET password = $1 WHERE id = $2',
+      [newPassword, userId]
+    );
+    
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // ============ COURSE ENDPOINTS ============
 
 // GET /api/courses - Get all courses

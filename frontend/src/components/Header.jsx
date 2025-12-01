@@ -45,8 +45,11 @@ function Header({ user, onLogout }) {
           
           {user ? (
             <div className="user-info">
-              <span className="user-name">Hi, {user.name}!</span>
-              <button onClick={onLogout} className="btn btn-secondary">
+              <Link to="/profile" className="user-profile-link">
+                <span className="user-avatar">{(user.name || user.username || 'U')[0].toUpperCase()}</span>
+                <span className="user-name">{user.name || user.username}</span>
+              </Link>
+              <button onClick={onLogout} className="btn btn-secondary btn-small">
                 Logout
               </button>
             </div>

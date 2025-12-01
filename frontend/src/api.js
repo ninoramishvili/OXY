@@ -39,6 +39,26 @@ export const getUser = async (id) => {
   return response.json();
 };
 
+// Update user profile
+export const updateUser = async (id, userData) => {
+  const response = await fetch(`${API_BASE}/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData)
+  });
+  return response.json();
+};
+
+// Change user password
+export const changePassword = async (id, currentPassword, newPassword) => {
+  const response = await fetch(`${API_BASE}/users/${id}/password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+  return response.json();
+};
+
 // ============ COURSES ============
 
 // Get all courses
@@ -180,6 +200,8 @@ const api = {
   registerUser,
   getUsers,
   getUser,
+  updateUser,
+  changePassword,
   
   // Courses
   getCourses,
