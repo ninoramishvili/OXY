@@ -119,6 +119,56 @@ export const getCoachSlots = async (coachId, date) => {
   return response.json();
 };
 
+// ============ REVIEWS ============
+
+// Get reviews for a course
+export const getCourseReviews = async (courseId) => {
+  const response = await fetch(`${API_BASE}/reviews/course/${courseId}`);
+  return response.json();
+};
+
+// Get average rating for a course
+export const getCourseAverageRating = async (courseId) => {
+  const response = await fetch(`${API_BASE}/reviews/course/${courseId}/average`);
+  return response.json();
+};
+
+// Create a review
+export const createReview = async (userId, courseId, rating, comment) => {
+  const response = await fetch(`${API_BASE}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, courseId, rating, comment })
+  });
+  return response.json();
+};
+
+// Update a review
+export const updateReview = async (reviewId, userId, rating, comment) => {
+  const response = await fetch(`${API_BASE}/reviews/${reviewId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, rating, comment })
+  });
+  return response.json();
+};
+
+// Delete a review
+export const deleteReview = async (reviewId, userId) => {
+  const response = await fetch(`${API_BASE}/reviews/${reviewId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId })
+  });
+  return response.json();
+};
+
+// Check if user has reviewed a course
+export const getUserReview = async (userId, courseId) => {
+  const response = await fetch(`${API_BASE}/reviews/user/${userId}/course/${courseId}`);
+  return response.json();
+};
+
 // ============ FAVORITES ============
 
 // Get user's favorites
@@ -234,6 +284,14 @@ const api = {
   getUser,
   updateUser,
   changePassword,
+  
+  // Reviews
+  getCourseReviews,
+  getCourseAverageRating,
+  createReview,
+  updateReview,
+  deleteReview,
+  getUserReview,
   
   // Favorites
   getUserFavorites,

@@ -1,14 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getCourse, purchaseCourse, getCourses } from '../api'
+import { getCourse, getCourses, getCourseReviews, getCourseAverageRating, createReview, updateReview, deleteReview, getUserReview, getUserPurchases } from '../api'
+import { useCart } from '../context/CartContext'
 
 function CourseDetails({ user }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { addToCart, isInCart } = useCart()
   const [course, setCourse] = useState(null)
   const [relatedCourses, setRelatedCourses] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
+  
+  // Reviews state
+  const [reviews, setReviews] = useState([])
+  const [averageRating, setAverageRating] = useState({ average_rating: 0, review_count: 0 })
+  const [userReview, setUserReview] = useState(null)
+  const [hasPurchased, setHasPurchased] = useState(false)
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
+  const [editingReview, setEditingReview] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -22,6 +33,30 @@ function CourseDetails({ user }) {
           .filter(c => c.category === courseData.category && c.id !== courseData.id)
           .slice(0, 3)
         setRelatedCourses(related)
+        
+        // Fetch reviews
+        const reviewsData = await getCourseReviews(id)
+        setReviews(reviewsData)
+        
+        // Fetch average rating
+        const avgData = await getCourseAverageRating(id)
+        setAverageRating(avgData)
+        
+        // Check if user has purchased and reviewed
+        if (user?.id) {
+          const purchases = await getUserPurchases(user.id)
+          const purchased = purchases.some(p => p.course_id === parseInt(id))
+          setHasPurchased(purchased)
+          
+          const userReviewData = await getUserReview(user.id, id)
+          if (userReviewData.hasReviewed) {
+            setUserReview(userReviewData.review)
+            setReviewForm({ 
+              rating: userReviewData.review.rating, 
+              comment: userReviewData.review.comment || '' 
+            })
+          }
+        }
       } catch (error) {
         console.error('Error fetching course:', error)
       } finally {
@@ -30,27 +65,101 @@ function CourseDetails({ user }) {
     }
     
     fetchData()
-  }, [id])
+  }, [id, user])
 
-  const handlePurchase = async () => {
-    if (!user) {
-      navigate('/login')
-      return
+  const handleBuyNow = () => {
+    if (!isInCart(course.id)) {
+      addToCart(course)
     }
+    navigate('/cart')
+  }
+
+  const handleAddToCart = () => {
+    if (isInCart(course.id)) {
+      setMessage({ text: 'Already in cart!', type: 'error' })
+    } else {
+      addToCart(course)
+      setMessage({ text: '🛒 Added to cart!', type: 'success' })
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 2000)
+  }
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault()
     
     try {
-      const data = await purchaseCourse(course.id, user.id)
-      
-      if (data.success) {
-        setMessage({ text: '🎉 Enrolled successfully! Check your email for session details.', type: 'success' })
+      if (editingReview && userReview) {
+        const result = await updateReview(userReview.id, user.id, reviewForm.rating, reviewForm.comment)
+        if (result.success) {
+          setMessage({ text: '✅ Review updated!', type: 'success' })
+          setUserReview(result.review)
+          setEditingReview(false)
+          // Refresh reviews
+          const reviewsData = await getCourseReviews(id)
+          setReviews(reviewsData)
+          const avgData = await getCourseAverageRating(id)
+          setAverageRating(avgData)
+        } else {
+          setMessage({ text: result.message || 'Failed to update review', type: 'error' })
+        }
       } else {
-        setMessage({ text: data.message || 'Enrollment failed', type: 'error' })
+        const result = await createReview(user.id, id, reviewForm.rating, reviewForm.comment)
+        if (result.success) {
+          setMessage({ text: '✅ Review submitted!', type: 'success' })
+          setUserReview(result.review)
+          setShowReviewForm(false)
+          // Refresh reviews
+          const reviewsData = await getCourseReviews(id)
+          setReviews(reviewsData)
+          const avgData = await getCourseAverageRating(id)
+          setAverageRating(avgData)
+        } else {
+          setMessage({ text: result.message || 'Failed to submit review', type: 'error' })
+        }
       }
     } catch (error) {
-      setMessage({ text: 'Failed to complete enrollment', type: 'error' })
+      setMessage({ text: 'Failed to submit review', type: 'error' })
     }
     
-    setTimeout(() => setMessage({ text: '', type: '' }), 4000)
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleDeleteReview = async () => {
+    if (!confirm('Are you sure you want to delete your review?')) return
+    
+    try {
+      const result = await deleteReview(userReview.id, user.id)
+      if (result.success) {
+        setMessage({ text: '🗑️ Review deleted', type: 'success' })
+        setUserReview(null)
+        setReviewForm({ rating: 5, comment: '' })
+        // Refresh reviews
+        const reviewsData = await getCourseReviews(id)
+        setReviews(reviewsData)
+        const avgData = await getCourseAverageRating(id)
+        setAverageRating(avgData)
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to delete review', type: 'error' })
+    }
+    
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const renderStars = (rating, interactive = false, size = 'medium') => {
+    const stars = []
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <span 
+          key={i} 
+          className={`star ${size} ${i <= rating ? 'filled' : 'empty'} ${interactive ? 'interactive' : ''}`}
+          onClick={interactive ? () => setReviewForm(prev => ({ ...prev, rating: i })) : undefined}
+        >
+          {i <= rating ? '★' : '☆'}
+        </span>
+      )
+    }
+    return <span className="stars-container">{stars}</span>
   }
 
   if (loading) {
@@ -89,6 +198,16 @@ function CourseDetails({ user }) {
               <h1>{course.title}</h1>
               <p className="course-hero-description">{course.description}</p>
               
+              {/* Rating Display */}
+              {averageRating.review_count > 0 && (
+                <div className="course-rating-display">
+                  {renderStars(Math.round(averageRating.average_rating))}
+                  <span className="rating-text">
+                    {averageRating.average_rating} ({averageRating.review_count} {averageRating.review_count === 1 ? 'review' : 'reviews'})
+                  </span>
+                </div>
+              )}
+              
               <div className="course-hero-meta">
                 <span>⏱️ 2 hours intensive</span>
                 <span>🎯 Single session</span>
@@ -107,19 +226,21 @@ function CourseDetails({ user }) {
                 </div>
               )}
               
-              {user ? (
+              <div className="course-hero-buttons">
                 <button 
                   className="btn btn-primary btn-large"
-                  onClick={handlePurchase}
-                  style={{ width: '100%' }}
+                  onClick={handleBuyNow}
+                  style={{ flex: 1 }}
                 >
-                  Enroll Now
+                  Buy Now
                 </button>
-              ) : (
-                <Link to="/login" className="btn btn-primary btn-large" style={{ width: '100%', textAlign: 'center' }}>
-                  Login to Enroll
-                </Link>
-              )}
+                <button 
+                  className={`btn btn-cart-large ${isInCart(course.id) ? 'in-cart' : ''}`}
+                  onClick={handleAddToCart}
+                >
+                  {isInCart(course.id) ? '✓' : '🛒'}
+                </button>
+              </div>
               
               <p className="course-guarantee">Limited spots available</p>
             </div>
@@ -215,6 +336,146 @@ function CourseDetails({ user }) {
                 <span>{item}</span>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Reviews Section */}
+        <section className="course-section reviews-section">
+          <div className="reviews-header">
+            <h2>⭐ Reviews & Ratings</h2>
+            {averageRating.review_count > 0 && (
+              <div className="reviews-summary">
+                <span className="big-rating">{averageRating.average_rating}</span>
+                {renderStars(Math.round(averageRating.average_rating), false, 'large')}
+                <span className="review-count">({averageRating.review_count} reviews)</span>
+              </div>
+            )}
+          </div>
+
+          {/* Write Review Section */}
+          {user && hasPurchased && (
+            <div className="write-review-section">
+              {userReview && !editingReview ? (
+                <div className="user-review-card">
+                  <h4>Your Review</h4>
+                  <div className="user-review-content">
+                    {renderStars(userReview.rating)}
+                    <p>{userReview.comment || 'No comment'}</p>
+                  </div>
+                  <div className="user-review-actions">
+                    <button 
+                      className="btn btn-secondary"
+                      onClick={() => setEditingReview(true)}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      className="btn btn-cancel"
+                      onClick={handleDeleteReview}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {!showReviewForm && !editingReview && !userReview && (
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => setShowReviewForm(true)}
+                    >
+                      ✍️ Write a Review
+                    </button>
+                  )}
+                  
+                  {(showReviewForm || editingReview) && (
+                    <form className="review-form" onSubmit={handleReviewSubmit}>
+                      <h4>{editingReview ? 'Edit Your Review' : 'Write a Review'}</h4>
+                      
+                      <div className="rating-input">
+                        <label>Your Rating</label>
+                        {renderStars(reviewForm.rating, true)}
+                      </div>
+                      
+                      <div className="comment-input">
+                        <label>Your Review (optional)</label>
+                        <textarea
+                          value={reviewForm.comment}
+                          onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                          placeholder="Share your experience with this masterclass..."
+                          rows={4}
+                        />
+                      </div>
+                      
+                      <div className="review-form-actions">
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            setShowReviewForm(false)
+                            setEditingReview(false)
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button type="submit" className="btn btn-primary">
+                          {editingReview ? 'Update Review' : 'Submit Review'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {user && !hasPurchased && (
+            <div className="purchase-to-review">
+              <p>📚 Purchase this course to leave a review</p>
+            </div>
+          )}
+
+          {!user && (
+            <div className="login-to-review">
+              <p>
+                <Link to="/login">Login</Link> to leave a review
+              </p>
+            </div>
+          )}
+
+          {/* Reviews List */}
+          <div className="reviews-list">
+            {reviews.length > 0 ? (
+              reviews.map(review => (
+                <div key={review.id} className="review-card">
+                  <div className="review-header">
+                    <div className="reviewer-info">
+                      <span className="reviewer-avatar">
+                        {(review.user_name || review.username || 'U')[0].toUpperCase()}
+                      </span>
+                      <div>
+                        <span className="reviewer-name">{review.user_name || review.username}</span>
+                        <span className="review-date">
+                          {new Date(review.created_at).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    {renderStars(review.rating, false, 'small')}
+                  </div>
+                  {review.comment && (
+                    <p className="review-comment">{review.comment}</p>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="no-reviews">
+                <p>No reviews yet. Be the first to review this masterclass!</p>
+              </div>
+            )}
           </div>
         </section>
 

@@ -273,6 +273,174 @@ app.post('/api/coaches', async (req, res) => {
   }
 });
 
+// ============ REVIEW ENDPOINTS ============
+
+// GET /api/reviews/course/:courseId - Get reviews for a course
+app.get('/api/reviews/course/:courseId', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT r.id, r.user_id, r.course_id, r.rating, r.comment, 
+             r.created_at, r.updated_at,
+             u.name as user_name, u.username
+      FROM course_reviews r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.course_id = $1
+      ORDER BY r.created_at DESC
+    `, [req.params.courseId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/reviews/course/:courseId/average - Get average rating for a course
+app.get('/api/reviews/course/:courseId/average', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COALESCE(ROUND(AVG(rating)::numeric, 1), 0) as average_rating,
+        COUNT(*) as review_count
+      FROM course_reviews
+      WHERE course_id = $1
+    `, [req.params.courseId]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching average rating:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/reviews - Create a review
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { userId, courseId, rating, comment } = req.body;
+    
+    // Check if user has purchased the course
+    const purchaseCheck = await pool.query(
+      'SELECT id FROM purchases WHERE user_id = $1 AND course_id = $2',
+      [userId, courseId]
+    );
+    
+    if (purchaseCheck.rows.length === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You must purchase this course before reviewing' 
+      });
+    }
+    
+    // Check if user already reviewed this course
+    const existingReview = await pool.query(
+      'SELECT id FROM course_reviews WHERE user_id = $1 AND course_id = $2',
+      [userId, courseId]
+    );
+    
+    if (existingReview.rows.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'You have already reviewed this course' 
+      });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO course_reviews (user_id, course_id, rating, comment) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, courseId, rating, comment]
+    );
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Review submitted successfully',
+      review: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error creating review:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/reviews/:reviewId - Update a review
+app.put('/api/reviews/:reviewId', async (req, res) => {
+  try {
+    const { userId, rating, comment } = req.body;
+    const { reviewId } = req.params;
+    
+    // Check if review belongs to user
+    const reviewCheck = await pool.query(
+      'SELECT id FROM course_reviews WHERE id = $1 AND user_id = $2',
+      [reviewId, userId]
+    );
+    
+    if (reviewCheck.rows.length === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You can only edit your own reviews' 
+      });
+    }
+    
+    const result = await pool.query(
+      'UPDATE course_reviews SET rating = $1, comment = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
+      [rating, comment, reviewId]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Review updated successfully',
+      review: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/reviews/:reviewId - Delete a review
+app.delete('/api/reviews/:reviewId', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const { reviewId } = req.params;
+    
+    // Check if review belongs to user
+    const reviewCheck = await pool.query(
+      'SELECT id FROM course_reviews WHERE id = $1 AND user_id = $2',
+      [reviewId, userId]
+    );
+    
+    if (reviewCheck.rows.length === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You can only delete your own reviews' 
+      });
+    }
+    
+    await pool.query('DELETE FROM course_reviews WHERE id = $1', [reviewId]);
+    
+    res.json({ success: true, message: 'Review deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/reviews/user/:userId/course/:courseId - Check if user has reviewed
+app.get('/api/reviews/user/:userId/course/:courseId', async (req, res) => {
+  try {
+    const { userId, courseId } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM course_reviews WHERE user_id = $1 AND course_id = $2',
+      [userId, courseId]
+    );
+    
+    res.json({ 
+      hasReviewed: result.rows.length > 0,
+      review: result.rows[0] || null
+    });
+  } catch (error) {
+    console.error('Error checking user review:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ FAVORITES ENDPOINTS ============
 
 // GET /api/favorites/user/:userId - Get user's favorites
