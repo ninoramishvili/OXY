@@ -2580,6 +2580,16 @@ body {
   font-weight: 600;
 }
 
+.demo-note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #22C55E;
+  background: #D5E8D4;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
 .btn-clear-cart {
   width: 100%;
   background: transparent;

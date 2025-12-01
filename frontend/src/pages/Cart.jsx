@@ -128,10 +128,12 @@ function Cart({ user }) {
               <button 
                 className="btn btn-primary btn-large btn-checkout"
                 onClick={handleCheckout}
-                disabled={processing}
+                disabled={processing || !user}
               >
-                {processing ? 'Processing...' : `Checkout - $${getCartTotal()}`}
+                {processing ? 'Processing...' : `Complete Purchase - $${getCartTotal()}`}
               </button>
+              
+              <p className="demo-note">🎓 Demo mode: No actual payment required</p>
 
               {!user && (
                 <p className="checkout-note">
