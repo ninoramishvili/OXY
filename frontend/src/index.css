@@ -1993,6 +1993,27 @@ body {
   color: var(--text);
 }
 
+.booking-notes {
+  background: var(--surface);
+  border-left: 3px solid var(--primary);
+  padding: var(--space-sm);
+  margin: var(--space-sm) 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.booking-notes .notes-label {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--primary);
+}
+
+.booking-notes p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+
 .booking-status-badge {
   display: inline-block;
   padding: 4px 10px;
@@ -3859,6 +3880,49 @@ body {
   display: flex;
   gap: var(--space-sm);
   justify-content: center;
+}
+
+/* Booking Notes Input */
+.booking-notes-input {
+  margin: var(--space-md) 0;
+  text-align: left;
+}
+
+.booking-notes-input label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: var(--space-xs);
+}
+
+.booking-notes-input textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color var(--transition);
+}
+
+.booking-notes-input textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.booking-notes-input textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.booking-notes-input .char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
 .confirm-buttons .btn {

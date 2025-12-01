@@ -8,6 +8,7 @@ function BookingModal({ coach, user, onClose, onBookingComplete }) {
   const [message, setMessage] = useState({ text: '', type: '' })
   const [weekDates, setWeekDates] = useState([])
   const [confirmPopup, setConfirmPopup] = useState(null)
+  const [bookingNotes, setBookingNotes] = useState('')
 
   // Get today's date in YYYY-MM-DD format
   function getTodayDate() {
@@ -125,11 +126,12 @@ function BookingModal({ coach, user, onClose, onBookingComplete }) {
         userId: user?.id || 1,
         date: selectedDate,
         time: slot.time,
-        notes: `Session with ${coach.name}`
+        notes: bookingNotes.trim() || ''
       })
 
       if (result.success) {
         setMessage({ text: '✅ Session booked successfully!', type: 'success' })
+        setBookingNotes('') // Clear notes after booking
         await refreshSlots()
         if (onBookingComplete) onBookingComplete(result.booking)
       } else {
@@ -347,8 +349,19 @@ function BookingModal({ coach, user, onClose, onBookingComplete }) {
                   <p>🕐 {confirmPopup.slot.display} (1 hour)</p>
                   <p>💰 ${coach.price}</p>
                 </div>
+                <div className="booking-notes-input">
+                  <label>What would you like to discuss? (optional)</label>
+                  <textarea
+                    value={bookingNotes}
+                    onChange={(e) => setBookingNotes(e.target.value.slice(0, 500))}
+                    placeholder="Share what topics or goals you'd like to focus on..."
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <span className="char-count">{bookingNotes.length}/500</span>
+                </div>
                 <div className="confirm-buttons">
-                  <button className="btn btn-secondary" onClick={() => setConfirmPopup(null)}>
+                  <button className="btn btn-secondary" onClick={() => { setConfirmPopup(null); setBookingNotes(''); }}>
                     Cancel
                   </button>
                   <button className="btn btn-primary" onClick={handleConfirmBook}>

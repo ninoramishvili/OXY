@@ -389,6 +389,12 @@ function Profile({ user, onUpdateUser }) {
                       <h4>Session with {booking.coach_name}</h4>
                       <p>📅 {formatDate(booking.booking_date)}</p>
                       <p>🕐 {formatTime(booking.booking_time)} (1 hour)</p>
+                      {booking.notes && (
+                        <div className="booking-notes">
+                          <span className="notes-label">📝 Notes:</span>
+                          <p>{booking.notes}</p>
+                        </div>
+                      )}
                       <span className={`booking-status-badge ${booking.status}`}>
                         {booking.status}
                       </span>
