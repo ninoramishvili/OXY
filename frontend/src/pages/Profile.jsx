@@ -406,7 +406,10 @@ function Profile({ user, onUpdateUser }) {
                     <div className="booking-actions">
                       <button 
                         className="btn btn-cancel"
-                        onClick={() => setCancelConfirm(booking)}
+                        onClick={() => {
+                          console.log('Cancel clicked, booking:', booking)
+                          setCancelConfirm(booking)
+                        }}
                       >
                         Cancel
                       </button>
@@ -526,11 +529,11 @@ function Profile({ user, onUpdateUser }) {
           <div className="confirm-popup" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-icon">❌</div>
             <h3>Cancel Booking?</h3>
-            <p>Are you sure you want to cancel this session?</p>
+            <p>Are you sure you want to cancel this session with <strong>{cancelConfirm.coach_name}</strong>?</p>
             <div className="confirm-details">
-              <p>👤 {cancelConfirm.coach_name}</p>
-              <p>📆 {new Date(cancelConfirm.booking_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-              <p>🕐 {cancelConfirm.booking_time?.slice(0, 5)}</p>
+              <p>👤 Coach: {cancelConfirm.coach_name || 'Unknown'}</p>
+              <p>📆 Date: {cancelConfirm.booking_date ? new Date(cancelConfirm.booking_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+              <p>🕐 Time: {cancelConfirm.booking_time ? cancelConfirm.booking_time.slice(0, 5) : 'N/A'}</p>
             </div>
             <div className="confirm-buttons">
               <button 
