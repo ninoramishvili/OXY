@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getCourses, purchaseCourse } from '../api'
 
@@ -6,6 +6,14 @@ function Courses({ user }) {
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
+  const [showFilters, setShowFilters] = useState(false)
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    category: '',
+    priceRange: '',
+    duration: ''
+  })
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -23,8 +31,75 @@ function Courses({ user }) {
     fetchCourses()
   }, [])
 
+  // Extract unique categories from courses
+  const categories = useMemo(() => {
+    const cats = [...new Set(courses.map(c => c.category))]
+    return cats.sort()
+  }, [courses])
+
+  // Price ranges
+  const priceRanges = [
+    { label: 'Under $30', min: 0, max: 30 },
+    { label: '$30 - $50', min: 30, max: 50 },
+    { label: '$50 - $75', min: 50, max: 75 },
+    { label: 'Over $75', min: 75, max: Infinity }
+  ]
+
+  // Duration options (since all are 2 hours masterclass, this is for future expansion)
+  const durations = [
+    { label: '1 hour', value: '1' },
+    { label: '2 hours', value: '2' },
+    { label: '3+ hours', value: '3+' }
+  ]
+
+  // Filter courses based on selected filters
+  const filteredCourses = useMemo(() => {
+    return courses.filter(course => {
+      // Category filter
+      if (filters.category && course.category !== filters.category) {
+        return false
+      }
+      
+      // Price range filter
+      if (filters.priceRange) {
+        const range = priceRanges.find(r => r.label === filters.priceRange)
+        if (range && (course.price < range.min || course.price >= range.max)) {
+          return false
+        }
+      }
+      
+      // Duration filter
+      if (filters.duration) {
+        const durationNum = parseInt(course.duration)
+        if (filters.duration === '1' && durationNum !== 1) return false
+        if (filters.duration === '2' && durationNum !== 2) return false
+        if (filters.duration === '3+' && durationNum < 3) return false
+      }
+      
+      return true
+    })
+  }, [courses, filters])
+
+  // Count active filters
+  const activeFilterCount = Object.values(filters).filter(v => v !== '').length
+
+  const handleFilterChange = (filterName, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }))
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      category: '',
+      priceRange: '',
+      duration: ''
+    })
+  }
+
   const handlePurchase = async (course) => {
-    if (!user) return // Prevent purchase if not logged in
+    if (!user) return
     
     try {
       const data = await purchaseCourse(course.id, user.id)
@@ -85,41 +160,176 @@ function Courses({ user }) {
       )}
 
       <section className="section">
-        <div className="cards-grid">
-          {courses.map(course => (
-            <div key={course.id} className="course-card">
-              <Link to={`/courses/${course.id}`} className="course-card-link">
-                <div className="course-image" style={{ background: course.color }}>
-                  {course.image}
-                </div>
-                <div className="course-content">
-                  <span className="course-category">{course.category}</span>
-                  <h3>{course.title}</h3>
-                  <p>{course.description}</p>
-                <div className="course-meta">
-                  <span>🔴 Live masterclass</span>
-                  <span>⏱️ {course.duration}</span>
-                </div>
-                </div>
-              </Link>
-              <div className="course-footer">
-                <span className="course-price">${course.price}</span>
-                {user ? (
+        {/* Filter Bar */}
+        <div className="filter-bar">
+          <div className="filter-bar-left">
+            <button 
+              className={`filter-toggle-btn ${showFilters ? 'active' : ''}`}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <span className="filter-icon">🔍</span>
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="filter-count">{activeFilterCount}</span>
+              )}
+            </button>
+            
+            {activeFilterCount > 0 && (
+              <button className="clear-filters-btn" onClick={clearFilters}>
+                ✕ Clear all
+              </button>
+            )}
+          </div>
+          
+          <div className="filter-bar-right">
+            <span className="results-count">
+              {filteredCourses.length} {filteredCourses.length === 1 ? 'course' : 'courses'}
+            </span>
+          </div>
+        </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="filter-panel">
+            {/* Category Filter */}
+            <div className="filter-group">
+              <label className="filter-label">Category</label>
+              <div className="filter-options">
+                <button 
+                  className={`filter-option ${filters.category === '' ? 'active' : ''}`}
+                  onClick={() => handleFilterChange('category', '')}
+                >
+                  All
+                </button>
+                {categories.map(cat => (
                   <button 
-                    className="btn btn-primary"
-                    onClick={() => handlePurchase(course)}
+                    key={cat}
+                    className={`filter-option ${filters.category === cat ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('category', cat)}
                   >
-                    Buy Now
+                    {cat}
                   </button>
-                ) : (
-                  <Link to="/login" className="btn btn-secondary">
-                    Login to Purchase
-                  </Link>
-                )}
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Price Range Filter */}
+            <div className="filter-group">
+              <label className="filter-label">Price Range</label>
+              <div className="filter-options">
+                <button 
+                  className={`filter-option ${filters.priceRange === '' ? 'active' : ''}`}
+                  onClick={() => handleFilterChange('priceRange', '')}
+                >
+                  All
+                </button>
+                {priceRanges.map(range => (
+                  <button 
+                    key={range.label}
+                    className={`filter-option ${filters.priceRange === range.label ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('priceRange', range.label)}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Duration Filter */}
+            <div className="filter-group">
+              <label className="filter-label">Duration</label>
+              <div className="filter-options">
+                <button 
+                  className={`filter-option ${filters.duration === '' ? 'active' : ''}`}
+                  onClick={() => handleFilterChange('duration', '')}
+                >
+                  All
+                </button>
+                {durations.map(dur => (
+                  <button 
+                    key={dur.value}
+                    className={`filter-option ${filters.duration === dur.value ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('duration', dur.value)}
+                  >
+                    {dur.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Filters Tags */}
+        {activeFilterCount > 0 && (
+          <div className="active-filters">
+            {filters.category && (
+              <span className="filter-tag">
+                {filters.category}
+                <button onClick={() => handleFilterChange('category', '')}>✕</button>
+              </span>
+            )}
+            {filters.priceRange && (
+              <span className="filter-tag">
+                {filters.priceRange}
+                <button onClick={() => handleFilterChange('priceRange', '')}>✕</button>
+              </span>
+            )}
+            {filters.duration && (
+              <span className="filter-tag">
+                {durations.find(d => d.value === filters.duration)?.label}
+                <button onClick={() => handleFilterChange('duration', '')}>✕</button>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Courses Grid */}
+        {filteredCourses.length > 0 ? (
+          <div className="cards-grid">
+            {filteredCourses.map(course => (
+              <div key={course.id} className="course-card">
+                <Link to={`/courses/${course.id}`} className="course-card-link">
+                  <div className="course-image" style={{ background: course.color }}>
+                    {course.image}
+                  </div>
+                  <div className="course-content">
+                    <span className="course-category">{course.category}</span>
+                    <h3>{course.title}</h3>
+                    <p>{course.description}</p>
+                  <div className="course-meta">
+                    <span>🔴 Live masterclass</span>
+                    <span>⏱️ {course.duration}</span>
+                  </div>
+                  </div>
+                </Link>
+                <div className="course-footer">
+                  <span className="course-price">${course.price}</span>
+                  {user ? (
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => handlePurchase(course)}
+                    >
+                      Buy Now
+                    </button>
+                  ) : (
+                    <Link to="/login" className="btn btn-secondary">
+                      Login to Purchase
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="no-results">
+            <span className="no-results-icon">🔍</span>
+            <h3>No courses found</h3>
+            <p>Try adjusting your filters to find what you're looking for.</p>
+            <button className="btn btn-secondary" onClick={clearFilters}>
+              Clear Filters
+            </button>
+          </div>
+        )}
       </section>
     </div>
   )
