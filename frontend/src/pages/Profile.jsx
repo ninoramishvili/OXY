@@ -23,6 +23,7 @@ function Profile({ user, onUpdateUser }) {
   const [purchases, setPurchases] = useState([])
   const [bookings, setBookings] = useState([])
   const [favorites, setFavorites] = useState([])
+  const [cancelConfirm, setCancelConfirm] = useState(null)
 
   useEffect(() => {
     if (!user) {
@@ -112,8 +113,11 @@ function Profile({ user, onUpdateUser }) {
     }
   }
 
-  const handleCancelBooking = async (bookingId) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return
+  const handleCancelBooking = async () => {
+    if (!cancelConfirm) return
+    
+    const bookingId = cancelConfirm.id
+    setCancelConfirm(null)
     
     try {
       const result = await cancelBooking(bookingId, user.id)
@@ -402,7 +406,7 @@ function Profile({ user, onUpdateUser }) {
                     <div className="booking-actions">
                       <button 
                         className="btn btn-cancel"
-                        onClick={() => handleCancelBooking(booking.id)}
+                        onClick={() => setCancelConfirm(booking)}
                       >
                         Cancel
                       </button>
@@ -515,6 +519,36 @@ function Profile({ user, onUpdateUser }) {
           </div>
         )}
       </div>
+
+      {/* Cancel Booking Confirmation Popup */}
+      {cancelConfirm && (
+        <div className="confirm-overlay" onClick={() => setCancelConfirm(null)}>
+          <div className="confirm-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon">❌</div>
+            <h3>Cancel Booking?</h3>
+            <p>Are you sure you want to cancel this session?</p>
+            <div className="confirm-details">
+              <p>👤 {cancelConfirm.coach_name}</p>
+              <p>📆 {new Date(cancelConfirm.booking_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+              <p>🕐 {cancelConfirm.booking_time?.slice(0, 5)}</p>
+            </div>
+            <div className="confirm-buttons">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setCancelConfirm(null)}
+              >
+                Keep Booking
+              </button>
+              <button 
+                className="btn btn-danger"
+                onClick={handleCancelBooking}
+              >
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
