@@ -16,7 +16,7 @@ function Cart({ user }) {
   }
 
   const handleCheckout = async () => {
-    if (!user) {
+    if (!user?.id) {
       setMessage({ text: 'Please login to checkout', type: 'error' })
       setTimeout(() => navigate('/login'), 1500)
       return
@@ -33,25 +33,35 @@ function Cart({ user }) {
     try {
       // Purchase each course in cart
       let successCount = 0
+      let alreadyOwnedCount = 0
       let failCount = 0
 
       for (const item of cartItems) {
         const result = await purchaseCourse(item.id, user.id)
+        
         if (result.success) {
           successCount++
+        } else if (result.message?.includes('already purchased')) {
+          alreadyOwnedCount++
         } else {
           failCount++
         }
       }
 
+      // Clear cart regardless of outcome
+      clearCart()
+
       if (successCount > 0) {
-        clearCart()
         setMessage({ 
-          text: `🎉 Successfully purchased ${successCount} course${successCount > 1 ? 's' : ''}!`, 
+          text: `🎉 Successfully purchased ${successCount} course${successCount > 1 ? 's' : ''}!${alreadyOwnedCount > 0 ? ` (${alreadyOwnedCount} already owned)` : ''}`, 
           type: 'success' 
         })
-        
-        // Redirect to profile after purchase
+        setTimeout(() => navigate('/profile'), 2000)
+      } else if (alreadyOwnedCount > 0) {
+        setMessage({ 
+          text: `📚 You already own ${alreadyOwnedCount === 1 ? 'this course' : 'these courses'}! Check your profile.`, 
+          type: 'success' 
+        })
         setTimeout(() => navigate('/profile'), 2000)
       } else {
         setMessage({ text: 'Purchase failed. Please try again.', type: 'error' })
