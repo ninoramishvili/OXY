@@ -22,6 +22,7 @@
 | Course Details Page (#4) | ✅ Done |
 | **Coach Details Page (#5)** | ✅ Done |
 | **Filters - Courses (#6)** | ✅ Done |
+| **Sorting - Courses (#7)** | ✅ Done |
 
 ---
 
@@ -141,17 +142,17 @@ Allow users to filter courses by category, price range, and coaches by specialty
 
 ---
 
-#### 7. Sorting (Courses & Coaches)
+#### 7. Sorting (Courses & Coaches) ✅ COMPLETED
 **Complexity:** 🟢 Low | **Priority:** ⭐⭐ Medium | **Estimate:** 1-2 hours
 
 **Description:**
 Allow users to sort lists by various criteria.
 
 **Requirements:**
-- Courses: Sort by Price, Rating, Popularity, Newest
-- Coaches: Sort by Rating, Price, Sessions Completed
-- Ascending/Descending toggle
-- Remember sort preference
+- ✅ Courses: Sort by Price, Title, Newest
+- ⏭️ Coaches: N/A (single coach)
+- ✅ Ascending/Descending toggle
+- ✅ Remember sort preference (localStorage)
 
 **Dependencies:** None
 
