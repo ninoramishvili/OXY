@@ -406,10 +406,7 @@ function Profile({ user, onUpdateUser }) {
                     <div className="booking-actions">
                       <button 
                         className="btn btn-cancel"
-                        onClick={() => {
-                          console.log('Cancel clicked, booking:', booking)
-                          setCancelConfirm(booking)
-                        }}
+                        onClick={() => setCancelConfirm(booking)}
                       >
                         Cancel
                       </button>
