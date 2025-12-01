@@ -550,7 +550,14 @@ app.get('/api/purchases', async (req, res) => {
 app.get('/api/purchases/user/:userId', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.*, c.title, c.image, c.category, c.description
+      `SELECT p.*, 
+              c.title as course_title, 
+              c.image, 
+              c.color,
+              c.category, 
+              c.description,
+              c.price,
+              c.duration
        FROM purchases p 
        JOIN courses c ON p.course_id = c.id 
        WHERE p.user_id = $1 
