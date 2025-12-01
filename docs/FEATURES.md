@@ -25,6 +25,7 @@
 | **Sorting - Courses (#7)** | ✅ Done |
 | **User Profile (#8)** | ✅ Done |
 | **Courses Favourites (#9)** | ✅ Done |
+| **Courses Cart (#10)** | ✅ Done |
 
 ---
 
@@ -199,20 +200,20 @@ Allow users to save courses to a favorites list for later.
 
 ---
 
-#### 10. Courses > Cart
+#### 10. Courses > Cart ✅ COMPLETED
 **Complexity:** 🟡 Medium | **Priority:** ⭐⭐⭐ Critical | **Estimate:** 4-5 hours
 
 **Description:**
 Shopping cart for purchasing multiple courses at once.
 
 **Requirements:**
-- Add to cart button on courses
-- Cart icon with item count in header
-- Cart page with course list
-- Remove items from cart
-- Cart total calculation
-- Proceed to checkout button
-- Persist cart (localStorage or database)
+- ✅ Add to cart button on courses
+- ✅ Cart icon with item count in header
+- ✅ Cart page with course list
+- ✅ Remove items from cart
+- ✅ Cart total calculation
+- ✅ Proceed to checkout button
+- ✅ Persist cart (localStorage)
 
 **Dependencies:** Course Details Page (#4)
 
