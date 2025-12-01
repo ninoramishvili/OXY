@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getCoaches, getUserBookings, cancelBooking } from '../api'
-import BookingModal from '../components/BookingModal'
+import EmbeddedBookingCalendar from '../components/EmbeddedBookingCalendar'
 
 function Coaches({ user }) {
   const [coach, setCoach] = useState(null)
   const [myBookings, setMyBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ text: '', type: '' })
-  const [showBookingModal, setShowBookingModal] = useState(false)
   const [showBookings, setShowBookings] = useState(true)
+  const [inquiryForm, setInquiryForm] = useState({ name: '', email: '', message: '' })
+  const [inquirySubmitted, setInquirySubmitted] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,15 +37,6 @@ function Coaches({ user }) {
     fetchData()
   }, [user])
 
-  const handleOpenBooking = () => {
-    if (!user) return
-    setShowBookingModal(true)
-  }
-
-  const handleCloseModal = () => {
-    setShowBookingModal(false)
-  }
-
   const handleBookingComplete = async (booking) => {
     if (user?.id) {
       const bookingsData = await getUserBookings(user.id)
@@ -53,6 +45,20 @@ function Coaches({ user }) {
     if (coach) {
       setCoach(prev => ({ ...prev, sessions: prev.sessions + 1 }))
     }
+  }
+
+  const handleInquiryChange = (e) => {
+    const { name, value } = e.target
+    setInquiryForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleInquirySubmit = (e) => {
+    e.preventDefault()
+    // In a real app, this would send to a backend
+    console.log('Inquiry submitted:', inquiryForm)
+    setInquirySubmitted(true)
+    setInquiryForm({ name: '', email: '', message: '' })
+    setTimeout(() => setInquirySubmitted(false), 5000)
   }
 
   const handleCancelBooking = async (bookingId) => {
@@ -136,18 +142,9 @@ function Coaches({ user }) {
               </div>
             </div>
             
-            {user ? (
-              <button 
-                className="btn btn-primary btn-large"
-                onClick={handleOpenBooking}
-              >
-                Book a Session
-              </button>
-            ) : (
-              <Link to="/login" className="btn btn-primary btn-large">
-                Login to Book
-              </Link>
-            )}
+            <a href="#booking-calendar" className="btn btn-primary btn-large">
+              Book a Session
+            </a>
           </div>
         </div>
       </section>
@@ -287,39 +284,103 @@ function Coaches({ user }) {
           </div>
         </section>
 
+        {/* Embedded Booking Calendar */}
+        <section className="coach-section" id="booking-calendar">
+          <h2>Schedule Your Session</h2>
+          {user ? (
+            <EmbeddedBookingCalendar 
+              coach={coach} 
+              user={user} 
+              onBookingComplete={handleBookingComplete}
+            />
+          ) : (
+            <div className="login-to-book-banner">
+              <div className="login-banner-content">
+                <span className="login-banner-icon">📅</span>
+                <div>
+                  <h4>Ready to book a session?</h4>
+                  <p>Login or create an account to schedule your personalized coaching session with {coach.name}.</p>
+                </div>
+                <div className="login-banner-buttons">
+                  <Link to="/login" className="btn btn-primary">
+                    Login
+                  </Link>
+                  <Link to="/register" className="btn btn-secondary">
+                    Create Account
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Contact/Inquiry Section */}
+        <section className="coach-section">
+          <h2>Have a Question?</h2>
+          <p className="inquiry-subtitle">Send a message to {coach.name} before booking</p>
+          
+          {inquirySubmitted ? (
+            <div className="inquiry-success">
+              <span className="success-icon">✅</span>
+              <h4>Message Sent!</h4>
+              <p>{coach.name} will get back to you soon.</p>
+            </div>
+          ) : (
+            <form className="inquiry-form" onSubmit={handleInquirySubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="inquiry-name">Your Name</label>
+                  <input 
+                    type="text" 
+                    id="inquiry-name"
+                    name="name"
+                    value={inquiryForm.name}
+                    onChange={handleInquiryChange}
+                    placeholder="Enter your name"
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="inquiry-email">Your Email</label>
+                  <input 
+                    type="email" 
+                    id="inquiry-email"
+                    name="email"
+                    value={inquiryForm.email}
+                    onChange={handleInquiryChange}
+                    placeholder="Enter your email"
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label htmlFor="inquiry-message">Your Message</label>
+                <textarea 
+                  id="inquiry-message"
+                  name="message"
+                  value={inquiryForm.message}
+                  onChange={handleInquiryChange}
+                  placeholder="What would you like to discuss in your coaching session?"
+                  rows="4"
+                  required
+                ></textarea>
+              </div>
+              <button type="submit" className="btn btn-primary">
+                Send Message
+              </button>
+            </form>
+          )}
+        </section>
+
         {/* CTA Section */}
         <section className="coach-cta">
           <h2>Ready to Start Your Journey?</h2>
           <p>Book a session with {coach.name} and take the first step towards positive change.</p>
-          {user ? (
-            <button 
-              className="btn btn-primary btn-large"
-              onClick={handleOpenBooking}
-            >
-              Book Your Session Now
-            </button>
-          ) : (
-            <div className="cta-buttons">
-              <Link to="/login" className="btn btn-primary btn-large">
-                Login to Book
-              </Link>
-              <Link to="/register" className="btn btn-secondary btn-large">
-                Create Account
-              </Link>
-            </div>
-          )}
+          <a href="#booking-calendar" className="btn btn-primary btn-large">
+            Book Your Session Now
+          </a>
         </section>
       </div>
-
-      {/* Booking Modal */}
-      {showBookingModal && coach && (
-        <BookingModal
-          coach={coach}
-          user={user}
-          onClose={handleCloseModal}
-          onBookingComplete={handleBookingComplete}
-        />
-      )}
     </div>
   )
 }
