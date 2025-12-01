@@ -24,6 +24,7 @@
 | **Filters - Courses (#6)** | ✅ Done |
 | **Sorting - Courses (#7)** | ✅ Done |
 | **User Profile (#8)** | ✅ Done |
+| **Courses Favourites (#9)** | ✅ Done |
 
 ---
 
@@ -181,18 +182,18 @@ Personal profile page where users can view and edit their information.
 
 ---
 
-#### 9. Courses > Favourites
+#### 9. Courses > Favourites ✅ COMPLETED
 **Complexity:** 🟡 Medium | **Priority:** ⭐⭐ Medium | **Estimate:** 3-4 hours
 
 **Description:**
 Allow users to save courses to a favorites list for later.
 
 **Requirements:**
-- Heart/Star icon on course cards
-- "My Favorites" page listing saved courses
-- Add/Remove from favorites
-- Database: `user_favorites` table
-- Persist across sessions
+- ✅ Heart icon on course cards
+- ✅ "My Favorites" tab in Profile page
+- ✅ Add/Remove from favorites
+- ✅ Database: `user_favorites` table
+- ✅ Persist across sessions
 
 **Dependencies:** Registration (#2), User Profile (#8)
 
