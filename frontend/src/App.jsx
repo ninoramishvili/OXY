@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { CartProvider } from './context/CartContext'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import Home from './pages/Home'
@@ -10,6 +11,7 @@ import CourseDetails from './pages/CourseDetails'
 import Coaches from './pages/Coaches'
 import About from './pages/About'
 import Profile from './pages/Profile'
+import Cart from './pages/Cart'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -27,24 +29,26 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <Header user={user} onLogout={handleLogout} />
-      <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Home user={user} />} />
-          <Route path="/login" element={<Login onLogin={handleLogin} />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/courses" element={<Courses user={user} />} />
-          <Route path="/courses/:id" element={<CourseDetails user={user} />} />
-          <Route path="/coaches" element={<Coaches user={user} />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/profile" element={<Profile user={user} onUpdateUser={handleUpdateUser} />} />
-        </Routes>
-      </main>
-      <Footer />
-    </div>
+    <CartProvider>
+      <div className="app">
+        <Header user={user} onLogout={handleLogout} />
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Home user={user} />} />
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/courses" element={<Courses user={user} />} />
+            <Route path="/courses/:id" element={<CourseDetails user={user} />} />
+            <Route path="/coaches" element={<Coaches user={user} />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/profile" element={<Profile user={user} onUpdateUser={handleUpdateUser} />} />
+            <Route path="/cart" element={<Cart user={user} />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
+    </CartProvider>
   )
 }
 
 export default App
-

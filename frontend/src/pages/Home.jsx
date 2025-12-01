@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { getCourses, getCoaches, getUserFavorites, addFavorite, removeFavorite } from '../api'
+import { useCart } from '../context/CartContext'
 
 function Home({ user }) {
+  const { addToCart, isInCart } = useCart()
   const [courses, setCourses] = useState([])
   const [coaches, setCoaches] = useState([])
   const [favorites, setFavorites] = useState([])
@@ -67,6 +69,20 @@ function Home({ user }) {
   }
 
   const isFavorite = (courseId) => favorites.includes(courseId)
+
+  const handleAddToCart = (e, course) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (isInCart(course.id)) {
+      setMessage({ text: 'Already in cart!', type: 'error' })
+    } else {
+      addToCart(course)
+      setMessage({ text: '🛒 Added to cart!', type: 'success' })
+    }
+    
+    setTimeout(() => setMessage({ text: '', type: '' }), 2000)
+  }
 
   if (loading) {
     return (
@@ -136,7 +152,15 @@ function Home({ user }) {
               </Link>
               <div className="course-footer">
                 <span className="course-price">${course.price}</span>
-                <Link to={`/courses/${course.id}`} className="btn btn-primary">View Details</Link>
+                <div className="course-actions">
+                  <button 
+                    className={`btn btn-cart ${isInCart(course.id) ? 'in-cart' : ''}`}
+                    onClick={(e) => handleAddToCart(e, course)}
+                  >
+                    {isInCart(course.id) ? '✓ In Cart' : '🛒'}
+                  </button>
+                  <Link to={`/courses/${course.id}`} className="btn btn-primary">View</Link>
+                </div>
               </div>
             </div>
           ))}

@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getCourses, purchaseCourse, getUserFavorites, addFavorite, removeFavorite } from '../api'
+import { useCart } from '../context/CartContext'
 
 function Courses({ user }) {
+  const { addToCart, isInCart } = useCart()
   const [courses, setCourses] = useState([])
   const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
@@ -213,6 +215,20 @@ function Courses({ user }) {
   }
 
   const isFavorite = (courseId) => favorites.includes(courseId)
+
+  const handleAddToCart = (e, course) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (isInCart(course.id)) {
+      setMessage({ text: 'Already in cart!', type: 'error' })
+    } else {
+      addToCart(course)
+      setMessage({ text: '🛒 Added to cart!', type: 'success' })
+    }
+    
+    setTimeout(() => setMessage({ text: '', type: '' }), 2000)
+  }
 
   if (loading) {
     return (
@@ -435,18 +451,26 @@ function Courses({ user }) {
                 </Link>
                 <div className="course-footer">
                   <span className="course-price">${course.price}</span>
-                  {user ? (
+                  <div className="course-actions">
                     <button 
-                      className="btn btn-primary"
-                      onClick={() => handlePurchase(course)}
+                      className={`btn btn-cart ${isInCart(course.id) ? 'in-cart' : ''}`}
+                      onClick={(e) => handleAddToCart(e, course)}
                     >
-                      Buy Now
+                      {isInCart(course.id) ? '✓ In Cart' : '🛒 Add'}
                     </button>
-                  ) : (
-                    <Link to="/login" className="btn btn-secondary">
-                      Login to Purchase
-                    </Link>
-                  )}
+                    {user ? (
+                      <button 
+                        className="btn btn-primary"
+                        onClick={() => handlePurchase(course)}
+                      >
+                        Buy Now
+                      </button>
+                    ) : (
+                      <Link to="/login" className="btn btn-secondary">
+                        Login
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

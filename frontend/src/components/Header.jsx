@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useCart } from '../context/CartContext'
 
 function Header({ user, onLogout }) {
+  const { getCartCount } = useCart()
+  const cartCount = getCartCount()
+  
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
     return saved === 'dark'
@@ -35,6 +39,14 @@ function Header({ user, onLogout }) {
           <Link to="/coaches" className="nav-link">Coach</Link>
           <Link to="/about" className="nav-link">About</Link>
           
+          {/* Cart Icon */}
+          <Link to="/cart" className="cart-icon-link">
+            <span className="cart-icon">🛒</span>
+            {cartCount > 0 && (
+              <span className="cart-count">{cartCount}</span>
+            )}
+          </Link>
+          
           <button 
             onClick={toggleTheme} 
             className="theme-toggle"
@@ -65,4 +77,3 @@ function Header({ user, onLogout }) {
 }
 
 export default Header
-
