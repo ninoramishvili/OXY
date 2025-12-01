@@ -226,23 +226,32 @@ function CourseDetails({ user }) {
                 </div>
               )}
               
-              <div className="course-hero-buttons">
-                <button 
-                  className="btn btn-primary btn-large"
-                  onClick={handleBuyNow}
-                  style={{ flex: 1 }}
-                >
-                  Buy Now
-                </button>
-                <button 
-                  className={`btn btn-cart-large ${isInCart(course.id) ? 'in-cart' : ''}`}
-                  onClick={handleAddToCart}
-                >
-                  {isInCart(course.id) ? '✓' : '🛒'}
-                </button>
-              </div>
-              
-              <p className="course-guarantee">Limited spots available</p>
+              {hasPurchased ? (
+                <div className="already-purchased">
+                  <span className="purchased-badge">✅ You own this course</span>
+                  <p>Access your course materials anytime</p>
+                </div>
+              ) : (
+                <>
+                  <div className="course-hero-buttons">
+                    <button 
+                      className="btn btn-primary btn-large"
+                      onClick={handleBuyNow}
+                      style={{ flex: 1 }}
+                    >
+                      Buy Now
+                    </button>
+                    <button 
+                      className={`btn btn-cart-large ${isInCart(course.id) ? 'in-cart' : ''}`}
+                      onClick={handleAddToCart}
+                    >
+                      {isInCart(course.id) ? '✓' : '🛒'}
+                    </button>
+                  </div>
+                  
+                  <p className="course-guarantee">Limited spots available</p>
+                </>
+              )}
             </div>
           </div>
         </div>
