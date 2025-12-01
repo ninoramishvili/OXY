@@ -26,6 +26,7 @@
 | **User Profile (#8)** | ✅ Done |
 | **Courses Favourites (#9)** | ✅ Done |
 | **Courses Cart (#10)** | ✅ Done |
+| **Course Ratings & Reviews (#11)** | ✅ Done |
 
 ---
 
@@ -219,20 +220,20 @@ Shopping cart for purchasing multiple courses at once.
 
 ---
 
-#### 11. Course Ratings with Comments
+#### 11. Course Ratings with Comments ✅ COMPLETED
 **Complexity:** 🟡 Medium | **Priority:** ⭐⭐ Medium | **Estimate:** 4-5 hours
 
 **Description:**
 Users who purchased a course can leave ratings (1-5 stars) and written reviews.
 
 **Requirements:**
-- Star rating input (1-5)
-- Text comment field
-- Display average rating on course card
-- Reviews list on course details page
-- Only purchasers can review
-- Edit/Delete own review
-- Database: `course_reviews` table
+- ✅ Star rating input (1-5)
+- ✅ Text comment field
+- ✅ Display average rating on course details page
+- ✅ Reviews list on course details page
+- ✅ Only purchasers can review
+- ✅ Edit/Delete own review
+- ✅ Database: `course_reviews` table
 
 **Dependencies:** Course Details Page (#4), User Profile (#8)
 
