@@ -256,6 +256,21 @@ body {
   font-size: 0.85rem;
 }
 
+.btn-danger {
+  background: #DC2626;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.btn-danger:hover {
+  background: #B91C1C;
+}
+
 /* ============ Hero Section ============ */
 
 .hero {

@@ -20,6 +20,7 @@ function CourseDetails({ user }) {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
   const [editingReview, setEditingReview] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,7 +126,7 @@ function CourseDetails({ user }) {
   }
 
   const handleDeleteReview = async () => {
-    if (!confirm('Are you sure you want to delete your review?')) return
+    setShowDeleteConfirm(false)
     
     try {
       const result = await deleteReview(userReview.id, user.id)
@@ -380,7 +381,7 @@ function CourseDetails({ user }) {
                     </button>
                     <button 
                       className="btn btn-cancel"
-                      onClick={handleDeleteReview}
+                      onClick={() => setShowDeleteConfirm(true)}
                     >
                       Delete
                     </button>
@@ -512,6 +513,31 @@ function CourseDetails({ user }) {
           </section>
         )}
       </div>
+
+      {/* Delete Review Confirmation Popup */}
+      {showDeleteConfirm && (
+        <div className="confirm-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="confirm-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon">🗑️</div>
+            <h3>Delete Review?</h3>
+            <p>Are you sure you want to delete your review? This action cannot be undone.</p>
+            <div className="confirm-buttons">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-danger"
+                onClick={handleDeleteReview}
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
