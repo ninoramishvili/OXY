@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { getCourses, getCoaches, getUserFavorites, addFavorite, removeFavorite } from '../api'
 import { useCart } from '../context/CartContext'
 
 function Home({ user }) {
+  const navigate = useNavigate()
   const { addToCart, isInCart } = useCart()
   const [courses, setCourses] = useState([])
   const [coaches, setCoaches] = useState([])
@@ -84,6 +85,15 @@ function Home({ user }) {
     setTimeout(() => setMessage({ text: '', type: '' }), 2000)
   }
 
+  const handleBuyNow = (e, course) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isInCart(course.id)) {
+      addToCart(course)
+    }
+    navigate('/cart')
+  }
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem' }}>
@@ -159,7 +169,12 @@ function Home({ user }) {
                   >
                     {isInCart(course.id) ? '✓ In Cart' : '🛒'}
                   </button>
-                  <Link to={`/courses/${course.id}`} className="btn btn-primary">View</Link>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={(e) => handleBuyNow(e, course)}
+                  >
+                    Buy Now
+                  </button>
                 </div>
               </div>
             </div>
