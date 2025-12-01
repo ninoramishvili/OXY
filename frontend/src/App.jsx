@@ -12,6 +12,7 @@ import Coaches from './pages/Coaches'
 import About from './pages/About'
 import Profile from './pages/Profile'
 import Cart from './pages/Cart'
+import Checkout from './pages/Checkout'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -43,6 +44,7 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/profile" element={<Profile user={user} onUpdateUser={handleUpdateUser} />} />
             <Route path="/cart" element={<Cart user={user} />} />
+            <Route path="/checkout" element={<Checkout user={user} />} />
           </Routes>
         </main>
         <Footer />

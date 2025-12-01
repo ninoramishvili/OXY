@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
-import { purchaseCourse } from '../api'
 
 function Cart({ user }) {
   const navigate = useNavigate()
   const { cartItems, removeFromCart, clearCart, getCartTotal } = useCart()
   const [message, setMessage] = useState({ text: '', type: '' })
-  const [processing, setProcessing] = useState(false)
 
   const handleRemoveItem = (courseId) => {
     removeFromCart(courseId)
@@ -15,7 +13,7 @@ function Cart({ user }) {
     setTimeout(() => setMessage({ text: '', type: '' }), 2000)
   }
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!user?.id) {
       setMessage({ text: 'Please login to checkout', type: 'error' })
       setTimeout(() => navigate('/login'), 1500)
@@ -27,51 +25,8 @@ function Cart({ user }) {
       return
     }
 
-    setProcessing(true)
-    setMessage({ text: 'Processing your order...', type: 'success' })
-
-    try {
-      // Purchase each course in cart
-      let successCount = 0
-      let alreadyOwnedCount = 0
-      let failCount = 0
-
-      for (const item of cartItems) {
-        const result = await purchaseCourse(item.id, user.id)
-        
-        if (result.success) {
-          successCount++
-        } else if (result.message?.includes('already purchased')) {
-          alreadyOwnedCount++
-        } else {
-          failCount++
-        }
-      }
-
-      // Clear cart regardless of outcome
-      clearCart()
-
-      if (successCount > 0) {
-        setMessage({ 
-          text: `🎉 Successfully purchased ${successCount} course${successCount > 1 ? 's' : ''}!${alreadyOwnedCount > 0 ? ` (${alreadyOwnedCount} already owned)` : ''}`, 
-          type: 'success' 
-        })
-        setTimeout(() => navigate('/profile'), 2000)
-      } else if (alreadyOwnedCount > 0) {
-        setMessage({ 
-          text: `📚 You already own ${alreadyOwnedCount === 1 ? 'this course' : 'these courses'}! Check your profile.`, 
-          type: 'success' 
-        })
-        setTimeout(() => navigate('/profile'), 2000)
-      } else {
-        setMessage({ text: 'Purchase failed. Please try again.', type: 'error' })
-      }
-    } catch (error) {
-      console.error('Checkout error:', error)
-      setMessage({ text: 'Something went wrong. Please try again.', type: 'error' })
-    } finally {
-      setProcessing(false)
-    }
+    // Navigate to checkout page
+    navigate('/checkout')
   }
 
   return (
@@ -138,12 +93,10 @@ function Cart({ user }) {
               <button 
                 className="btn btn-primary btn-large btn-checkout"
                 onClick={handleCheckout}
-                disabled={processing || !user}
+                disabled={!user || cartItems.length === 0}
               >
-                {processing ? 'Processing...' : `Complete Purchase - $${getCartTotal()}`}
+                Proceed to Checkout - ${getCartTotal()}
               </button>
-              
-              <p className="demo-note">🎓 Demo mode: No actual payment required</p>
 
               {!user && (
                 <p className="checkout-note">
