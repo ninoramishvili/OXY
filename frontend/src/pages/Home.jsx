@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { getCourses, getCoaches } from '../api'
+import { getCourses, getCoaches, getUserFavorites, addFavorite, removeFavorite } from '../api'
 
 function Home({ user }) {
   const [courses, setCourses] = useState([])
   const [coaches, setCoaches] = useState([])
+  const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState({ text: '', type: '' })
 
   useEffect(() => {
     const fetchData = async () => {
@@ -16,6 +18,12 @@ function Home({ user }) {
         ]);
         setCourses(coursesData.slice(0, 3)); // Show only 3
         setCoaches(coachesData.slice(0, 4)); // Show only 4
+        
+        // Fetch favorites if user is logged in
+        if (user?.id) {
+          const favoritesData = await getUserFavorites(user.id)
+          setFavorites(favoritesData.map(f => f.course_id))
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -24,7 +32,41 @@ function Home({ user }) {
     };
     
     fetchData();
-  }, []);
+  }, [user]);
+
+  const toggleFavorite = async (e, courseId) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!user?.id) {
+      setMessage({ text: 'Please login to save favorites', type: 'error' })
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+      return
+    }
+    
+    try {
+      if (favorites.includes(courseId)) {
+        const result = await removeFavorite(courseId, user.id)
+        if (result.success) {
+          setFavorites(prev => prev.filter(id => id !== courseId))
+          setMessage({ text: '💔 Removed from favorites', type: 'success' })
+        }
+      } else {
+        const result = await addFavorite(user.id, courseId)
+        if (result.success) {
+          setFavorites(prev => [...prev, courseId])
+          setMessage({ text: '❤️ Added to favorites!', type: 'success' })
+        }
+      }
+    } catch (error) {
+      console.error('Favorite error:', error)
+      setMessage({ text: 'Failed to update favorites', type: 'error' })
+    }
+    
+    setTimeout(() => setMessage({ text: '', type: '' }), 2000)
+  }
+
+  const isFavorite = (courseId) => favorites.includes(courseId)
 
   if (loading) {
     return (
@@ -36,6 +78,13 @@ function Home({ user }) {
 
   return (
     <div className="home">
+      {/* Message Toast */}
+      {message.text && (
+        <div className={`toast-message ${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content">
@@ -64,6 +113,13 @@ function Home({ user }) {
         <div className="cards-grid">
           {courses.map(course => (
             <div key={course.id} className="course-card">
+              <button 
+                className={`favorite-btn ${isFavorite(course.id) ? 'active' : ''}`}
+                onClick={(e) => toggleFavorite(e, course.id)}
+                title={isFavorite(course.id) ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                {isFavorite(course.id) ? '❤️' : '🤍'}
+              </button>
               <Link to={`/courses/${course.id}`} className="course-card-link">
                 <div className="course-image" style={{ background: course.color }}>
                   {course.image}

@@ -2174,6 +2174,41 @@ body {
   100% { transform: scale(1); }
 }
 
+/* Toast Message */
+.toast-message {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  z-index: 1000;
+  animation: slideInToast 0.3s ease;
+  box-shadow: var(--shadow-lg);
+}
+
+.toast-message.success {
+  background: #D5E8D4;
+  color: #2D5A27;
+}
+
+.toast-message.error {
+  background: #FFE5E5;
+  color: #C00;
+}
+
+@keyframes slideInToast {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 /* Favorites Grid in Profile */
 .favorites-grid {
   display: grid;

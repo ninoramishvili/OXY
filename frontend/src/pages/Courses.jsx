@@ -180,7 +180,7 @@ function Courses({ user }) {
     e.preventDefault()
     e.stopPropagation()
     
-    if (!user) {
+    if (!user?.id) {
       setMessage({ text: 'Please login to save favorites', type: 'error' })
       setTimeout(() => setMessage({ text: '', type: '' }), 3000)
       return
@@ -188,15 +188,24 @@ function Courses({ user }) {
     
     try {
       if (favorites.includes(courseId)) {
-        await removeFavorite(courseId, user.id)
-        setFavorites(prev => prev.filter(id => id !== courseId))
-        setMessage({ text: '💔 Removed from favorites', type: 'success' })
+        const result = await removeFavorite(courseId, user.id)
+        if (result.success) {
+          setFavorites(prev => prev.filter(id => id !== courseId))
+          setMessage({ text: '💔 Removed from favorites', type: 'success' })
+        } else {
+          setMessage({ text: result.message || 'Failed to remove', type: 'error' })
+        }
       } else {
-        await addFavorite(user.id, courseId)
-        setFavorites(prev => [...prev, courseId])
-        setMessage({ text: '❤️ Added to favorites!', type: 'success' })
+        const result = await addFavorite(user.id, courseId)
+        if (result.success) {
+          setFavorites(prev => [...prev, courseId])
+          setMessage({ text: '❤️ Added to favorites!', type: 'success' })
+        } else {
+          setMessage({ text: result.message || 'Failed to add', type: 'error' })
+        }
       }
     } catch (error) {
+      console.error('Favorite error:', error)
       setMessage({ text: 'Failed to update favorites', type: 'error' })
     }
     
