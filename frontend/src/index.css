@@ -1184,6 +1184,23 @@ body {
   cursor: not-allowed;
 }
 
+.slot-btn-embedded.my-booking {
+  background: linear-gradient(135deg, #D5E8D4 0%, #B8D4B8 100%);
+  border: 2px solid #22C55E;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.slot-btn-embedded.my-booking:hover {
+  background: linear-gradient(135deg, #C5E0C4 0%, #A8C4A8 100%);
+  transform: translateY(-2px);
+}
+
+.slot-btn-embedded.my-booking .slot-status {
+  color: #166534;
+  font-weight: 600;
+}
+
 .no-slots-embedded {
   text-align: center;
   padding: var(--space-lg);
@@ -1225,6 +1242,10 @@ body {
 .legend-dot.unavailable {
   background: var(--text-light);
   opacity: 0.5;
+}
+
+.legend-dot.my-session {
+  background: #22C55E;
 }
 
 /* Calendar Confirm Popup */

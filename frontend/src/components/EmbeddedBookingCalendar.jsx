@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getCoachSlots, bookSession } from '../api'
+import { getCoachSlots, bookSession, cancelBooking } from '../api'
 
 function EmbeddedBookingCalendar({ coach, user, onBookingComplete }) {
   const [selectedDate, setSelectedDate] = useState(getTodayDate())
@@ -90,8 +90,41 @@ function EmbeddedBookingCalendar({ coach, user, onBookingComplete }) {
 
   const handleSlotClick = (slot) => {
     if (!user) return
+    
     if (slot.available) {
       setConfirmPopup({ slot, action: 'book' })
+      return
+    }
+    
+    // If slot is booked by current user, show cancel confirmation
+    if (slot.bookedBy === user?.id && slot.bookingId) {
+      setConfirmPopup({ 
+        slot, 
+        action: 'cancel', 
+        bookingId: slot.bookingId 
+      })
+    }
+  }
+
+  const handleConfirmCancel = async () => {
+    if (!confirmPopup?.bookingId) return
+    
+    const { bookingId } = confirmPopup
+    setConfirmPopup(null)
+    setBookingNotes('')
+    setMessage({ text: '', type: '' })
+
+    try {
+      const result = await cancelBooking(bookingId, user?.id)
+      if (result.success) {
+        setMessage({ text: '✅ Booking cancelled successfully!', type: 'success' })
+        await refreshSlots()
+        if (onBookingComplete) onBookingComplete(null)
+      } else {
+        setMessage({ text: result.message || 'Cancellation failed', type: 'error' })
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to cancel booking', type: 'error' })
     }
   }
 
@@ -205,17 +238,22 @@ function EmbeddedBookingCalendar({ coach, user, onBookingComplete }) {
               const timeStr = `${hour.toString().padStart(2, '0')}:00`
               const slot = slots.find(s => s.time === timeStr)
               const isAvailable = slot?.available
+              const isMyBooking = slot && !slot.available && slot.bookedBy === user?.id
               
               return (
                 <button
                   key={hour}
-                  className={`slot-btn-embedded ${isAvailable ? 'available' : 'unavailable'}`}
-                  onClick={() => isAvailable && handleSlotClick(slot)}
-                  disabled={!isAvailable || !user}
+                  className={`slot-btn-embedded ${isAvailable ? 'available' : isMyBooking ? 'my-booking' : 'unavailable'}`}
+                  onClick={() => (isAvailable || isMyBooking) && handleSlotClick(slot)}
+                  disabled={!isAvailable && !isMyBooking}
                 >
                   <span className="slot-time">{formatTime(hour)}</span>
                   <span className="slot-status">
-                    {isAvailable ? (user ? 'Available' : 'Login to book') : 'Booked'}
+                    {isAvailable 
+                      ? (user ? 'Available' : 'Login to book') 
+                      : isMyBooking 
+                        ? '📅 Your Session' 
+                        : 'Booked'}
                   </span>
                 </button>
               )
@@ -236,6 +274,10 @@ function EmbeddedBookingCalendar({ coach, user, onBookingComplete }) {
           <span>Available</span>
         </div>
         <div className="legend-item-embedded">
+          <div className="legend-dot my-session"></div>
+          <span>Your Session</span>
+        </div>
+        <div className="legend-item-embedded">
           <div className="legend-dot unavailable"></div>
           <span>Booked</span>
         </div>
@@ -245,33 +287,56 @@ function EmbeddedBookingCalendar({ coach, user, onBookingComplete }) {
       {confirmPopup && (
         <div className="confirm-overlay-embedded" onClick={() => { setConfirmPopup(null); setBookingNotes(''); }}>
           <div className="confirm-popup-embedded" onClick={(e) => e.stopPropagation()}>
-            <div className="confirm-icon">📅</div>
-            <h3>Confirm Booking</h3>
-            <p>Book a session with <strong>{coach.name}</strong>?</p>
-            <div className="confirm-details-embedded">
-              <p>📆 {formatSelectedDate()}</p>
-              <p>🕐 {confirmPopup.slot.display} (1 hour)</p>
-              <p>💰 ${coach.price}</p>
-            </div>
-            <div className="booking-notes-input">
-              <label>What would you like to discuss? (optional)</label>
-              <textarea
-                value={bookingNotes}
-                onChange={(e) => setBookingNotes(e.target.value.slice(0, 500))}
-                placeholder="Share what topics or goals you'd like to focus on..."
-                rows={3}
-                maxLength={500}
-              />
-              <span className="char-count">{bookingNotes.length}/500</span>
-            </div>
-            <div className="confirm-buttons-embedded">
-              <button className="btn btn-secondary" onClick={() => { setConfirmPopup(null); setBookingNotes(''); }}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={handleConfirmBook}>
-                Confirm Booking
-              </button>
-            </div>
+            {confirmPopup.action === 'book' ? (
+              <>
+                <div className="confirm-icon">📅</div>
+                <h3>Confirm Booking</h3>
+                <p>Book a session with <strong>{coach.name}</strong>?</p>
+                <div className="confirm-details-embedded">
+                  <p>📆 {formatSelectedDate()}</p>
+                  <p>🕐 {confirmPopup.slot.display} (1 hour)</p>
+                  <p>💰 ${coach.price}</p>
+                </div>
+                <div className="booking-notes-input">
+                  <label>What would you like to discuss? (optional)</label>
+                  <textarea
+                    value={bookingNotes}
+                    onChange={(e) => setBookingNotes(e.target.value.slice(0, 500))}
+                    placeholder="Share what topics or goals you'd like to focus on..."
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <span className="char-count">{bookingNotes.length}/500</span>
+                </div>
+                <div className="confirm-buttons-embedded">
+                  <button className="btn btn-secondary" onClick={() => { setConfirmPopup(null); setBookingNotes(''); }}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-primary" onClick={handleConfirmBook}>
+                    Confirm Booking
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="confirm-icon">❌</div>
+                <h3>Cancel Booking?</h3>
+                <p>Are you sure you want to cancel this session?</p>
+                <div className="confirm-details-embedded">
+                  <p>👤 {coach.name}</p>
+                  <p>📆 {formatSelectedDate()}</p>
+                  <p>🕐 {confirmPopup.slot.display}</p>
+                </div>
+                <div className="confirm-buttons-embedded">
+                  <button className="btn btn-secondary" onClick={() => setConfirmPopup(null)}>
+                    Keep Booking
+                  </button>
+                  <button className="btn btn-danger" onClick={handleConfirmCancel}>
+                    Yes, Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
