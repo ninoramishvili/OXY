@@ -23,6 +23,7 @@
 | **Coach Details Page (#5)** | ✅ Done |
 | **Filters - Courses (#6)** | ✅ Done |
 | **Sorting - Courses (#7)** | ✅ Done |
+| **User Profile (#8)** | ✅ Done |
 
 ---
 
@@ -163,18 +164,18 @@ Allow users to sort lists by various criteria.
 
 ---
 
-#### 8. User Profile
+#### 8. User Profile ✅ COMPLETED
 **Complexity:** 🟡 Medium | **Priority:** ⭐⭐⭐ Critical | **Estimate:** 4-5 hours
 
 **Description:**
 Personal profile page where users can view and edit their information.
 
 **Requirements:**
-- View/Edit name, email, profile picture
-- Change password functionality
-- View purchased courses
-- View booking history
-- Account settings (notifications, preferences)
+- ✅ View/Edit name, email
+- ✅ Change password functionality
+- ✅ View purchased courses
+- ✅ View booking history
+- ✅ Account settings (notifications, preferences)
 
 **Dependencies:** Registration (#2)
 
