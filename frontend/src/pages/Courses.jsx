@@ -15,6 +15,14 @@ function Courses({ user }) {
     duration: ''
   })
 
+  // Sort states - load from localStorage
+  const [sortBy, setSortBy] = useState(() => {
+    return localStorage.getItem('courseSortBy') || 'default'
+  })
+  const [sortOrder, setSortOrder] = useState(() => {
+    return localStorage.getItem('courseSortOrder') || 'asc'
+  })
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -31,6 +39,12 @@ function Courses({ user }) {
     fetchCourses()
   }, [])
 
+  // Save sort preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('courseSortBy', sortBy)
+    localStorage.setItem('courseSortOrder', sortOrder)
+  }, [sortBy, sortOrder])
+
   // Extract unique categories from courses
   const categories = useMemo(() => {
     const cats = [...new Set(courses.map(c => c.category))]
@@ -45,22 +59,29 @@ function Courses({ user }) {
     { label: 'Over $75', min: 75, max: Infinity }
   ]
 
-  // Duration options (since all are 2 hours masterclass, this is for future expansion)
+  // Duration options
   const durations = [
     { label: '1 hour', value: '1' },
     { label: '2 hours', value: '2' },
     { label: '3+ hours', value: '3+' }
   ]
 
-  // Filter courses based on selected filters
-  const filteredCourses = useMemo(() => {
-    return courses.filter(course => {
-      // Category filter
+  // Sort options
+  const sortOptions = [
+    { value: 'default', label: 'Default' },
+    { value: 'price', label: 'Price' },
+    { value: 'title', label: 'Title' },
+    { value: 'newest', label: 'Newest' }
+  ]
+
+  // Filter and sort courses
+  const filteredAndSortedCourses = useMemo(() => {
+    // First filter
+    let result = courses.filter(course => {
       if (filters.category && course.category !== filters.category) {
         return false
       }
       
-      // Price range filter
       if (filters.priceRange) {
         const range = priceRanges.find(r => r.label === filters.priceRange)
         if (range && (course.price < range.min || course.price >= range.max)) {
@@ -68,7 +89,6 @@ function Courses({ user }) {
         }
       }
       
-      // Duration filter
       if (filters.duration) {
         const durationNum = parseInt(course.duration)
         if (filters.duration === '1' && durationNum !== 1) return false
@@ -78,7 +98,32 @@ function Courses({ user }) {
       
       return true
     })
-  }, [courses, filters])
+
+    // Then sort
+    if (sortBy !== 'default') {
+      result = [...result].sort((a, b) => {
+        let comparison = 0
+        
+        switch (sortBy) {
+          case 'price':
+            comparison = a.price - b.price
+            break
+          case 'title':
+            comparison = a.title.localeCompare(b.title)
+            break
+          case 'newest':
+            comparison = b.id - a.id // Higher ID = newer
+            break
+          default:
+            comparison = 0
+        }
+        
+        return sortOrder === 'asc' ? comparison : -comparison
+      })
+    }
+
+    return result
+  }, [courses, filters, sortBy, sortOrder])
 
   // Count active filters
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length
@@ -96,6 +141,14 @@ function Courses({ user }) {
       priceRange: '',
       duration: ''
     })
+  }
+
+  const handleSortChange = (value) => {
+    setSortBy(value)
+  }
+
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
   }
 
   const handlePurchase = async (course) => {
@@ -160,7 +213,7 @@ function Courses({ user }) {
       )}
 
       <section className="section">
-        {/* Filter Bar */}
+        {/* Filter & Sort Bar */}
         <div className="filter-bar">
           <div className="filter-bar-left">
             <button 
@@ -182,8 +235,34 @@ function Courses({ user }) {
           </div>
           
           <div className="filter-bar-right">
+            {/* Sort Controls */}
+            <div className="sort-controls">
+              <label className="sort-label">Sort by:</label>
+              <select 
+                className="sort-select"
+                value={sortBy}
+                onChange={(e) => handleSortChange(e.target.value)}
+              >
+                {sortOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              
+              {sortBy !== 'default' && (
+                <button 
+                  className="sort-order-btn"
+                  onClick={toggleSortOrder}
+                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              )}
+            </div>
+            
             <span className="results-count">
-              {filteredCourses.length} {filteredCourses.length === 1 ? 'course' : 'courses'}
+              {filteredAndSortedCourses.length} {filteredAndSortedCourses.length === 1 ? 'course' : 'courses'}
             </span>
           </div>
         </div>
@@ -284,9 +363,9 @@ function Courses({ user }) {
         )}
 
         {/* Courses Grid */}
-        {filteredCourses.length > 0 ? (
+        {filteredAndSortedCourses.length > 0 ? (
           <div className="cards-grid">
-            {filteredCourses.map(course => (
+            {filteredAndSortedCourses.map(course => (
               <div key={course.id} className="course-card">
                 <Link to={`/courses/${course.id}`} className="course-card-link">
                   <div className="course-image" style={{ background: course.color }}>
