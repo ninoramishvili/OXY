@@ -14,6 +14,7 @@ import Profile from './pages/Profile'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import CoachDashboard from './pages/CoachDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -72,6 +73,7 @@ function App() {
             <Route path="/cart" element={<Cart user={user} />} />
             <Route path="/checkout" element={<Checkout user={user} />} />
             <Route path="/coach-dashboard" element={<CoachDashboard user={user} />} />
+            <Route path="/admin" element={<AdminDashboard user={user} />} />
           </Routes>
         </main>
         <Footer />

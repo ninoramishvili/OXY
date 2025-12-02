@@ -129,7 +129,15 @@ function Header({ user, onLogout }) {
         </Link>
         
         <nav className="nav">
-          {user?.role === 'coach' ? (
+          {user?.role === 'admin' ? (
+            // Admin Navigation
+            <>
+              <Link to="/admin" className="nav-link">Dashboard</Link>
+              <Link to="/courses" className="nav-link">Courses</Link>
+              <Link to="/coaches" className="nav-link">Coaches</Link>
+              <Link to="/about" className="nav-link">About</Link>
+            </>
+          ) : user?.role === 'coach' ? (
             // Coach Navigation
             <>
               <Link to="/coach-dashboard" className="nav-link">Dashboard</Link>
@@ -220,7 +228,12 @@ function Header({ user, onLogout }) {
           
           {user ? (
             <div className="user-info">
-              {user.role === 'coach' ? (
+              {user.role === 'admin' ? (
+                <Link to="/admin" className="user-profile-link">
+                  <span className="user-avatar admin-avatar">🛡️</span>
+                  <span className="user-name">{user.name || user.username}</span>
+                </Link>
+              ) : user.role === 'coach' ? (
                 <Link to="/coach-dashboard" className="user-profile-link">
                   <span className="user-avatar coach-avatar">🎓</span>
                   <span className="user-name">{user.name || user.username}</span>

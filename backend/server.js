@@ -1420,6 +1420,245 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// ============ ADMIN ENDPOINTS ============
+
+// GET /api/admin/stats - Get detailed admin statistics
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const users = await pool.query('SELECT COUNT(*) FROM users');
+    const courses = await pool.query('SELECT COUNT(*) FROM courses');
+    const coaches = await pool.query('SELECT COUNT(*) FROM coaches');
+    const purchases = await pool.query('SELECT COUNT(*) FROM purchases');
+    const bookings = await pool.query('SELECT COUNT(*) FROM bookings');
+    const revenue = await pool.query('SELECT COALESCE(SUM(amount), 0) as total FROM purchases');
+    
+    // Additional stats
+    const pendingBookings = await pool.query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'");
+    const confirmedBookings = await pool.query("SELECT COUNT(*) FROM bookings WHERE status = 'confirmed'");
+    const recentUsers = await pool.query('SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL \'7 days\'');
+    const recentPurchases = await pool.query('SELECT COUNT(*) FROM purchases WHERE purchase_date > NOW() - INTERVAL \'7 days\'');
+    
+    res.json({
+      users: parseInt(users.rows[0].count),
+      courses: parseInt(courses.rows[0].count),
+      coaches: parseInt(coaches.rows[0].count),
+      purchases: parseInt(purchases.rows[0].count),
+      bookings: parseInt(bookings.rows[0].count),
+      revenue: parseFloat(revenue.rows[0].total),
+      pendingBookings: parseInt(pendingBookings.rows[0].count),
+      confirmedBookings: parseInt(confirmedBookings.rows[0].count),
+      recentUsers: parseInt(recentUsers.rows[0].count),
+      recentPurchases: parseInt(recentPurchases.rows[0].count)
+    });
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============ ADMIN - USER MANAGEMENT ============
+
+// GET /api/admin/users - Get all users with details
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.*, 
+             (SELECT COUNT(*) FROM purchases WHERE user_id = u.id) as purchases_count,
+             (SELECT COUNT(*) FROM bookings WHERE user_id = u.id) as bookings_count
+      FROM users u
+      ORDER BY u.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/admin/users/:id - Update user
+app.put('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, role } = req.body;
+    
+    await pool.query(
+      'UPDATE users SET name = $1, email = $2, role = $3 WHERE id = $4',
+      [name, email, role, id]
+    );
+    
+    res.json({ success: true, message: 'User updated' });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/users/:id - Delete user
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Don't allow deleting admin users
+    const user = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
+    if (user.rows[0]?.role === 'admin') {
+      return res.status(400).json({ success: false, message: 'Cannot delete admin users' });
+    }
+    
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    res.json({ success: true, message: 'User deleted' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ ADMIN - COURSE MANAGEMENT ============
+
+// POST /api/admin/courses - Create new course
+app.post('/api/admin/courses', async (req, res) => {
+  try {
+    const { title, description, category, instructor, price, duration, level, image, color } = req.body;
+    
+    const result = await pool.query(
+      `INSERT INTO courses (title, description, category, instructor, price, duration, level, image, color)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [title, description, category, instructor, price, duration, level, image || '📚', color || '#E8D5E0']
+    );
+    
+    res.status(201).json({ success: true, course: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating course:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/admin/courses/:id - Update course
+app.put('/api/admin/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, category, instructor, price, duration, level, image, color } = req.body;
+    
+    await pool.query(
+      `UPDATE courses SET title = $1, description = $2, category = $3, instructor = $4, 
+       price = $5, duration = $6, level = $7, image = $8, color = $9 WHERE id = $10`,
+      [title, description, category, instructor, price, duration, level, image, color, id]
+    );
+    
+    res.json({ success: true, message: 'Course updated' });
+  } catch (error) {
+    console.error('Error updating course:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/courses/:id - Delete course
+app.delete('/api/admin/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM courses WHERE id = $1', [id]);
+    res.json({ success: true, message: 'Course deleted' });
+  } catch (error) {
+    console.error('Error deleting course:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ ADMIN - COACH MANAGEMENT ============
+
+// POST /api/admin/coaches - Create new coach
+app.post('/api/admin/coaches', async (req, res) => {
+  try {
+    const { name, title, specialty, bio, experience, price, image } = req.body;
+    
+    const result = await pool.query(
+      `INSERT INTO coaches (name, title, specialty, bio, experience, price, image, rating, sessions)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 5.0, 0) RETURNING *`,
+      [name, title, specialty, bio, experience, price, image || '👤']
+    );
+    
+    res.status(201).json({ success: true, coach: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating coach:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/admin/coaches/:id - Update coach
+app.put('/api/admin/coaches/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, title, specialty, bio, experience, price, image } = req.body;
+    
+    await pool.query(
+      `UPDATE coaches SET name = $1, title = $2, specialty = $3, bio = $4, 
+       experience = $5, price = $6, image = $7 WHERE id = $8`,
+      [name, title, specialty, bio, experience, price, image, id]
+    );
+    
+    res.json({ success: true, message: 'Coach updated' });
+  } catch (error) {
+    console.error('Error updating coach:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/coaches/:id - Delete coach
+app.delete('/api/admin/coaches/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM coaches WHERE id = $1', [id]);
+    res.json({ success: true, message: 'Coach deleted' });
+  } catch (error) {
+    console.error('Error deleting coach:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ ADMIN - BOOKING MANAGEMENT ============
+
+// GET /api/admin/bookings - Get all bookings
+app.get('/api/admin/bookings', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT b.*, u.name as user_name, u.email as user_email, c.name as coach_name
+      FROM bookings b
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN coaches c ON b.coach_id = c.id
+      ORDER BY b.booking_date DESC, b.booking_time DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/admin/bookings/:id/status - Update booking status
+app.put('/api/admin/bookings/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    await pool.query('UPDATE bookings SET status = $1 WHERE id = $2', [status, id]);
+    res.json({ success: true, message: 'Booking status updated' });
+  } catch (error) {
+    console.error('Error updating booking:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/bookings/:id - Delete booking
+app.delete('/api/admin/bookings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM bookings WHERE id = $1', [id]);
+    res.json({ success: true, message: 'Booking deleted' });
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);
