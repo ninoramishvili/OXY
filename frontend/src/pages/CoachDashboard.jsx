@@ -544,24 +544,42 @@ function CoachDashboard({ user }) {
             {/* Upcoming */}
             <div className="bookings-group">
               <h3>📅 Upcoming Sessions</h3>
-              {bookings.filter(b => !isPastBooking(b) && b.status !== 'cancelled').length > 0 ? (
+              {bookings.filter(b => !isPastBooking(b) && b.status !== 'cancelled' && b.status !== 'declined').length > 0 ? (
                 <div className="bookings-table">
                   <div className="table-header">
                     <span>Date</span>
                     <span>Time</span>
                     <span>Client</span>
-                    <span>Notes</span>
                     <span>Status</span>
+                    <span>Actions</span>
                   </div>
                   {bookings
-                    .filter(b => !isPastBooking(b) && b.status !== 'cancelled')
+                    .filter(b => !isPastBooking(b) && b.status !== 'cancelled' && b.status !== 'declined')
                     .map(booking => (
                       <div key={booking.id} className="table-row">
                         <span>{formatDate(booking.booking_date)}</span>
                         <span>{formatTime(booking.booking_time)}</span>
-                        <span>{booking.user_name || 'Client'}</span>
-                        <span className="notes-cell">{booking.notes || '-'}</span>
+                        <span>
+                          <div className="client-cell">
+                            <strong>{booking.user_name || 'Client'}</strong>
+                            {booking.notes && <small>📝 {booking.notes}</small>}
+                          </div>
+                        </span>
                         <span className={`status-badge ${booking.status}`}>{booking.status}</span>
+                        <span className="actions-cell">
+                          <button 
+                            className="btn btn-danger btn-small"
+                            onClick={() => setCancelModal({
+                              id: booking.id,
+                              user_name: booking.user_name,
+                              booking_date: booking.booking_date,
+                              booking_time: booking.booking_time,
+                              status: booking.status
+                            })}
+                          >
+                            Cancel
+                          </button>
+                        </span>
                       </div>
                     ))}
                 </div>
