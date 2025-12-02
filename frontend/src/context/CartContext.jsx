@@ -42,7 +42,7 @@ export function CartProvider({ children }) {
 
   // Get cart total
   const getCartTotal = () => {
-    return cartItems.reduce((total, item) => total + item.price, 0)
+    return cartItems.reduce((total, item) => total + parseFloat(item.price || 0), 0)
   }
 
   // Get cart count
