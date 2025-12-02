@@ -771,6 +771,18 @@ app.post('/api/bookings', async (req, res) => {
       [coachId, userId || 1, date, time, notes || null]
     );
     
+    // Get user name for notification
+    const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId || 1]);
+    const userName = userResult.rows[0]?.name || 'A user';
+    
+    // Create notification for coach
+    const formattedDate = new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    await pool.query(
+      `INSERT INTO coach_notifications (coach_id, type, title, message, booking_id, user_id)
+       VALUES ($1, 'new_booking', 'New Booking Request', $2, $3, $4)`,
+      [coachId, `${userName} requested a session on ${formattedDate} at ${time.slice(0, 5)}`, result.rows[0].id, userId || 1]
+    );
+    
     res.status(201).json({ 
       success: true, 
       message: 'Session booked successfully!',
@@ -798,10 +810,24 @@ app.delete('/api/bookings/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
     
+    const bookingData = booking.rows[0];
+    
     // Update status to cancelled (soft delete)
     await pool.query(
       "UPDATE bookings SET status = 'cancelled' WHERE id = $1",
       [id]
+    );
+    
+    // Get user name for notification
+    const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [bookingData.user_id]);
+    const userName = userResult.rows[0]?.name || 'A user';
+    
+    // Create notification for coach
+    const formattedDate = new Date(bookingData.booking_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    await pool.query(
+      `INSERT INTO coach_notifications (coach_id, type, title, message, booking_id, user_id)
+       VALUES ($1, 'booking_cancelled', 'Booking Cancelled', $2, $3, $4)`,
+      [bookingData.coach_id, `${userName} cancelled their session on ${formattedDate} at ${bookingData.booking_time.slice(0, 5)}`, id, bookingData.user_id]
     );
     
     res.json({ 
@@ -1116,6 +1142,71 @@ app.put('/api/coach-comments/user/:userId/read-all', async (req, res) => {
     await pool.query(
       'UPDATE coach_comments SET is_read = TRUE WHERE user_id = $1',
       [req.params.userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking all as read:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============ COACH NOTIFICATIONS ============
+
+// GET /api/coach-notifications/:coachId - Get all notifications for a coach
+app.get('/api/coach-notifications/:coachId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT cn.*, u.name as user_name, u.email as user_email,
+              b.booking_date, b.booking_time
+       FROM coach_notifications cn
+       LEFT JOIN users u ON cn.user_id = u.id
+       LEFT JOIN bookings b ON cn.booking_id = b.id
+       WHERE cn.coach_id = $1
+       ORDER BY cn.created_at DESC
+       LIMIT 50`,
+      [req.params.coachId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/coach-notifications/:coachId/unread - Get unread notification count
+app.get('/api/coach-notifications/:coachId/unread', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT COUNT(*) as count FROM coach_notifications WHERE coach_id = $1 AND is_read = FALSE',
+      [req.params.coachId]
+    );
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/coach-notifications/:notificationId/read - Mark notification as read
+app.put('/api/coach-notifications/:notificationId/read', async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE coach_notifications SET is_read = TRUE WHERE id = $1',
+      [req.params.notificationId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/coach-notifications/:coachId/read-all - Mark all notifications as read
+app.put('/api/coach-notifications/:coachId/read-all', async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE coach_notifications SET is_read = TRUE WHERE coach_id = $1',
+      [req.params.coachId]
     );
     res.json({ success: true });
   } catch (error) {
