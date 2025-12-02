@@ -4647,6 +4647,80 @@ body {
   background: #22C55E;
 }
 
+.legend-dot.blocked {
+  background: #6B7280;
+}
+
+/* Blocked Slot Styles */
+.slot-item-coach.blocked {
+  background: #F3F4F6;
+  opacity: 0.8;
+}
+
+.slot-item-coach .slot-status.blocked {
+  background: #E5E7EB;
+  color: #6B7280;
+}
+
+.slot-item-coach .slot-reason {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.slot-item-coach .slot-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* Warning Button */
+.btn-warning {
+  background: #F59E0B;
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #D97706;
+}
+
+/* Day Actions in Header */
+.slots-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.day-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Block Info */
+.block-info {
+  margin: var(--space-md) 0;
+  padding: var(--space-sm);
+  background: #FEF3C7;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: #92400E;
+  text-align: center;
+}
+
+/* Input in modal */
+.decline-input-group input {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.decline-input-group input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
 /* Cancel Warning */
 .cancel-warning {
   margin: var(--space-md) 0;

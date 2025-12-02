@@ -661,10 +661,12 @@ app.get('/api/coaches/:id/slots/:date', async (req, res) => {
       });
     }
     
-    // Check which slots are already booked
+    // Check which slots are already booked (include user names)
     const bookings = await pool.query(
-      `SELECT id, booking_time, user_id, status FROM bookings 
-       WHERE coach_id = $1 AND booking_date = $2 AND status NOT IN ('cancelled', 'declined')`,
+      `SELECT b.id, b.booking_time, b.user_id, b.status, b.notes, u.name as user_name
+       FROM bookings b
+       LEFT JOIN users u ON b.user_id = u.id
+       WHERE b.coach_id = $1 AND b.booking_date = $2 AND b.status NOT IN ('cancelled', 'declined')`,
       [id, date]
     );
     
@@ -680,7 +682,30 @@ app.get('/api/coaches/:id/slots/:date', async (req, res) => {
       if (slot) {
         slot.available = false;
         slot.bookedBy = booking.user_id;
-        slot.bookingId = booking.id; // Include booking ID for cancellation
+        slot.bookingId = booking.id;
+        slot.userName = booking.user_name || 'Client';
+        slot.status = booking.status;
+        slot.notes = booking.notes;
+      }
+    }
+    
+    // Check for blocked slots
+    const blockedSlots = await pool.query(
+      'SELECT blocked_time, reason FROM blocked_slots WHERE coach_id = $1 AND blocked_date = $2',
+      [id, date]
+    );
+    
+    // Mark blocked slots
+    for (const blocked of blockedSlots.rows) {
+      const blockedTime = typeof blocked.blocked_time === 'string'
+        ? blocked.blocked_time.substring(0, 5)
+        : `${blocked.blocked_time.hours.toString().padStart(2, '0')}:00`;
+      
+      const slot = slots.find(s => s.time === blockedTime);
+      if (slot && slot.available) {
+        slot.available = false;
+        slot.blocked = true;
+        slot.blockReason = blocked.reason;
       }
     }
     
@@ -688,6 +713,111 @@ app.get('/api/coaches/:id/slots/:date', async (req, res) => {
   } catch (error) {
     console.error('Error fetching slots:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============ BLOCKED SLOTS ENDPOINTS ============
+
+// POST /api/coaches/:id/block - Block a time slot
+app.post('/api/coaches/:id/block', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, time, reason } = req.body;
+    
+    // Check if already blocked
+    const existing = await pool.query(
+      'SELECT id FROM blocked_slots WHERE coach_id = $1 AND blocked_date = $2 AND blocked_time = $3',
+      [id, date, time]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.json({ success: true, message: 'Slot already blocked' });
+    }
+    
+    await pool.query(
+      'INSERT INTO blocked_slots (coach_id, blocked_date, blocked_time, reason) VALUES ($1, $2, $3, $4)',
+      [id, date, time, reason || 'Blocked']
+    );
+    
+    res.json({ success: true, message: 'Slot blocked successfully' });
+  } catch (error) {
+    console.error('Error blocking slot:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/coaches/:id/block - Unblock a time slot
+app.delete('/api/coaches/:id/block', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, time } = req.body;
+    
+    await pool.query(
+      'DELETE FROM blocked_slots WHERE coach_id = $1 AND blocked_date = $2 AND blocked_time = $3',
+      [id, date, time]
+    );
+    
+    res.json({ success: true, message: 'Slot unblocked successfully' });
+  } catch (error) {
+    console.error('Error unblocking slot:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/coaches/:id/block-day - Block entire day
+app.post('/api/coaches/:id/block-day', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, reason } = req.body;
+    
+    // Get coach availability for this day to know which slots to block
+    const selectedDate = new Date(date);
+    const dayOfWeek = selectedDate.getDay();
+    
+    const availability = await pool.query(
+      'SELECT start_time, end_time FROM coach_availability WHERE coach_id = $1 AND day_of_week = $2 AND is_available = true',
+      [id, dayOfWeek]
+    );
+    
+    if (availability.rows.length === 0) {
+      return res.json({ success: true, message: 'No slots to block on this day' });
+    }
+    
+    const { start_time, end_time } = availability.rows[0];
+    const startHour = parseInt(start_time.split(':')[0]);
+    const endHour = parseInt(end_time.split(':')[0]);
+    
+    // Block all slots for the day
+    for (let hour = startHour; hour < endHour; hour++) {
+      const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+      await pool.query(
+        'INSERT INTO blocked_slots (coach_id, blocked_date, blocked_time, reason) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
+        [id, date, timeSlot, reason || 'Day blocked']
+      );
+    }
+    
+    res.json({ success: true, message: 'Day blocked successfully' });
+  } catch (error) {
+    console.error('Error blocking day:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/coaches/:id/block-day - Unblock entire day
+app.delete('/api/coaches/:id/block-day', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.body;
+    
+    await pool.query(
+      'DELETE FROM blocked_slots WHERE coach_id = $1 AND blocked_date = $2',
+      [id, date]
+    );
+    
+    res.json({ success: true, message: 'Day unblocked successfully' });
+  } catch (error) {
+    console.error('Error unblocking day:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

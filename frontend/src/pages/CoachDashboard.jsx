@@ -24,6 +24,8 @@ function CoachDashboard({ user }) {
   const [declineReason, setDeclineReason] = useState('')
   const [cancelModal, setCancelModal] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [blockModal, setBlockModal] = useState(null)
+  const [blockReason, setBlockReason] = useState('')
   
   // Calendar state
   const [weekDates, setWeekDates] = useState([])
@@ -184,15 +186,12 @@ function CoachDashboard({ user }) {
     const fetchCalendarSlots = async () => {
       if (!selectedDate) return
       try {
-        const res = await fetch(`${API_BASE}/coaches/1/slots?date=${selectedDate}`)
+        const res = await fetch(`${API_BASE}/coaches/1/slots/${selectedDate}`)
         const data = await res.json()
-        if (data.available) {
-          setCalendarSlots(data.slots)
-        } else {
-          setCalendarSlots([])
-        }
+        setCalendarSlots(data.slots || [])
       } catch (error) {
         console.error('Error fetching slots:', error)
+        setCalendarSlots([])
       }
     }
     fetchCalendarSlots()
@@ -215,7 +214,7 @@ function CoachDashboard({ user }) {
         setCancelReason('')
         fetchDashboardData()
         // Refresh calendar slots
-        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots?date=${selectedDate}`)
+        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots/${selectedDate}`)
         const slotsData = await slotsRes.json()
         if (slotsData.available) setCalendarSlots(slotsData.slots)
       } else {
@@ -223,6 +222,102 @@ function CoachDashboard({ user }) {
       }
     } catch (error) {
       setMessage({ text: 'Failed to cancel session', type: 'error' })
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleBlockSlot = async () => {
+    if (!blockModal) return
+    
+    try {
+      const res = await fetch(`${API_BASE}/coaches/1/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          date: selectedDate, 
+          time: blockModal.time, 
+          reason: blockReason || 'Blocked' 
+        })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '🚫 Slot blocked', type: 'success' })
+        setBlockModal(null)
+        setBlockReason('')
+        // Refresh slots
+        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots/${selectedDate}`)
+        const slotsData = await slotsRes.json()
+        setCalendarSlots(slotsData.slots || [])
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to block slot', type: 'error' })
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleUnblockSlot = async (time) => {
+    try {
+      const res = await fetch(`${API_BASE}/coaches/1/block`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate, time })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '✅ Slot unblocked', type: 'success' })
+        // Refresh slots
+        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots/${selectedDate}`)
+        const slotsData = await slotsRes.json()
+        setCalendarSlots(slotsData.slots || [])
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to unblock slot', type: 'error' })
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleBlockDay = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/coaches/1/block-day`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate, reason: 'Day off' })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '🚫 Day blocked', type: 'success' })
+        // Refresh slots
+        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots/${selectedDate}`)
+        const slotsData = await slotsRes.json()
+        setCalendarSlots(slotsData.slots || [])
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to block day', type: 'error' })
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleUnblockDay = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/coaches/1/block-day`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '✅ Day unblocked', type: 'success' })
+        // Refresh slots
+        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots/${selectedDate}`)
+        const slotsData = await slotsRes.json()
+        setCalendarSlots(slotsData.slots || [])
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to unblock day', type: 'error' })
     }
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
@@ -751,6 +846,17 @@ function CoachDashboard({ user }) {
                 <span className="selected-date-display">
                   {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                 </span>
+                <div className="day-actions">
+                  {calendarSlots.some(s => s.blocked) ? (
+                    <button className="btn btn-small btn-secondary" onClick={handleUnblockDay}>
+                      Unblock Day
+                    </button>
+                  ) : (
+                    <button className="btn btn-small btn-warning" onClick={handleBlockDay}>
+                      Block Day
+                    </button>
+                  )}
+                </div>
               </div>
               
               {calendarSlots.length > 0 ? (
@@ -762,12 +868,17 @@ function CoachDashboard({ user }) {
                     return (
                       <div 
                         key={idx} 
-                        className={`slot-item-coach ${slot.available ? 'available' : 'booked'} ${slot.status === 'pending' ? 'pending' : ''}`}
+                        className={`slot-item-coach ${slot.available ? 'available' : slot.blocked ? 'blocked' : 'booked'} ${slot.status === 'pending' ? 'pending' : ''}`}
                       >
                         <div className="slot-time">{displayTime}</div>
                         <div className="slot-info">
                           {slot.available ? (
                             <span className="slot-status available">Available</span>
+                          ) : slot.blocked ? (
+                            <>
+                              <span className="slot-status blocked">🚫 Blocked</span>
+                              {slot.blockReason && <span className="slot-reason">{slot.blockReason}</span>}
+                            </>
                           ) : (
                             <>
                               <span className="slot-client">👤 {slot.userName || 'Client'}</span>
@@ -779,20 +890,38 @@ function CoachDashboard({ user }) {
                             </>
                           )}
                         </div>
-                        {!slot.available && slot.bookingId && (
-                          <button 
-                            className="btn btn-danger btn-small"
-                            onClick={() => setCancelModal({
-                              id: slot.bookingId,
-                              user_name: slot.userName,
-                              booking_date: selectedDate,
-                              booking_time: slot.time,
-                              status: slot.status
-                            })}
-                          >
-                            Cancel
-                          </button>
-                        )}
+                        <div className="slot-actions">
+                          {slot.available && (
+                            <button 
+                              className="btn btn-warning btn-small"
+                              onClick={() => setBlockModal({ time: slot.time, display: displayTime })}
+                            >
+                              Block
+                            </button>
+                          )}
+                          {slot.blocked && (
+                            <button 
+                              className="btn btn-secondary btn-small"
+                              onClick={() => handleUnblockSlot(slot.time)}
+                            >
+                              Unblock
+                            </button>
+                          )}
+                          {!slot.available && !slot.blocked && slot.bookingId && (
+                            <button 
+                              className="btn btn-danger btn-small"
+                              onClick={() => setCancelModal({
+                                id: slot.bookingId,
+                                user_name: slot.userName,
+                                booking_date: selectedDate,
+                                booking_time: slot.time,
+                                status: slot.status
+                              })}
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -809,6 +938,10 @@ function CoachDashboard({ user }) {
               <div className="legend-item">
                 <span className="legend-dot available"></span>
                 <span>Available</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot blocked"></span>
+                <span>Blocked</span>
               </div>
               <div className="legend-item">
                 <span className="legend-dot pending"></span>
@@ -973,6 +1106,46 @@ function CoachDashboard({ user }) {
                 onClick={handleDeclineBooking}
               >
                 Decline Booking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block Slot Modal */}
+      {blockModal && (
+        <div className="confirm-overlay" onClick={() => { setBlockModal(null); setBlockReason(''); }}>
+          <div className="decline-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="decline-modal-header">
+              <h3>🚫 Block Time Slot</h3>
+              <p>Block <strong>{blockModal.display}</strong> on {new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+            </div>
+            
+            <div className="decline-input-group">
+              <label>Reason (optional)</label>
+              <input
+                type="text"
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder="e.g., Personal time, Meeting, etc."
+                maxLength={100}
+              />
+            </div>
+            
+            <p className="block-info">⚠️ This slot will appear unavailable to clients.</p>
+            
+            <div className="decline-modal-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => { setBlockModal(null); setBlockReason(''); }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-warning"
+                onClick={handleBlockSlot}
+              >
+                Block Slot
               </button>
             </div>
           </div>
