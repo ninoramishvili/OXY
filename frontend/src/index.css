@@ -3891,6 +3891,219 @@ body {
   color: var(--text-muted);
 }
 
+/* Earnings Section */
+.earnings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.earnings-summary {
+  text-align: center;
+  padding: var(--space-xl);
+  background: linear-gradient(135deg, #D5E8D4 0%, #E8F5E9 100%);
+  border: 2px solid #22C55E;
+  border-radius: var(--radius-lg);
+}
+
+.earnings-big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.earnings-label {
+  font-size: 1rem;
+  color: #166534;
+  font-weight: 500;
+}
+
+.earnings-amount {
+  font-size: 4rem;
+  font-weight: 700;
+  color: #166534;
+}
+
+.earnings-detail {
+  font-size: 0.9rem;
+  color: #166534;
+  opacity: 0.8;
+}
+
+.earnings-breakdown {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.earnings-breakdown h3 {
+  margin: 0 0 var(--space-lg);
+  color: var(--text-dark);
+}
+
+.earnings-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+}
+
+.earnings-stat {
+  background: var(--background);
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.earnings-stat.highlight {
+  background: linear-gradient(135deg, #EDE9FE 0%, #F3E8FF 100%);
+  border: 2px solid var(--primary);
+}
+
+.earnings-stat .stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.earnings-stat .stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.earnings-history {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.earnings-history h3 {
+  margin: 0 0 var(--space-lg);
+  color: var(--text-dark);
+}
+
+.earnings-table .amount {
+  font-weight: 600;
+  color: #166534;
+}
+
+/* Availability Section */
+.availability-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.availability-header {
+  text-align: center;
+}
+
+.availability-header h3 {
+  margin: 0 0 var(--space-xs);
+  color: var(--text-dark);
+}
+
+.availability-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.availability-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-sm);
+}
+
+.availability-day {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  text-align: center;
+  transition: all var(--transition);
+}
+
+.availability-day.available {
+  border-color: #22C55E;
+  background: linear-gradient(135deg, #D5E8D4 0%, #E8F5E9 100%);
+}
+
+.availability-day.unavailable {
+  opacity: 0.6;
+}
+
+.day-name {
+  display: block;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: var(--space-sm);
+  font-size: 0.9rem;
+}
+
+.day-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.day-hours .hours {
+  font-size: 0.85rem;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.day-hours .status {
+  font-size: 0.75rem;
+  color: #166534;
+  font-weight: 600;
+}
+
+.day-hours .status.unavailable {
+  color: var(--text-muted);
+}
+
+.availability-info {
+  text-align: center;
+  padding: var(--space-md);
+  background: var(--background);
+  border-radius: var(--radius-md);
+}
+
+.availability-info p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .earnings-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .availability-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .earnings-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .availability-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .earnings-amount {
+    font-size: 3rem;
+  }
+}
+
 /* Coach Avatar */
 .coach-avatar {
   background: linear-gradient(135deg, var(--primary) 0%, var(--coral) 100%) !important;

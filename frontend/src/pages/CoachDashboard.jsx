@@ -11,7 +11,9 @@ function CoachDashboard({ user }) {
   const [bookings, setBookings] = useState([])
   const [feedbacks, setFeedbacks] = useState([])
   const [rating, setRating] = useState({ averageRating: 0, totalReviews: 0 })
-  const [stats, setStats] = useState({ totalSessions: 0, upcomingSessions: 0, completedSessions: 0 })
+  const [stats, setStats] = useState({ totalSessions: 0, upcomingSessions: 0, completedSessions: 0, totalEarnings: 0 })
+  const [availability, setAvailability] = useState([])
+  const [coach, setCoach] = useState(null)
   const [commentModal, setCommentModal] = useState(null)
   const [commentText, setCommentText] = useState('')
   const [bookingComments, setBookingComments] = useState({})
@@ -28,10 +30,22 @@ function CoachDashboard({ user }) {
 
   const fetchDashboardData = async () => {
     try {
+      // Fetch coach info
+      const coachRes = await fetch(`${API_BASE}/coaches`)
+      const coachData = await coachRes.json()
+      if (coachData.length > 0) {
+        setCoach(coachData[0])
+      }
+      
       // Fetch coach bookings (coach_id = 1 for now since we have single coach)
       const bookingsRes = await fetch(`${API_BASE}/bookings/coach/1`)
       const bookingsData = await bookingsRes.json()
       setBookings(bookingsData)
+      
+      // Fetch coach availability
+      const availRes = await fetch(`${API_BASE}/coaches/1/availability`)
+      const availData = await availRes.json()
+      setAvailability(availData)
       
       // Fetch feedbacks
       const feedbackData = await getCoachFeedback(1)
@@ -50,15 +64,20 @@ function CoachDashboard({ user }) {
         return bookingDate >= today && b.status !== 'cancelled'
       }).length
       
-      const completed = bookingsData.filter(b => {
+      const completedBookings = bookingsData.filter(b => {
         const bookingDate = new Date(b.booking_date)
         return bookingDate < today && b.status !== 'cancelled'
-      }).length
+      })
+      
+      // Calculate earnings (price per session * completed sessions)
+      const pricePerSession = coachData[0]?.price || 75
+      const totalEarnings = completedBookings.length * pricePerSession
       
       setStats({
         totalSessions: bookingsData.filter(b => b.status !== 'cancelled').length,
         upcomingSessions: upcoming,
-        completedSessions: completed
+        completedSessions: completedBookings.length,
+        totalEarnings
       })
       
       // Check which past bookings have coach comments
@@ -156,10 +175,10 @@ function CoachDashboard({ user }) {
       {/* Stats Cards */}
       <div className="dashboard-stats">
         <div className="stat-card">
-          <div className="stat-icon">⭐</div>
+          <div className="stat-icon">💰</div>
           <div className="stat-info">
-            <span className="stat-number">{rating.totalReviews > 0 ? rating.averageRating : '5.0'}</span>
-            <span className="stat-label">Average Rating</span>
+            <span className="stat-number">${stats.totalEarnings}</span>
+            <span className="stat-label">Total Earnings</span>
           </div>
         </div>
         <div className="stat-card">
@@ -177,10 +196,10 @@ function CoachDashboard({ user }) {
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💬</div>
+          <div className="stat-icon">⭐</div>
           <div className="stat-info">
-            <span className="stat-number">{rating.totalReviews}</span>
-            <span className="stat-label">Client Reviews</span>
+            <span className="stat-number">{rating.totalReviews > 0 ? rating.averageRating : '5.0'}</span>
+            <span className="stat-label">Rating ({rating.totalReviews} reviews)</span>
           </div>
         </div>
       </div>
@@ -198,6 +217,18 @@ function CoachDashboard({ user }) {
           onClick={() => setActiveTab('bookings')}
         >
           📅 Bookings ({stats.totalSessions})
+        </button>
+        <button 
+          className={`dashboard-tab ${activeTab === 'earnings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('earnings')}
+        >
+          💰 Earnings
+        </button>
+        <button 
+          className={`dashboard-tab ${activeTab === 'availability' ? 'active' : ''}`}
+          onClick={() => setActiveTab('availability')}
+        >
+          🕐 Availability
         </button>
         <button 
           className={`dashboard-tab ${activeTab === 'reviews' ? 'active' : ''}`}
@@ -348,6 +379,106 @@ function CoachDashboard({ user }) {
               ) : (
                 <p className="empty-message">No past sessions</p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Earnings Tab */}
+        {activeTab === 'earnings' && (
+          <div className="earnings-section">
+            <div className="earnings-summary">
+              <div className="earnings-big">
+                <span className="earnings-label">Total Earnings</span>
+                <span className="earnings-amount">${stats.totalEarnings}</span>
+                <span className="earnings-detail">from {stats.completedSessions} completed sessions</span>
+              </div>
+            </div>
+            
+            <div className="earnings-breakdown">
+              <h3>💵 Earnings Breakdown</h3>
+              <div className="earnings-stats">
+                <div className="earnings-stat">
+                  <span className="stat-label">Price per Session</span>
+                  <span className="stat-value">${coach?.price || 75}</span>
+                </div>
+                <div className="earnings-stat">
+                  <span className="stat-label">Completed Sessions</span>
+                  <span className="stat-value">{stats.completedSessions}</span>
+                </div>
+                <div className="earnings-stat">
+                  <span className="stat-label">Pending Sessions</span>
+                  <span className="stat-value">{stats.upcomingSessions}</span>
+                </div>
+                <div className="earnings-stat highlight">
+                  <span className="stat-label">Projected Earnings</span>
+                  <span className="stat-value">${stats.totalEarnings + (stats.upcomingSessions * (coach?.price || 75))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Monthly Breakdown */}
+            <div className="earnings-history">
+              <h3>📊 Session History</h3>
+              {bookings.filter(b => b.status !== 'cancelled').length > 0 ? (
+                <div className="earnings-table">
+                  <div className="table-header">
+                    <span>Date</span>
+                    <span>Client</span>
+                    <span>Status</span>
+                    <span>Amount</span>
+                  </div>
+                  {bookings
+                    .filter(b => b.status !== 'cancelled')
+                    .slice(0, 10)
+                    .map(booking => (
+                      <div key={booking.id} className="table-row">
+                        <span>{formatDate(booking.booking_date)}</span>
+                        <span>{booking.user_name || 'Client'}</span>
+                        <span className={`status-badge ${isPastBooking(booking) ? 'completed' : 'pending'}`}>
+                          {isPastBooking(booking) ? 'Completed' : 'Upcoming'}
+                        </span>
+                        <span className="amount">${coach?.price || 75}</span>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <p className="empty-message">No sessions yet</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Availability Tab */}
+        {activeTab === 'availability' && (
+          <div className="availability-section">
+            <div className="availability-header">
+              <h3>🕐 Your Weekly Availability</h3>
+              <p>Clients can book sessions during these hours</p>
+            </div>
+            
+            <div className="availability-grid">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+                const dayAvail = availability.find(a => a.day_of_week.toLowerCase() === day.toLowerCase())
+                return (
+                  <div key={day} className={`availability-day ${dayAvail ? 'available' : 'unavailable'}`}>
+                    <span className="day-name">{day}</span>
+                    {dayAvail ? (
+                      <div className="day-hours">
+                        <span className="hours">{dayAvail.start_time?.slice(0, 5)} - {dayAvail.end_time?.slice(0, 5)}</span>
+                        <span className="status">✓ Available</span>
+                      </div>
+                    ) : (
+                      <div className="day-hours">
+                        <span className="status unavailable">Not Available</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="availability-info">
+              <p>📧 Contact admin to update your availability</p>
             </div>
           </div>
         )}
