@@ -1016,7 +1016,7 @@ app.get('/api/feedback/user/:userId', async (req, res) => {
 // POST /api/coach-comments - Coach submits comment for a session
 app.post('/api/coach-comments', async (req, res) => {
   try {
-    const { bookingId, coachId, userId, comment } = req.body;
+    const { bookingId, coachId, userId, comment, privateNotes } = req.body;
     
     // Check if comment already exists for this booking
     const existing = await pool.query(
@@ -1027,18 +1027,18 @@ app.post('/api/coach-comments', async (req, res) => {
     if (existing.rows.length > 0) {
       // Update existing comment
       const result = await pool.query(
-        `UPDATE coach_comments SET comment = $1, is_read = FALSE, created_at = CURRENT_TIMESTAMP
-         WHERE booking_id = $2 RETURNING *`,
-        [comment, bookingId]
+        `UPDATE coach_comments SET comment = $1, private_notes = $2, is_read = FALSE, created_at = CURRENT_TIMESTAMP
+         WHERE booking_id = $3 RETURNING *`,
+        [comment, privateNotes || null, bookingId]
       );
       return res.json({ success: true, comment: result.rows[0], updated: true });
     }
     
     const result = await pool.query(
-      `INSERT INTO coach_comments (booking_id, coach_id, user_id, comment)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO coach_comments (booking_id, coach_id, user_id, comment, private_notes)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [bookingId, coachId, userId, comment]
+      [bookingId, coachId, userId, comment, privateNotes || null]
     );
     
     res.status(201).json({ success: true, comment: result.rows[0] });
@@ -1062,11 +1062,12 @@ app.get('/api/coach-comments/booking/:bookingId', async (req, res) => {
   }
 });
 
-// GET /api/coach-comments/user/:userId - Get all comments for a user
+// GET /api/coach-comments/user/:userId - Get all comments for a user (excludes private notes)
 app.get('/api/coach-comments/user/:userId', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT cc.*, c.name as coach_name, b.booking_date, b.booking_time
+      `SELECT cc.id, cc.booking_id, cc.coach_id, cc.user_id, cc.comment, cc.is_read, cc.created_at, 
+              c.name as coach_name, b.booking_date, b.booking_time
        FROM coach_comments cc
        JOIN coaches c ON cc.coach_id = c.id
        JOIN bookings b ON cc.booking_id = b.id
