@@ -5,6 +5,7 @@ import { login } from '../api'
 function Login({ onLogin }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +22,7 @@ function Login({ onLogin }) {
 
       if (data.success) {
         setSuccess('Login successful! Redirecting...')
-        onLogin(data.user)
+        onLogin(data.user, rememberMe)
         setTimeout(() => navigate('/'), 1500)
       } else {
         setError(data.message || 'Login failed')
@@ -67,6 +68,19 @@ function Login({ onLogin }) {
               disabled={loading}
             />
           </div>
+
+          <div className="form-group-inline">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={loading}
+              />
+              <span className="checkbox-custom"></span>
+              Remember me
+            </label>
+          </div>
           
           <button 
             type="submit" 
@@ -79,10 +93,6 @@ function Login({ onLogin }) {
         
         <p className="auth-switch">
           Don't have an account? <Link to="/register">Sign up here</Link>
-        </p>
-        
-        <p style={{ textAlign: 'center', marginTop: '0.5rem', color: '#888', fontSize: '0.8rem' }}>
-          Demo: username "admin", password "password"
         </p>
       </div>
     </div>

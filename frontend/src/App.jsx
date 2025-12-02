@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { CartProvider } from './context/CartContext'
 import Header from './components/Header'
@@ -17,12 +17,37 @@ import Checkout from './pages/Checkout'
 function App() {
   const [user, setUser] = useState(null)
 
-  const handleLogin = (userData) => {
+  // Check for stored user session on app load
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user')
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser))
+      } catch (e) {
+        // Invalid stored data, clear it
+        localStorage.removeItem('user')
+        sessionStorage.removeItem('user')
+      }
+    }
+  }, [])
+
+  const handleLogin = (userData, rememberMe = false) => {
     setUser(userData)
+    // Store user based on "Remember Me" preference
+    if (rememberMe) {
+      localStorage.setItem('user', JSON.stringify(userData))
+      sessionStorage.removeItem('user')
+    } else {
+      sessionStorage.setItem('user', JSON.stringify(userData))
+      localStorage.removeItem('user')
+    }
   }
 
   const handleLogout = () => {
     setUser(null)
+    // Clear both storage types
+    localStorage.removeItem('user')
+    sessionStorage.removeItem('user')
   }
 
   const handleUpdateUser = (updatedUser) => {
