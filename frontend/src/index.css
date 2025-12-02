@@ -2722,6 +2722,29 @@ body {
   padding: var(--space-xl) var(--space-lg);
 }
 
+.checkout-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: var(--space-md);
+}
+
+.checkout-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.checkout-loading p {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
 /* Progress Steps */
 .checkout-progress {
   display: flex;

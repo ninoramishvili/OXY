@@ -10,6 +10,7 @@ function Checkout({ user }) {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
+  const [initialized, setInitialized] = useState(false)
   
   // Payment form state
   const [paymentForm, setPaymentForm] = useState({
@@ -21,6 +22,16 @@ function Checkout({ user }) {
   const [formErrors, setFormErrors] = useState({})
 
   useEffect(() => {
+    // Give cart context time to load from localStorage
+    const timer = setTimeout(() => {
+      setInitialized(true)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!initialized) return
+    
     if (!user) {
       navigate('/login')
       return
@@ -28,7 +39,7 @@ function Checkout({ user }) {
     if (cartItems.length === 0 && step !== 3) {
       navigate('/cart')
     }
-  }, [user, cartItems, navigate, step])
+  }, [user, cartItems, navigate, step, initialized])
 
   const formatCardNumber = (value) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
@@ -139,7 +150,16 @@ function Checkout({ user }) {
     card: '💳'
   }
 
-  if (!user) return null
+  if (!user || !initialized) {
+    return (
+      <div className="checkout-page">
+        <div className="checkout-loading">
+          <div className="spinner"></div>
+          <p>Loading checkout...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="checkout-page">
