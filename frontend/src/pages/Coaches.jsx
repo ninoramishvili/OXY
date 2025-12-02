@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getCoaches, getUserBookings, cancelBooking } from '../api'
+import { getCoaches, getUserBookings, cancelBooking, getCoachAverageRating, getCoachFeedback } from '../api'
 import EmbeddedBookingCalendar from '../components/EmbeddedBookingCalendar'
 
 function Coaches({ user }) {
@@ -12,6 +12,8 @@ function Coaches({ user }) {
   const [inquiryForm, setInquiryForm] = useState({ name: '', email: '', message: '' })
   const [inquirySubmitted, setInquirySubmitted] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(null)
+  const [coachRating, setCoachRating] = useState({ averageRating: 0, totalReviews: 0 })
+  const [coachFeedbacks, setCoachFeedbacks] = useState([])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -19,7 +21,16 @@ function Coaches({ user }) {
         const coachesData = await getCoaches()
         // Get the single coach
         if (coachesData.length > 0) {
-          setCoach(coachesData[0])
+          const theCoach = coachesData[0]
+          setCoach(theCoach)
+          
+          // Fetch coach rating and feedbacks
+          const [ratingData, feedbackData] = await Promise.all([
+            getCoachAverageRating(theCoach.id),
+            getCoachFeedback(theCoach.id)
+          ])
+          setCoachRating(ratingData)
+          setCoachFeedbacks(feedbackData)
         }
         
         // Fetch user's bookings if logged in
@@ -133,8 +144,8 @@ function Coaches({ user }) {
             
             <div className="coach-hero-stats">
               <div className="stat-item">
-                <span className="stat-value">⭐ {coach.rating}</span>
-                <span className="stat-label">Rating</span>
+                <span className="stat-value">⭐ {coachRating.totalReviews > 0 ? coachRating.averageRating : coach.rating}</span>
+                <span className="stat-label">{coachRating.totalReviews > 0 ? `${coachRating.totalReviews} Reviews` : 'Rating'}</span>
               </div>
               <div className="stat-item">
                 <span className="stat-value">{coach.sessions}+</span>
@@ -210,6 +221,31 @@ function Coaches({ user }) {
           <h2>About {coach.name}</h2>
           <p className="coach-bio-full">{coach.bio}</p>
         </section>
+
+        {/* Client Reviews */}
+        {coachFeedbacks.length > 0 && (
+          <section className="coach-section">
+            <h2>⭐ Client Reviews ({coachFeedbacks.length})</h2>
+            <div className="coach-reviews-list">
+              {coachFeedbacks.slice(0, 5).map(feedback => (
+                <div key={feedback.id} className="coach-review-card">
+                  <div className="review-header">
+                    <span className="reviewer-name">{feedback.user_name}</span>
+                    <span className="review-stars">
+                      {'★'.repeat(feedback.rating)}{'☆'.repeat(5 - feedback.rating)}
+                    </span>
+                  </div>
+                  {feedback.comment && (
+                    <p className="review-comment">"{feedback.comment}"</p>
+                  )}
+                  <span className="review-date">
+                    {new Date(feedback.booking_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* What to Expect */}
         <section className="coach-section">

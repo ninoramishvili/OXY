@@ -808,6 +808,50 @@ body {
   font-size: 0.9rem;
 }
 
+/* Coach Reviews */
+.coach-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.coach-review-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.reviewer-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.review-stars {
+  color: #F59E0B;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.review-comment {
+  color: var(--text-muted);
+  font-style: italic;
+  margin: var(--space-sm) 0;
+  line-height: 1.6;
+}
+
+.review-date {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
 /* Session Info Grid */
 .session-info-grid {
   display: grid;
