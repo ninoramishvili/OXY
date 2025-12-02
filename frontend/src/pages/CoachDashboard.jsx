@@ -45,7 +45,7 @@ function CoachDashboard({ user }) {
       // Fetch coach availability
       const availRes = await fetch(`${API_BASE}/coaches/1/availability`)
       const availData = await availRes.json()
-      setAvailability(availData)
+      setAvailability(Array.isArray(availData) ? availData : [])
       
       // Fetch feedbacks
       const feedbackData = await getCoachFeedback(1)
@@ -458,7 +458,7 @@ function CoachDashboard({ user }) {
             
             <div className="availability-grid">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                const dayAvail = availability.find(a => a.day_of_week.toLowerCase() === day.toLowerCase())
+                const dayAvail = availability.find(a => a.day_of_week && a.day_of_week.toLowerCase() === day.toLowerCase())
                 return (
                   <div key={day} className={`availability-day ${dayAvail ? 'available' : 'unavailable'}`}>
                     <span className="day-name">{day}</span>
