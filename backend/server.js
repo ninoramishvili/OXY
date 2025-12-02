@@ -1659,6 +1659,178 @@ app.delete('/api/admin/bookings/:id', async (req, res) => {
   }
 });
 
+// ============ PRODUCTIVITY - CATEGORIES ============
+
+// GET /api/categories/:userId - Get user's categories
+app.get('/api/categories/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM task_categories WHERE user_id = $1 ORDER BY name',
+      [req.params.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/categories - Create category
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { userId, name, icon, color } = req.body;
+    const result = await pool.query(
+      'INSERT INTO task_categories (user_id, name, icon, color) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, name, icon || '📋', color || '#6B7280']
+    );
+    res.status(201).json({ success: true, category: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ PRODUCTIVITY - TASKS ============
+
+// GET /api/tasks/:userId - Get all user's tasks
+app.get('/api/tasks/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1
+      ORDER BY t.created_at DESC
+    `, [req.params.userId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/tasks/:userId/date/:date - Get tasks for specific date
+app.get('/api/tasks/:userId/date/:date', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date = $2
+      ORDER BY t.scheduled_time ASC
+    `, [req.params.userId, req.params.date]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/tasks/:userId/backlog - Get backlog tasks (not scheduled)
+app.get('/api/tasks/:userId/backlog', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.status = 'backlog'
+      ORDER BY 
+        CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+        t.created_at DESC
+    `, [req.params.userId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching backlog:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/tasks - Create task
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const { userId, title, description, categoryId, priority, estimatedMinutes } = req.body;
+    const result = await pool.query(
+      `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30]
+    );
+    res.status(201).json({ success: true, task: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/tasks/:id - Update task
+app.put('/api/tasks/:id', async (req, res) => {
+  try {
+    const { title, description, categoryId, priority, estimatedMinutes, status, scheduledDate, scheduledTime } = req.body;
+    await pool.query(
+      `UPDATE tasks SET title = $1, description = $2, category_id = $3, priority = $4, 
+       estimated_minutes = $5, status = $6, scheduled_date = $7, scheduled_time = $8 WHERE id = $9`,
+      [title, description, categoryId, priority, estimatedMinutes, status, scheduledDate, scheduledTime, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/tasks/:id/schedule - Schedule task to a date/time
+app.put('/api/tasks/:id/schedule', async (req, res) => {
+  try {
+    const { date, time } = req.body;
+    await pool.query(
+      `UPDATE tasks SET scheduled_date = $1, scheduled_time = $2, status = 'planned' WHERE id = $3`,
+      [date, time, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error scheduling task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/tasks/:id/complete - Mark task complete
+app.put('/api/tasks/:id/complete', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error completing task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/tasks/:id/unschedule - Move task back to backlog
+app.put('/api/tasks/:id/unschedule', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE tasks SET scheduled_date = NULL, scheduled_time = NULL, status = 'backlog' WHERE id = $1`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error unscheduling task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/tasks/:id - Delete task
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);

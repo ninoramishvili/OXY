@@ -206,6 +206,7 @@ function Header({ user, onLogout }) {
               <Link to="/" className="nav-link">Home</Link>
               <Link to="/courses" className="nav-link">Courses</Link>
               <Link to="/coaches" className="nav-link">Coach</Link>
+              <Link to="/productivity" className="nav-link">Productivity</Link>
               <Link to="/about" className="nav-link">About</Link>
               
               {/* Cart Icon */}

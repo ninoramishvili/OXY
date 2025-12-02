@@ -15,6 +15,7 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import CoachDashboard from './pages/CoachDashboard'
 import AdminDashboard from './pages/AdminDashboard'
+import Productivity from './pages/Productivity'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -74,6 +75,7 @@ function App() {
             <Route path="/checkout" element={<Checkout user={user} />} />
             <Route path="/coach-dashboard" element={<CoachDashboard user={user} />} />
             <Route path="/admin" element={<AdminDashboard user={user} />} />
+            <Route path="/productivity" element={<Productivity user={user} />} />
           </Routes>
         </main>
         <Footer />
