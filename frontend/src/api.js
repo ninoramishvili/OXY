@@ -358,5 +358,45 @@ export const getUserFeedback = async (userId) => {
   return response.json();
 };
 
+// ============ COACH COMMENTS ============
+
+export const submitCoachComment = async (bookingId, coachId, userId, comment) => {
+  const response = await fetch(`${API_BASE}/coach-comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId, coachId, userId, comment })
+  });
+  return response.json();
+};
+
+export const getBookingComment = async (bookingId) => {
+  const response = await fetch(`${API_BASE}/coach-comments/booking/${bookingId}`);
+  return response.json();
+};
+
+export const getUserCoachComments = async (userId) => {
+  const response = await fetch(`${API_BASE}/coach-comments/user/${userId}`);
+  return response.json();
+};
+
+export const getUnreadCommentCount = async (userId) => {
+  const response = await fetch(`${API_BASE}/coach-comments/user/${userId}/unread`);
+  return response.json();
+};
+
+export const markCommentAsRead = async (commentId) => {
+  const response = await fetch(`${API_BASE}/coach-comments/${commentId}/read`, {
+    method: 'PUT'
+  });
+  return response.json();
+};
+
+export const markAllCommentsAsRead = async (userId) => {
+  const response = await fetch(`${API_BASE}/coach-comments/user/${userId}/read-all`, {
+    method: 'PUT'
+  });
+  return response.json();
+};
+
 export default api;
 

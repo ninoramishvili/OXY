@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useCart } from '../context/CartContext'
+import { getUnreadCommentCount } from '../api'
 
 function Header({ user, onLogout }) {
   const { getCartCount } = useCart()
   const cartCount = getCartCount()
+  const [unreadCount, setUnreadCount] = useState(0)
   
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
@@ -20,6 +22,24 @@ function Header({ user, onLogout }) {
       localStorage.setItem('theme', 'light')
     }
   }, [darkMode])
+
+  // Fetch unread comment count for regular users
+  useEffect(() => {
+    if (user && user.role !== 'coach') {
+      const fetchUnread = async () => {
+        try {
+          const data = await getUnreadCommentCount(user.id)
+          setUnreadCount(data.unreadCount || 0)
+        } catch (error) {
+          console.error('Error fetching unread count:', error)
+        }
+      }
+      fetchUnread()
+      // Poll every 30 seconds
+      const interval = setInterval(fetchUnread, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [user])
 
   const toggleTheme = () => {
     setDarkMode(!darkMode)
@@ -75,7 +95,10 @@ function Header({ user, onLogout }) {
                 </Link>
               ) : (
                 <Link to="/profile" className="user-profile-link">
-                  <span className="user-avatar">{(user.name || user.username || 'U')[0].toUpperCase()}</span>
+                  <span className="user-avatar">
+                    {(user.name || user.username || 'U')[0].toUpperCase()}
+                    {unreadCount > 0 && <span className="notification-dot"></span>}
+                  </span>
                   <span className="user-name">{user.name || user.username}</span>
                 </Link>
               )}

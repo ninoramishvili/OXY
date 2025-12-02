@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getCoachFeedback, getCoachAverageRating } from '../api'
+import { getCoachFeedback, getCoachAverageRating, submitCoachComment, getBookingComment } from '../api'
 
 const API_BASE = 'http://localhost:5000/api'
 
@@ -12,6 +12,10 @@ function CoachDashboard({ user }) {
   const [feedbacks, setFeedbacks] = useState([])
   const [rating, setRating] = useState({ averageRating: 0, totalReviews: 0 })
   const [stats, setStats] = useState({ totalSessions: 0, upcomingSessions: 0, completedSessions: 0 })
+  const [commentModal, setCommentModal] = useState(null)
+  const [commentText, setCommentText] = useState('')
+  const [bookingComments, setBookingComments] = useState({})
+  const [message, setMessage] = useState({ text: '', type: '' })
 
   useEffect(() => {
     if (!user || user.role !== 'coach') {
@@ -57,11 +61,48 @@ function CoachDashboard({ user }) {
         completedSessions: completed
       })
       
+      // Check which past bookings have coach comments
+      const commentsStatus = {}
+      for (const booking of bookingsData.filter(b => b.status !== 'cancelled')) {
+        const bookingDate = new Date(booking.booking_date)
+        if (bookingDate < today) {
+          const result = await getBookingComment(booking.id)
+          commentsStatus[booking.id] = result.hasComment ? result.comment : null
+        }
+      }
+      setBookingComments(commentsStatus)
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmitComment = async () => {
+    if (!commentModal || !commentText.trim()) return
+    
+    try {
+      const result = await submitCoachComment(
+        commentModal.id,
+        1, // coach_id
+        commentModal.user_id,
+        commentText.trim()
+      )
+      
+      if (result.success) {
+        setMessage({ text: '✅ Comment sent to client!', type: 'success' })
+        setBookingComments(prev => ({ ...prev, [commentModal.id]: result.comment }))
+        setCommentModal(null)
+        setCommentText('')
+      } else {
+        setMessage({ text: 'Failed to send comment', type: 'error' })
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to send comment', type: 'error' })
+    }
+    
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
 
   const formatDate = (dateStr) => {
@@ -267,7 +308,7 @@ function CoachDashboard({ user }) {
                     <span>Time</span>
                     <span>Client</span>
                     <span>Notes</span>
-                    <span>Status</span>
+                    <span>Action</span>
                   </div>
                   {bookings
                     .filter(b => isPastBooking(b) && b.status !== 'cancelled')
@@ -278,7 +319,29 @@ function CoachDashboard({ user }) {
                         <span>{formatTime(booking.booking_time)}</span>
                         <span>{booking.user_name || 'Client'}</span>
                         <span className="notes-cell">{booking.notes || '-'}</span>
-                        <span className="status-badge completed">Completed</span>
+                        <span>
+                          {bookingComments[booking.id] ? (
+                            <button 
+                              className="btn btn-small btn-secondary"
+                              onClick={() => {
+                                setCommentModal(booking)
+                                setCommentText(bookingComments[booking.id].comment || '')
+                              }}
+                            >
+                              ✏️ Edit
+                            </button>
+                          ) : (
+                            <button 
+                              className="btn btn-small btn-primary"
+                              onClick={() => {
+                                setCommentModal(booking)
+                                setCommentText('')
+                              }}
+                            >
+                              💬 Comment
+                            </button>
+                          )}
+                        </span>
                       </div>
                     ))}
                 </div>
@@ -335,6 +398,58 @@ function CoachDashboard({ user }) {
           </div>
         )}
       </div>
+
+      {/* Message Toast */}
+      {message.text && (
+        <div className={`toast-message ${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Comment Modal */}
+      {commentModal && (
+        <div className="confirm-overlay" onClick={() => { setCommentModal(null); setCommentText(''); }}>
+          <div className="comment-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="comment-modal-header">
+              <h3>💬 Send Feedback to Client</h3>
+              <p>Leave a comment for <strong>{commentModal.user_name || 'Client'}</strong></p>
+            </div>
+            
+            <div className="comment-session-info">
+              <p>📅 Session: {formatDate(commentModal.booking_date)}</p>
+              <p>🕐 Time: {formatTime(commentModal.booking_time)}</p>
+            </div>
+            
+            <div className="comment-input-group">
+              <label>Your Feedback</label>
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Share your thoughts, recommendations, or notes from the session..."
+                rows={5}
+                maxLength={1000}
+              />
+              <span className="char-count">{commentText.length}/1000</span>
+            </div>
+            
+            <div className="comment-modal-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => { setCommentModal(null); setCommentText(''); }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={handleSubmitComment}
+                disabled={!commentText.trim()}
+              >
+                {bookingComments[commentModal.id] ? 'Update Comment' : 'Send Comment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

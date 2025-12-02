@@ -244,6 +244,19 @@ body {
   justify-content: center;
   font-weight: 700;
   font-size: 0.9rem;
+  position: relative;
+}
+
+.notification-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  background: #DC2626;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  animation: pulse 2s infinite;
 }
 
 .user-name {
@@ -2259,6 +2272,88 @@ body {
   justify-content: flex-end;
 }
 
+/* Tab Badge */
+.tab-badge {
+  background: #DC2626;
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  font-weight: 700;
+}
+
+/* Coach Comments List */
+.coach-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.coach-comment-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  position: relative;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.coach-comment-card:hover {
+  border-color: var(--primary);
+}
+
+.coach-comment-card.unread {
+  background: linear-gradient(135deg, #EDE9FE 0%, #F3E8FF 100%);
+  border-color: var(--primary);
+}
+
+.unread-badge {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  background: var(--primary);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.coach-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.comment-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.comment-session-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.comment-text {
+  color: var(--text-dark);
+  line-height: 1.6;
+  margin: 0;
+  padding: var(--space-sm);
+  background: var(--background);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary);
+}
+
 .btn-cancel {
   background: #FEE2E2;
   color: #DC2626;
@@ -3799,6 +3894,120 @@ body {
 /* Coach Avatar */
 .coach-avatar {
   background: linear-gradient(135deg, var(--primary) 0%, var(--coral) 100%) !important;
+}
+
+/* Comment Modal */
+.comment-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 500px;
+  width: 90%;
+  border: 2px solid var(--border);
+}
+
+.comment-modal-header {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+}
+
+.comment-modal-header h3 {
+  margin: 0 0 var(--space-xs);
+  color: var(--text-dark);
+}
+
+.comment-modal-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.comment-session-info {
+  background: var(--background);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.comment-session-info p {
+  margin: var(--space-xs) 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.comment-input-group {
+  margin-bottom: var(--space-lg);
+}
+
+.comment-input-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-dark);
+}
+
+.comment-input-group textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.comment-input-group textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.comment-input-group .char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.comment-modal-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+}
+
+/* Toast Message */
+.toast-message {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  z-index: 3000;
+  animation: slideIn 0.3s ease;
+}
+
+.toast-message.success {
+  background: #D5E8D4;
+  color: #166534;
+  border: 2px solid #22C55E;
+}
+
+.toast-message.error {
+  background: #FEE2E2;
+  color: #B91C1C;
+  border: 2px solid #DC2626;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Responsive */

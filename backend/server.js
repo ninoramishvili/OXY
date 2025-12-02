@@ -921,6 +921,118 @@ app.get('/api/feedback/user/:userId', async (req, res) => {
   }
 });
 
+// ============ COACH COMMENTS ============
+
+// POST /api/coach-comments - Coach submits comment for a session
+app.post('/api/coach-comments', async (req, res) => {
+  try {
+    const { bookingId, coachId, userId, comment } = req.body;
+    
+    // Check if comment already exists for this booking
+    const existing = await pool.query(
+      'SELECT id FROM coach_comments WHERE booking_id = $1',
+      [bookingId]
+    );
+    
+    if (existing.rows.length > 0) {
+      // Update existing comment
+      const result = await pool.query(
+        `UPDATE coach_comments SET comment = $1, is_read = FALSE, created_at = CURRENT_TIMESTAMP
+         WHERE booking_id = $2 RETURNING *`,
+        [comment, bookingId]
+      );
+      return res.json({ success: true, comment: result.rows[0], updated: true });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO coach_comments (booking_id, coach_id, user_id, comment)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [bookingId, coachId, userId, comment]
+    );
+    
+    res.status(201).json({ success: true, comment: result.rows[0] });
+  } catch (error) {
+    console.error('Coach comment error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/coach-comments/booking/:bookingId - Get comment for a specific booking
+app.get('/api/coach-comments/booking/:bookingId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM coach_comments WHERE booking_id = $1',
+      [req.params.bookingId]
+    );
+    res.json({ hasComment: result.rows.length > 0, comment: result.rows[0] || null });
+  } catch (error) {
+    console.error('Error fetching comment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/coach-comments/user/:userId - Get all comments for a user
+app.get('/api/coach-comments/user/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT cc.*, c.name as coach_name, b.booking_date, b.booking_time
+       FROM coach_comments cc
+       JOIN coaches c ON cc.coach_id = c.id
+       JOIN bookings b ON cc.booking_id = b.id
+       WHERE cc.user_id = $1
+       ORDER BY cc.created_at DESC`,
+      [req.params.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching user comments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/coach-comments/user/:userId/unread - Get unread comment count
+app.get('/api/coach-comments/user/:userId/unread', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT COUNT(*) as count FROM coach_comments WHERE user_id = $1 AND is_read = FALSE',
+      [req.params.userId]
+    );
+    res.json({ unreadCount: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/coach-comments/:commentId/read - Mark comment as read
+app.put('/api/coach-comments/:commentId/read', async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE coach_comments SET is_read = TRUE WHERE id = $1',
+      [req.params.commentId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking comment as read:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/coach-comments/user/:userId/read-all - Mark all comments as read
+app.put('/api/coach-comments/user/:userId/read-all', async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE coach_comments SET is_read = TRUE WHERE user_id = $1',
+      [req.params.userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking all as read:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ STATS ENDPOINT ============
 
 // GET /api/stats - Get platform statistics

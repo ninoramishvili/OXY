@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getUser, updateUser, changePassword, getUserPurchases, getUserBookings, cancelBooking, getUserFavorites, removeFavorite, submitSessionFeedback, checkBookingFeedback } from '../api'
+import { getUser, updateUser, changePassword, getUserPurchases, getUserBookings, cancelBooking, getUserFavorites, removeFavorite, submitSessionFeedback, checkBookingFeedback, getUserCoachComments, markCommentAsRead, markAllCommentsAsRead } from '../api'
 
 function Profile({ user, onUpdateUser }) {
   const navigate = useNavigate()
@@ -27,6 +27,8 @@ function Profile({ user, onUpdateUser }) {
   const [feedbackModal, setFeedbackModal] = useState(null)
   const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: '' })
   const [bookingFeedbackStatus, setBookingFeedbackStatus] = useState({})
+  const [coachComments, setCoachComments] = useState([])
+  const [unreadComments, setUnreadComments] = useState(0)
 
   useEffect(() => {
     if (!user) {
@@ -57,6 +59,11 @@ function Profile({ user, onUpdateUser }) {
           }
         }
         setBookingFeedbackStatus(feedbackStatus)
+        
+        // Fetch coach comments for user
+        const commentsData = await getUserCoachComments(user.id)
+        setCoachComments(commentsData)
+        setUnreadComments(commentsData.filter(c => !c.is_read).length)
       } catch (error) {
         console.error('Error fetching profile data:', error)
         setMessage({ text: 'Failed to load profile data', type: 'error' })
@@ -193,6 +200,29 @@ function Profile({ user, onUpdateUser }) {
     }
   }
 
+  const handleMarkCommentRead = async (commentId) => {
+    try {
+      await markCommentAsRead(commentId)
+      setCoachComments(prev => prev.map(c => 
+        c.id === commentId ? { ...c, is_read: true } : c
+      ))
+      setUnreadComments(prev => Math.max(0, prev - 1))
+    } catch (error) {
+      console.error('Error marking comment as read:', error)
+    }
+  }
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllCommentsAsRead(user.id)
+      setCoachComments(prev => prev.map(c => ({ ...c, is_read: true })))
+      setUnreadComments(0)
+      showMessage('✅ All comments marked as read', 'success')
+    } catch (error) {
+      showMessage('Failed to mark as read', 'error')
+    }
+  }
+
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -270,6 +300,12 @@ function Profile({ user, onUpdateUser }) {
           onClick={() => setActiveTab('bookings')}
         >
           📅 My Bookings ({bookings.filter(b => b.status !== 'cancelled').length})
+        </button>
+        <button 
+          className={`profile-tab ${activeTab === 'feedback' ? 'active' : ''}`}
+          onClick={() => setActiveTab('feedback')}
+        >
+          💬 Coach Feedback {unreadComments > 0 && <span className="tab-badge">{unreadComments}</span>}
         </button>
         <button 
           className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
@@ -533,6 +569,54 @@ function Profile({ user, onUpdateUser }) {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Coach Feedback Tab */}
+        {activeTab === 'feedback' && (
+          <div className="profile-section">
+            <div className="section-header-profile">
+              <h2>💬 Feedback from Coach</h2>
+              {unreadComments > 0 && (
+                <button className="btn btn-secondary btn-small" onClick={handleMarkAllRead}>
+                  Mark All Read
+                </button>
+              )}
+            </div>
+            
+            {coachComments.length > 0 ? (
+              <div className="coach-comments-list">
+                {coachComments.map(comment => (
+                  <div 
+                    key={comment.id} 
+                    className={`coach-comment-card ${!comment.is_read ? 'unread' : ''}`}
+                    onClick={() => !comment.is_read && handleMarkCommentRead(comment.id)}
+                  >
+                    {!comment.is_read && <span className="unread-badge">New</span>}
+                    <div className="comment-header">
+                      <span className="coach-name">🎓 {comment.coach_name}</span>
+                      <span className="comment-date">
+                        {new Date(comment.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                    <div className="comment-session-date">
+                      📅 Session: {formatDate(comment.booking_date)} at {formatTime(comment.booking_time)}
+                    </div>
+                    <p className="comment-text">{comment.comment}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <span className="empty-icon">💬</span>
+                <h3>No feedback yet</h3>
+                <p>Coach feedback from your sessions will appear here.</p>
               </div>
             )}
           </div>
