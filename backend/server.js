@@ -664,7 +664,7 @@ app.get('/api/coaches/:id/slots/:date', async (req, res) => {
     // Check which slots are already booked
     const bookings = await pool.query(
       `SELECT id, booking_time, user_id, status FROM bookings 
-       WHERE coach_id = $1 AND booking_date = $2 AND status != 'cancelled'`,
+       WHERE coach_id = $1 AND booking_date = $2 AND status NOT IN ('cancelled', 'declined')`,
       [id, date]
     );
     
@@ -754,7 +754,7 @@ app.post('/api/bookings', async (req, res) => {
     // Check if slot is already booked
     const existing = await pool.query(
       `SELECT id FROM bookings 
-       WHERE coach_id = $1 AND booking_date = $2 AND booking_time = $3 AND status != 'cancelled'`,
+       WHERE coach_id = $1 AND booking_date = $2 AND booking_time = $3 AND status NOT IN ('cancelled', 'declined')`,
       [coachId, date, time]
     );
     
