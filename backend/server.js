@@ -914,6 +914,55 @@ app.put('/api/bookings/:id/decline', async (req, res) => {
   }
 });
 
+// PUT /api/bookings/:id/coach-cancel - Coach cancels a confirmed booking
+app.put('/api/bookings/:id/coach-cancel', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Get booking details
+    const booking = await pool.query(
+      'SELECT * FROM bookings WHERE id = $1',
+      [id]
+    );
+    
+    if (booking.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    
+    const bookingData = booking.rows[0];
+    
+    if (bookingData.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Booking is already cancelled' });
+    }
+    
+    // Update status to cancelled with reason
+    await pool.query(
+      "UPDATE bookings SET status = 'cancelled', decline_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+      [id, reason || 'Cancelled by coach']
+    );
+    
+    // Decrement coach session count if was confirmed
+    if (bookingData.status === 'confirmed') {
+      await pool.query('UPDATE coaches SET sessions = GREATEST(0, sessions - 1) WHERE id = $1', [bookingData.coach_id]);
+    }
+    
+    // Get user name for notification (to notify the user)
+    const userResult = await pool.query('SELECT name, email FROM users WHERE id = $1', [bookingData.user_id]);
+    const userName = userResult.rows[0]?.name || 'User';
+    
+    // Note: In a real app, you'd send an email notification to the user here
+    
+    res.json({ 
+      success: true, 
+      message: 'Session cancelled successfully'
+    });
+  } catch (error) {
+    console.error('Coach cancel booking error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // GET /api/bookings/pending/:coachId - Get pending bookings for a coach
 app.get('/api/bookings/pending/:coachId', async (req, res) => {
   try {

@@ -22,6 +22,47 @@ function CoachDashboard({ user }) {
   const [pendingBookings, setPendingBookings] = useState([])
   const [declineModal, setDeclineModal] = useState(null)
   const [declineReason, setDeclineReason] = useState('')
+  const [cancelModal, setCancelModal] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+  
+  // Calendar state
+  const [weekDates, setWeekDates] = useState([])
+  const [selectedDate, setSelectedDate] = useState('')
+  const [calendarSlots, setCalendarSlots] = useState([])
+
+  // Calendar helper functions
+  const getTodayDate = () => new Date().toISOString().split('T')[0]
+  
+  const generateWeekDates = (startDate) => {
+    const dates = []
+    const start = new Date(startDate)
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start)
+      date.setDate(start.getDate() + i)
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNumber: date.getDate(),
+        month: date.toLocaleDateString('en-US', { month: 'short' }),
+        isToday: date.toISOString().split('T')[0] === getTodayDate()
+      })
+    }
+    return dates
+  }
+
+  const navigateWeek = (direction) => {
+    const currentStart = new Date(weekDates[0]?.date || getTodayDate())
+    currentStart.setDate(currentStart.getDate() + (direction * 7))
+    setWeekDates(generateWeekDates(currentStart.toISOString().split('T')[0]))
+    setSelectedDate(currentStart.toISOString().split('T')[0])
+  }
+
+  useEffect(() => {
+    // Initialize calendar
+    const today = getTodayDate()
+    setWeekDates(generateWeekDates(today))
+    setSelectedDate(today)
+  }, [])
 
   useEffect(() => {
     if (!user || user.role !== 'coach') {
@@ -135,6 +176,54 @@ function CoachDashboard({ user }) {
       setMessage({ text: 'Failed to save feedback', type: 'error' })
     }
     
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  // Fetch calendar slots when date changes
+  useEffect(() => {
+    const fetchCalendarSlots = async () => {
+      if (!selectedDate) return
+      try {
+        const res = await fetch(`${API_BASE}/coaches/1/slots?date=${selectedDate}`)
+        const data = await res.json()
+        if (data.available) {
+          setCalendarSlots(data.slots)
+        } else {
+          setCalendarSlots([])
+        }
+      } catch (error) {
+        console.error('Error fetching slots:', error)
+      }
+    }
+    fetchCalendarSlots()
+  }, [selectedDate])
+
+  const handleCoachCancelSession = async () => {
+    if (!cancelModal) return
+    
+    try {
+      const res = await fetch(`${API_BASE}/bookings/${cancelModal.id}/coach-cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason || 'Cancelled by coach' })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '✅ Session cancelled', type: 'success' })
+        setCancelModal(null)
+        setCancelReason('')
+        fetchDashboardData()
+        // Refresh calendar slots
+        const slotsRes = await fetch(`${API_BASE}/coaches/1/slots?date=${selectedDate}`)
+        const slotsData = await slotsRes.json()
+        if (slotsData.available) setCalendarSlots(slotsData.slots)
+      } else {
+        setMessage({ text: data.message || 'Failed to cancel session', type: 'error' })
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to cancel session', type: 'error' })
+    }
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
 
@@ -602,37 +691,115 @@ function CoachDashboard({ user }) {
           </div>
         )}
 
-        {/* Availability Tab */}
+        {/* Availability Tab - Calendar View */}
         {activeTab === 'availability' && (
-          <div className="availability-section">
-            <div className="availability-header">
-              <h3>🕐 Your Weekly Availability</h3>
-              <p>Clients can book sessions during these hours</p>
+          <div className="coach-calendar-section">
+            <div className="calendar-header-coach">
+              <h3>📅 Your Schedule</h3>
+              <p>View and manage your booked sessions</p>
             </div>
             
-            <div className="availability-grid">
-              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                const dayAvail = availability.find(a => a.day_of_week && a.day_of_week.toLowerCase() === day.toLowerCase())
-                return (
-                  <div key={day} className={`availability-day ${dayAvail ? 'available' : 'unavailable'}`}>
-                    <span className="day-name">{day}</span>
-                    {dayAvail ? (
-                      <div className="day-hours">
-                        <span className="hours">{dayAvail.start_time?.slice(0, 5)} - {dayAvail.end_time?.slice(0, 5)}</span>
-                        <span className="status">✓ Available</span>
-                      </div>
-                    ) : (
-                      <div className="day-hours">
-                        <span className="status unavailable">Not Available</span>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+            {/* Week Navigation */}
+            <div className="week-nav-coach">
+              <button className="week-nav-btn" onClick={() => navigateWeek(-1)}>
+                ← Previous
+              </button>
+              <span className="week-range">
+                {weekDates[0]?.month} {weekDates[0]?.dayNumber} - {weekDates[6]?.month} {weekDates[6]?.dayNumber}
+              </span>
+              <button className="week-nav-btn" onClick={() => navigateWeek(1)}>
+                Next →
+              </button>
             </div>
 
-            <div className="availability-info">
-              <p>📧 Contact admin to update your availability</p>
+            {/* Week Days */}
+            <div className="week-days-coach">
+              {weekDates.map(day => (
+                <button
+                  key={day.date}
+                  className={`day-btn-coach ${selectedDate === day.date ? 'selected' : ''} ${day.isToday ? 'today' : ''}`}
+                  onClick={() => setSelectedDate(day.date)}
+                >
+                  <span className="day-name">{day.dayName}</span>
+                  <span className="day-number">{day.dayNumber}</span>
+                  {day.isToday && <span className="today-dot"></span>}
+                </button>
+              ))}
+            </div>
+
+            {/* Time Slots */}
+            <div className="slots-grid-coach">
+              <div className="slots-header">
+                <span className="selected-date-display">
+                  {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </span>
+              </div>
+              
+              {calendarSlots.length > 0 ? (
+                <div className="slots-list-coach">
+                  {calendarSlots.map((slot, idx) => {
+                    const hour = parseInt(slot.time.split(':')[0])
+                    const displayTime = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`slot-item-coach ${slot.available ? 'available' : 'booked'} ${slot.status === 'pending' ? 'pending' : ''}`}
+                      >
+                        <div className="slot-time">{displayTime}</div>
+                        <div className="slot-info">
+                          {slot.available ? (
+                            <span className="slot-status available">Available</span>
+                          ) : (
+                            <>
+                              <span className="slot-client">👤 {slot.userName || 'Client'}</span>
+                              <span className={`slot-status ${slot.status}`}>
+                                {slot.status === 'pending' && '⏳ Pending'}
+                                {slot.status === 'confirmed' && '✅ Confirmed'}
+                              </span>
+                              {slot.notes && <span className="slot-notes">📝 {slot.notes}</span>}
+                            </>
+                          )}
+                        </div>
+                        {!slot.available && slot.bookingId && (
+                          <button 
+                            className="btn btn-danger btn-small"
+                            onClick={() => setCancelModal({
+                              id: slot.bookingId,
+                              user_name: slot.userName,
+                              booking_date: selectedDate,
+                              booking_time: slot.time,
+                              status: slot.status
+                            })}
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="no-slots-message">
+                  <p>No available hours for this day</p>
+                </div>
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="calendar-legend">
+              <div className="legend-item">
+                <span className="legend-dot available"></span>
+                <span>Available</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot pending"></span>
+                <span>Pending</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-dot confirmed"></span>
+                <span>Confirmed</span>
+              </div>
             </div>
           </div>
         )}
@@ -788,6 +955,53 @@ function CoachDashboard({ user }) {
                 onClick={handleDeclineBooking}
               >
                 Decline Booking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Session Modal (for confirmed sessions) */}
+      {cancelModal && (
+        <div className="confirm-overlay" onClick={() => { setCancelModal(null); setCancelReason(''); }}>
+          <div className="decline-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="decline-modal-header">
+              <h3>🚫 Cancel Session</h3>
+              <p>Cancel session with <strong>{cancelModal.user_name || 'Client'}</strong></p>
+            </div>
+            
+            <div className="decline-session-info">
+              <p>📅 Date: {formatDate(cancelModal.booking_date)}</p>
+              <p>🕐 Time: {formatTime(cancelModal.booking_time)}</p>
+              <p>Status: <span className={`status-badge ${cancelModal.status}`}>{cancelModal.status}</span></p>
+            </div>
+            
+            <div className="decline-input-group">
+              <label>Reason for cancellation</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g., Emergency, schedule conflict, illness..."
+                rows={3}
+                maxLength={500}
+              />
+              <span className="char-count">{cancelReason.length}/500</span>
+            </div>
+            
+            <p className="cancel-warning">⚠️ The client will be notified of this cancellation.</p>
+            
+            <div className="decline-modal-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => { setCancelModal(null); setCancelReason(''); }}
+              >
+                Keep Session
+              </button>
+              <button 
+                className="btn btn-danger"
+                onClick={handleCoachCancelSession}
+              >
+                Cancel Session
               </button>
             </div>
           </div>
