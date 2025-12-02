@@ -2521,40 +2521,7 @@ body {
   100% { transform: scale(1); }
 }
 
-/* Toast Message */
-.toast-message {
-  position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: var(--radius-full);
-  font-weight: 600;
-  z-index: 1000;
-  animation: slideInToast 0.3s ease;
-  box-shadow: var(--shadow-lg);
-}
-
-.toast-message.success {
-  background: #D5E8D4;
-  color: #2D5A27;
-}
-
-.toast-message.error {
-  background: #FFE5E5;
-  color: #C00;
-}
-
-@keyframes slideInToast {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
+/* Toast Message - Unified (see Coach Dashboard section for main styles) */
 
 /* Favorites Grid in Profile */
 .favorites-grid {
@@ -4410,38 +4377,39 @@ body {
   }
 }
 
-/* Toast Message */
+/* Toast Message - Compact Style */
 .toast-message {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
-  padding: var(--space-md) var(--space-lg);
-  border-radius: var(--radius-md);
+  top: 80px;
+  right: 20px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
   font-weight: 500;
   z-index: 3000;
-  animation: slideIn 0.3s ease;
+  animation: toastSlideIn 0.25s ease-out;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 300px;
 }
 
 .toast-message.success {
-  background: #D5E8D4;
-  color: #166534;
-  border: 2px solid #22C55E;
+  background: #166534;
+  color: white;
 }
 
 .toast-message.error {
-  background: #FEE2E2;
-  color: #B91C1C;
-  border: 2px solid #DC2626;
+  background: #DC2626;
+  color: white;
 }
 
-@keyframes slideIn {
+@keyframes toastSlideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
