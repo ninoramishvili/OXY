@@ -360,11 +360,11 @@ export const getUserFeedback = async (userId) => {
 
 // ============ COACH COMMENTS ============
 
-export const submitCoachComment = async (bookingId, coachId, userId, comment) => {
+export const submitCoachComment = async (bookingId, coachId, userId, comment, privateNotes = null) => {
   const response = await fetch(`${API_BASE}/coach-comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bookingId, coachId, userId, comment })
+    body: JSON.stringify({ bookingId, coachId, userId, comment, privateNotes })
   });
   return response.json();
 };

@@ -16,6 +16,7 @@ function CoachDashboard({ user }) {
   const [coach, setCoach] = useState(null)
   const [commentModal, setCommentModal] = useState(null)
   const [commentText, setCommentText] = useState('')
+  const [privateNotes, setPrivateNotes] = useState('')
   const [bookingComments, setBookingComments] = useState({})
   const [message, setMessage] = useState({ text: '', type: '' })
   const [pendingBookings, setPendingBookings] = useState([])
@@ -110,26 +111,28 @@ function CoachDashboard({ user }) {
   }
 
   const handleSubmitComment = async () => {
-    if (!commentModal || !commentText.trim()) return
+    if (!commentModal || (!commentText.trim() && !privateNotes.trim())) return
     
     try {
       const result = await submitCoachComment(
         commentModal.id,
         1, // coach_id
         commentModal.user_id,
-        commentText.trim()
+        commentText.trim(),
+        privateNotes.trim() || null
       )
       
       if (result.success) {
-        setMessage({ text: '✅ Comment sent to client!', type: 'success' })
+        setMessage({ text: '✅ Feedback saved!', type: 'success' })
         setBookingComments(prev => ({ ...prev, [commentModal.id]: result.comment }))
         setCommentModal(null)
         setCommentText('')
+        setPrivateNotes('')
       } else {
-        setMessage({ text: 'Failed to send comment', type: 'error' })
+        setMessage({ text: 'Failed to save feedback', type: 'error' })
       }
     } catch (error) {
-      setMessage({ text: 'Failed to send comment', type: 'error' })
+      setMessage({ text: 'Failed to save feedback', type: 'error' })
     }
     
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
@@ -506,6 +509,7 @@ function CoachDashboard({ user }) {
                               onClick={() => {
                                 setCommentModal(booking)
                                 setCommentText(bookingComments[booking.id].comment || '')
+                                setPrivateNotes(bookingComments[booking.id].private_notes || '')
                               }}
                             >
                               ✏️ Edit
@@ -516,9 +520,10 @@ function CoachDashboard({ user }) {
                               onClick={() => {
                                 setCommentModal(booking)
                                 setCommentText('')
+                                setPrivateNotes('')
                               }}
                             >
-                              💬 Comment
+                              📝 Feedback
                             </button>
                           )}
                         </span>
@@ -688,43 +693,56 @@ function CoachDashboard({ user }) {
 
       {/* Comment Modal */}
       {commentModal && (
-        <div className="confirm-overlay" onClick={() => { setCommentModal(null); setCommentText(''); }}>
-          <div className="comment-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="confirm-overlay" onClick={() => { setCommentModal(null); setCommentText(''); setPrivateNotes(''); }}>
+          <div className="comment-modal session-feedback-modal" onClick={(e) => e.stopPropagation()}>
             <div className="comment-modal-header">
-              <h3>💬 Send Feedback to Client</h3>
-              <p>Leave a comment for <strong>{commentModal.user_name || 'Client'}</strong></p>
+              <h3>📝 Session Feedback</h3>
+              <p>Leave feedback for <strong>{commentModal.user_name || 'Client'}</strong></p>
             </div>
             
             <div className="comment-session-info">
               <p>📅 Session: {formatDate(commentModal.booking_date)}</p>
               <p>🕐 Time: {formatTime(commentModal.booking_time)}</p>
+              {commentModal.notes && <p>📋 Client's notes: "{commentModal.notes}"</p>}
             </div>
             
             <div className="comment-input-group">
-              <label>Your Feedback</label>
+              <label>💬 Feedback for Client <span className="label-hint">(Client will see this)</span></label>
               <textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Share your thoughts, recommendations, or notes from the session..."
-                rows={5}
+                placeholder="Share your thoughts, recommendations, or follow-up advice for the client..."
+                rows={4}
                 maxLength={1000}
               />
               <span className="char-count">{commentText.length}/1000</span>
             </div>
             
+            <div className="comment-input-group private-notes-group">
+              <label>🔒 Private Notes <span className="label-hint">(Only you can see this)</span></label>
+              <textarea
+                value={privateNotes}
+                onChange={(e) => setPrivateNotes(e.target.value)}
+                placeholder="Personal notes about this session, client progress, areas to focus on next time..."
+                rows={3}
+                maxLength={1000}
+              />
+              <span className="char-count">{privateNotes.length}/1000</span>
+            </div>
+            
             <div className="comment-modal-actions">
               <button 
                 className="btn btn-secondary"
-                onClick={() => { setCommentModal(null); setCommentText(''); }}
+                onClick={() => { setCommentModal(null); setCommentText(''); setPrivateNotes(''); }}
               >
                 Cancel
               </button>
               <button 
                 className="btn btn-primary"
                 onClick={handleSubmitComment}
-                disabled={!commentText.trim()}
+                disabled={!commentText.trim() && !privateNotes.trim()}
               >
-                {bookingComments[commentModal.id] ? 'Update Comment' : 'Send Comment'}
+                {bookingComments[commentModal.id] ? 'Update Feedback' : 'Save Feedback'}
               </button>
             </div>
           </div>

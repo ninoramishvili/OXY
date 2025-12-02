@@ -4188,6 +4188,32 @@ body {
   justify-content: flex-end;
 }
 
+/* Session Feedback Modal */
+.session-feedback-modal {
+  max-width: 550px;
+}
+
+.label-hint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.private-notes-group {
+  background: #FFFBEB;
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  border: 1px dashed #F59E0B;
+}
+
+.private-notes-group label {
+  color: #92400E !important;
+}
+
+.private-notes-group textarea {
+  background: white;
+}
+
 /* Toast Message */
 .toast-message {
   position: fixed;
