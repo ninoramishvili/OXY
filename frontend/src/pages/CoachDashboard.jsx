@@ -40,7 +40,8 @@ function CoachDashboard({ user }) {
       // Fetch coach bookings (coach_id = 1 for now since we have single coach)
       const bookingsRes = await fetch(`${API_BASE}/bookings/coach/1`)
       const bookingsData = await bookingsRes.json()
-      setBookings(bookingsData)
+      const safeBookings = Array.isArray(bookingsData) ? bookingsData : []
+      setBookings(safeBookings)
       
       // Fetch coach availability
       const availRes = await fetch(`${API_BASE}/coaches/1/availability`)
@@ -49,22 +50,22 @@ function CoachDashboard({ user }) {
       
       // Fetch feedbacks
       const feedbackData = await getCoachFeedback(1)
-      setFeedbacks(feedbackData)
+      setFeedbacks(Array.isArray(feedbackData) ? feedbackData : [])
       
       // Fetch rating
       const ratingData = await getCoachAverageRating(1)
-      setRating(ratingData)
+      setRating(ratingData || { averageRating: 0, totalReviews: 0 })
       
       // Calculate stats
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       
-      const upcoming = bookingsData.filter(b => {
+      const upcoming = safeBookings.filter(b => {
         const bookingDate = new Date(b.booking_date)
         return bookingDate >= today && b.status !== 'cancelled'
       }).length
       
-      const completedBookings = bookingsData.filter(b => {
+      const completedBookings = safeBookings.filter(b => {
         const bookingDate = new Date(b.booking_date)
         return bookingDate < today && b.status !== 'cancelled'
       })
@@ -74,7 +75,7 @@ function CoachDashboard({ user }) {
       const totalEarnings = completedBookings.length * pricePerSession
       
       setStats({
-        totalSessions: bookingsData.filter(b => b.status !== 'cancelled').length,
+        totalSessions: safeBookings.filter(b => b.status !== 'cancelled').length,
         upcomingSessions: upcoming,
         completedSessions: completedBookings.length,
         totalEarnings
@@ -82,7 +83,7 @@ function CoachDashboard({ user }) {
       
       // Check which past bookings have coach comments
       const commentsStatus = {}
-      for (const booking of bookingsData.filter(b => b.status !== 'cancelled')) {
+      for (const booking of safeBookings.filter(b => b.status !== 'cancelled')) {
         const bookingDate = new Date(booking.booking_date)
         if (bookingDate < today) {
           const result = await getBookingComment(booking.id)
