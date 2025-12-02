@@ -4223,6 +4223,252 @@ body {
   }
 }
 
+/* Pending Bookings */
+.stat-card.pending-highlight {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%);
+  border-color: #F59E0B;
+  cursor: pointer;
+  animation: pulse-pending 2s infinite;
+}
+
+@keyframes pulse-pending {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+
+.pending-card {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%) !important;
+  border-color: #F59E0B !important;
+}
+
+.pending-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.pending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.pending-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.pending-client {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.client-avatar {
+  font-size: 1.5rem;
+}
+
+.pending-client strong {
+  color: var(--text-dark);
+}
+
+.client-email {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pending-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pending-notes {
+  color: var(--primary) !important;
+}
+
+.pending-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.btn-success {
+  background: #22C55E;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #16A34A;
+}
+
+.btn-danger {
+  background: #DC2626;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #B91C1C;
+}
+
+/* Pending Group */
+.pending-group {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 2px solid #F59E0B;
+}
+
+.pending-row {
+  background: white;
+}
+
+.actions-cell {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.client-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.client-cell strong {
+  color: var(--text-dark);
+}
+
+.client-cell small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Decline Modal */
+.decline-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 500px;
+  width: 90%;
+  border: 2px solid #DC2626;
+}
+
+.decline-modal-header {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+}
+
+.decline-modal-header h3 {
+  margin: 0 0 var(--space-xs);
+  color: #DC2626;
+}
+
+.decline-modal-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.decline-session-info {
+  background: #FEE2E2;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.decline-session-info p {
+  margin: var(--space-xs) 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.decline-input-group {
+  margin-bottom: var(--space-lg);
+}
+
+.decline-input-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-dark);
+}
+
+.decline-input-group textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.decline-input-group textarea:focus {
+  outline: none;
+  border-color: #DC2626;
+}
+
+.decline-input-group .char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.decline-modal-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+}
+
+/* Status Badge - Declined */
+.status-badge.declined {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+/* Booking Status Badge - Pending */
+.booking-status-badge.pending {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+/* Booking Card - Declined */
+.booking-card.declined {
+  opacity: 0.7;
+  border-left: 4px solid #DC2626;
+}
+
+.booking-date-badge.declined {
+  background: #DC2626 !important;
+}
+
+.decline-reason-text {
+  font-size: 0.85rem;
+  color: #DC2626;
+  font-style: italic;
+  margin-top: var(--space-xs);
+  padding: var(--space-xs);
+  background: #FEE2E2;
+  border-radius: var(--radius-sm);
+}
+
+.booking-status-badge.declined {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .dashboard-stats {

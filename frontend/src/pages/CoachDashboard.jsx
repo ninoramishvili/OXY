@@ -11,13 +11,16 @@ function CoachDashboard({ user }) {
   const [bookings, setBookings] = useState([])
   const [feedbacks, setFeedbacks] = useState([])
   const [rating, setRating] = useState({ averageRating: 0, totalReviews: 0 })
-  const [stats, setStats] = useState({ totalSessions: 0, upcomingSessions: 0, completedSessions: 0, totalEarnings: 0 })
+  const [stats, setStats] = useState({ totalSessions: 0, upcomingSessions: 0, completedSessions: 0, totalEarnings: 0, pendingCount: 0 })
   const [availability, setAvailability] = useState([])
   const [coach, setCoach] = useState(null)
   const [commentModal, setCommentModal] = useState(null)
   const [commentText, setCommentText] = useState('')
   const [bookingComments, setBookingComments] = useState({})
   const [message, setMessage] = useState({ text: '', type: '' })
+  const [pendingBookings, setPendingBookings] = useState([])
+  const [declineModal, setDeclineModal] = useState(null)
+  const [declineReason, setDeclineReason] = useState('')
 
   useEffect(() => {
     if (!user || user.role !== 'coach') {
@@ -42,6 +45,12 @@ function CoachDashboard({ user }) {
       const bookingsData = await bookingsRes.json()
       const safeBookings = Array.isArray(bookingsData) ? bookingsData : []
       setBookings(safeBookings)
+      
+      // Fetch pending bookings
+      const pendingRes = await fetch(`${API_BASE}/bookings/pending/1`)
+      const pendingData = await pendingRes.json()
+      const safePending = Array.isArray(pendingData) ? pendingData : []
+      setPendingBookings(safePending)
       
       // Fetch coach availability
       const availRes = await fetch(`${API_BASE}/coaches/1/availability`)
@@ -75,10 +84,11 @@ function CoachDashboard({ user }) {
       const totalEarnings = completedBookings.length * pricePerSession
       
       setStats({
-        totalSessions: safeBookings.filter(b => b.status !== 'cancelled').length,
+        totalSessions: safeBookings.filter(b => b.status !== 'cancelled' && b.status !== 'declined').length,
         upcomingSessions: upcoming,
         completedSessions: completedBookings.length,
-        totalEarnings
+        totalEarnings,
+        pendingCount: safePending.length
       })
       
       // Check which past bookings have coach comments
@@ -122,6 +132,51 @@ function CoachDashboard({ user }) {
       setMessage({ text: 'Failed to send comment', type: 'error' })
     }
     
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleConfirmBooking = async (bookingId) => {
+    try {
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/confirm`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '✅ Booking confirmed!', type: 'success' })
+        fetchDashboardData() // Refresh data
+      } else {
+        setMessage({ text: data.message || 'Failed to confirm booking', type: 'error' })
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to confirm booking', type: 'error' })
+    }
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  }
+
+  const handleDeclineBooking = async () => {
+    if (!declineModal) return
+    
+    try {
+      const res = await fetch(`${API_BASE}/bookings/${declineModal.id}/decline`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: declineReason || 'No reason provided' })
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        setMessage({ text: '❌ Booking declined', type: 'success' })
+        setDeclineModal(null)
+        setDeclineReason('')
+        fetchDashboardData() // Refresh data
+      } else {
+        setMessage({ text: data.message || 'Failed to decline booking', type: 'error' })
+      }
+    } catch (error) {
+      setMessage({ text: 'Failed to decline booking', type: 'error' })
+    }
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
 
@@ -175,6 +230,15 @@ function CoachDashboard({ user }) {
 
       {/* Stats Cards */}
       <div className="dashboard-stats">
+        {stats.pendingCount > 0 && (
+          <div className="stat-card pending-highlight" onClick={() => setActiveTab('bookings')}>
+            <div className="stat-icon">🔔</div>
+            <div className="stat-info">
+              <span className="stat-number">{stats.pendingCount}</span>
+              <span className="stat-label">Pending Requests</span>
+            </div>
+          </div>
+        )}
         <div className="stat-card">
           <div className="stat-icon">💰</div>
           <div className="stat-info">
@@ -244,6 +308,47 @@ function CoachDashboard({ user }) {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="overview-grid">
+            {/* Pending Requests */}
+            {pendingBookings.length > 0 && (
+              <div className="dashboard-card pending-card full-width">
+                <h3>🔔 Pending Booking Requests</h3>
+                <div className="pending-list">
+                  {pendingBookings.slice(0, 5).map(booking => (
+                    <div key={booking.id} className="pending-item">
+                      <div className="pending-info">
+                        <div className="pending-client">
+                          <span className="client-avatar">👤</span>
+                          <div>
+                            <strong>{booking.user_name || 'Client'}</strong>
+                            <span className="client-email">{booking.user_email}</span>
+                          </div>
+                        </div>
+                        <div className="pending-details">
+                          <span className="pending-date">📅 {formatDate(booking.booking_date)}</span>
+                          <span className="pending-time">🕐 {formatTime(booking.booking_time)}</span>
+                          {booking.notes && <span className="pending-notes">📝 {booking.notes}</span>}
+                        </div>
+                      </div>
+                      <div className="pending-actions">
+                        <button 
+                          className="btn btn-success btn-small"
+                          onClick={() => handleConfirmBooking(booking.id)}
+                        >
+                          ✓ Accept
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-small"
+                          onClick={() => setDeclineModal(booking)}
+                        >
+                          ✕ Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Upcoming Sessions */}
             <div className="dashboard-card">
               <h3>📅 Upcoming Sessions</h3>
@@ -301,6 +406,49 @@ function CoachDashboard({ user }) {
         {/* Bookings Tab */}
         {activeTab === 'bookings' && (
           <div className="bookings-section">
+            {/* Pending Requests */}
+            {pendingBookings.length > 0 && (
+              <div className="bookings-group pending-group">
+                <h3>🔔 Pending Requests ({pendingBookings.length})</h3>
+                <div className="bookings-table">
+                  <div className="table-header">
+                    <span>Date</span>
+                    <span>Time</span>
+                    <span>Client</span>
+                    <span>Notes</span>
+                    <span>Actions</span>
+                  </div>
+                  {pendingBookings.map(booking => (
+                    <div key={booking.id} className="table-row pending-row">
+                      <span>{formatDate(booking.booking_date)}</span>
+                      <span>{formatTime(booking.booking_time)}</span>
+                      <span>
+                        <div className="client-cell">
+                          <strong>{booking.user_name || 'Client'}</strong>
+                          <small>{booking.user_email}</small>
+                        </div>
+                      </span>
+                      <span className="notes-cell">{booking.notes || '-'}</span>
+                      <span className="actions-cell">
+                        <button 
+                          className="btn btn-success btn-small"
+                          onClick={() => handleConfirmBooking(booking.id)}
+                        >
+                          ✓ Accept
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-small"
+                          onClick={() => setDeclineModal(booking)}
+                        >
+                          ✕ Decline
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Upcoming */}
             <div className="bookings-group">
               <h3>📅 Upcoming Sessions</h3>
@@ -577,6 +725,51 @@ function CoachDashboard({ user }) {
                 disabled={!commentText.trim()}
               >
                 {bookingComments[commentModal.id] ? 'Update Comment' : 'Send Comment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Modal */}
+      {declineModal && (
+        <div className="confirm-overlay" onClick={() => { setDeclineModal(null); setDeclineReason(''); }}>
+          <div className="decline-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="decline-modal-header">
+              <h3>❌ Decline Booking Request</h3>
+              <p>Decline session with <strong>{declineModal.user_name || 'Client'}</strong></p>
+            </div>
+            
+            <div className="decline-session-info">
+              <p>📅 Date: {formatDate(declineModal.booking_date)}</p>
+              <p>🕐 Time: {formatTime(declineModal.booking_time)}</p>
+              {declineModal.notes && <p>📝 Their note: "{declineModal.notes}"</p>}
+            </div>
+            
+            <div className="decline-input-group">
+              <label>Reason for declining (optional)</label>
+              <textarea
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                placeholder="e.g., Schedule conflict, fully booked, unavailable on this date..."
+                rows={3}
+                maxLength={500}
+              />
+              <span className="char-count">{declineReason.length}/500</span>
+            </div>
+            
+            <div className="decline-modal-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => { setDeclineModal(null); setDeclineReason(''); }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-danger"
+                onClick={handleDeclineBooking}
+              >
+                Decline Booking
               </button>
             </div>
           </div>

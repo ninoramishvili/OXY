@@ -486,8 +486,13 @@ function Profile({ user, onUpdateUser }) {
                           </div>
                         )}
                         <span className={`booking-status-badge ${booking.status}`}>
-                          {booking.status}
+                          {booking.status === 'pending' && '⏳ Pending Approval'}
+                          {booking.status === 'confirmed' && '✅ Confirmed'}
+                          {booking.status === 'declined' && '❌ Declined'}
                         </span>
+                        {booking.status === 'declined' && booking.decline_reason && (
+                          <p className="decline-reason-text">Reason: {booking.decline_reason}</p>
+                        )}
                       </div>
                       <div className="booking-actions">
                         <button 
@@ -547,6 +552,31 @@ function Profile({ user, onUpdateUser }) {
                 <Link to="/coaches" className="btn btn-primary">
                   Book a Session
                 </Link>
+              </div>
+            )}
+
+            {/* Declined Bookings */}
+            {bookings.filter(b => b.status === 'declined').length > 0 && (
+              <div className="past-bookings">
+                <h3 className="bookings-section-title">🚫 Declined Bookings</h3>
+                <div className="bookings-list faded">
+                  {bookings.filter(b => b.status === 'declined').map(booking => (
+                    <div key={booking.id} className="booking-card declined">
+                      <div className="booking-date-badge declined">
+                        <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
+                        <span className="booking-month">{new Date(booking.booking_date).toLocaleString('en-US', { month: 'short' })}</span>
+                      </div>
+                      <div className="booking-info">
+                        <h4>Session with {booking.coach_name}</h4>
+                        <p>📅 {formatDate(booking.booking_date)}</p>
+                        <span className="booking-status-badge declined">Declined</span>
+                        {booking.decline_reason && (
+                          <p className="decline-reason-text">💬 {booking.decline_reason}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
