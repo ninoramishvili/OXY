@@ -17,7 +17,7 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
     const result = await pool.query(
-      'SELECT id, username, name, email FROM users WHERE username = $1 AND password = $2',
+      'SELECT id, username, name, email, role FROM users WHERE username = $1 AND password = $2',
       [username, password]
     );
     
@@ -26,7 +26,13 @@ app.post('/api/login', async (req, res) => {
       res.json({ 
         success: true, 
         message: 'Login successful!',
-        user: { id: user.id, username: user.username, name: user.name, email: user.email }
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          name: user.name, 
+          email: user.email,
+          role: user.role || 'user'
+        }
       });
     } else {
       res.status(401).json({ 

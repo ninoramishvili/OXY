@@ -34,18 +34,29 @@ function Header({ user, onLogout }) {
         </Link>
         
         <nav className="nav">
-          <Link to="/" className="nav-link">Home</Link>
-          <Link to="/courses" className="nav-link">Courses</Link>
-          <Link to="/coaches" className="nav-link">Coach</Link>
-          <Link to="/about" className="nav-link">About</Link>
-          
-          {/* Cart Icon */}
-          <Link to="/cart" className="cart-icon-link">
-            <span className="cart-icon">🛒</span>
-            {cartCount > 0 && (
-              <span className="cart-count">{cartCount}</span>
-            )}
-          </Link>
+          {user?.role === 'coach' ? (
+            // Coach Navigation
+            <>
+              <Link to="/coach-dashboard" className="nav-link">Dashboard</Link>
+              <Link to="/about" className="nav-link">About</Link>
+            </>
+          ) : (
+            // User Navigation
+            <>
+              <Link to="/" className="nav-link">Home</Link>
+              <Link to="/courses" className="nav-link">Courses</Link>
+              <Link to="/coaches" className="nav-link">Coach</Link>
+              <Link to="/about" className="nav-link">About</Link>
+              
+              {/* Cart Icon */}
+              <Link to="/cart" className="cart-icon-link">
+                <span className="cart-icon">🛒</span>
+                {cartCount > 0 && (
+                  <span className="cart-count">{cartCount}</span>
+                )}
+              </Link>
+            </>
+          )}
           
           <button 
             onClick={toggleTheme} 
@@ -57,10 +68,17 @@ function Header({ user, onLogout }) {
           
           {user ? (
             <div className="user-info">
-              <Link to="/profile" className="user-profile-link">
-                <span className="user-avatar">{(user.name || user.username || 'U')[0].toUpperCase()}</span>
-                <span className="user-name">{user.name || user.username}</span>
-              </Link>
+              {user.role === 'coach' ? (
+                <Link to="/coach-dashboard" className="user-profile-link">
+                  <span className="user-avatar coach-avatar">🎓</span>
+                  <span className="user-name">{user.name || user.username}</span>
+                </Link>
+              ) : (
+                <Link to="/profile" className="user-profile-link">
+                  <span className="user-avatar">{(user.name || user.username || 'U')[0].toUpperCase()}</span>
+                  <span className="user-name">{user.name || user.username}</span>
+                </Link>
+              )}
               <button onClick={onLogout} className="btn btn-secondary btn-small">
                 Logout
               </button>
