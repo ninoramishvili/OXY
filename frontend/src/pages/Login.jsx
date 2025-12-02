@@ -80,15 +80,16 @@ function Login({ onLogin }) {
             </div>
           </div>
 
-          <div className="form-group-inline">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={loading}
-              />
-              <span className="checkbox-custom"></span>
+          <div className="remember-me-group">
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              disabled={loading}
+              className="remember-checkbox"
+            />
+            <label htmlFor="rememberMe" className="remember-label">
               Remember me
             </label>
           </div>

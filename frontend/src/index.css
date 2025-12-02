@@ -3548,50 +3548,25 @@ body {
 }
 
 /* Remember Me Checkbox */
-.form-group-inline {
-  margin: var(--space-md) 0;
-}
-
-.checkbox-label {
+.remember-me-group {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  margin: var(--space-md) 0;
+}
+
+.remember-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.remember-label {
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--text-dark);
   user-select: none;
-}
-
-.checkbox-label input[type="checkbox"] {
-  display: none;
-}
-
-.checkbox-custom {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-  flex-shrink: 0;
-}
-
-.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
-  content: '✓';
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.checkbox-label:hover .checkbox-custom {
-  border-color: var(--primary);
 }
 
 /* Password Input with Toggle */
