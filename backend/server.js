@@ -811,6 +811,110 @@ app.delete('/api/bookings/:id', async (req, res) => {
   }
 });
 
+// ============ SESSION FEEDBACK ============
+
+// POST /api/feedback - Submit session feedback
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { bookingId, userId, coachId, rating, comment } = req.body;
+    
+    // Check if feedback already exists for this booking
+    const existing = await pool.query(
+      'SELECT id FROM session_feedback WHERE booking_id = $1',
+      [bookingId]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'Feedback already submitted for this session' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO session_feedback (booking_id, user_id, coach_id, rating, comment)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [bookingId, userId, coachId, rating, comment || '']
+    );
+    
+    res.status(201).json({ success: true, feedback: result.rows[0] });
+  } catch (error) {
+    console.error('Feedback error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/feedback/booking/:bookingId - Check if feedback exists for a booking
+app.get('/api/feedback/booking/:bookingId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM session_feedback WHERE booking_id = $1',
+      [req.params.bookingId]
+    );
+    res.json({ hasFeedback: result.rows.length > 0, feedback: result.rows[0] || null });
+  } catch (error) {
+    console.error('Error checking feedback:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/feedback/coach/:coachId - Get all feedback for a coach
+app.get('/api/feedback/coach/:coachId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT sf.*, u.name as user_name, b.booking_date
+       FROM session_feedback sf
+       JOIN users u ON sf.user_id = u.id
+       JOIN bookings b ON sf.booking_id = b.id
+       WHERE sf.coach_id = $1
+       ORDER BY sf.created_at DESC`,
+      [req.params.coachId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching coach feedback:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/feedback/coach/:coachId/average - Get average rating for a coach
+app.get('/api/feedback/coach/:coachId/average', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        COALESCE(AVG(rating), 0) as average_rating,
+        COUNT(*) as total_reviews
+       FROM session_feedback
+       WHERE coach_id = $1`,
+      [req.params.coachId]
+    );
+    res.json({
+      averageRating: parseFloat(result.rows[0].average_rating).toFixed(1),
+      totalReviews: parseInt(result.rows[0].total_reviews)
+    });
+  } catch (error) {
+    console.error('Error fetching average rating:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/feedback/user/:userId - Get all feedback submitted by a user
+app.get('/api/feedback/user/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT sf.*, c.name as coach_name, b.booking_date
+       FROM session_feedback sf
+       JOIN coaches c ON sf.coach_id = c.id
+       JOIN bookings b ON sf.booking_id = b.id
+       WHERE sf.user_id = $1
+       ORDER BY sf.created_at DESC`,
+      [req.params.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching user feedback:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ STATS ENDPOINT ============
 
 // GET /api/stats - Get platform statistics

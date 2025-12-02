@@ -327,5 +327,36 @@ const api = {
   getStats
 };
 
+// ============ SESSION FEEDBACK ============
+
+export const submitSessionFeedback = async (bookingId, userId, coachId, rating, comment) => {
+  const response = await fetch(`${API_BASE}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId, userId, coachId, rating, comment })
+  });
+  return response.json();
+};
+
+export const checkBookingFeedback = async (bookingId) => {
+  const response = await fetch(`${API_BASE}/feedback/booking/${bookingId}`);
+  return response.json();
+};
+
+export const getCoachFeedback = async (coachId) => {
+  const response = await fetch(`${API_BASE}/feedback/coach/${coachId}`);
+  return response.json();
+};
+
+export const getCoachAverageRating = async (coachId) => {
+  const response = await fetch(`${API_BASE}/feedback/coach/${coachId}/average`);
+  return response.json();
+};
+
+export const getUserFeedback = async (userId) => {
+  const response = await fetch(`${API_BASE}/feedback/user/${userId}`);
+  return response.json();
+};
+
 export default api;
 

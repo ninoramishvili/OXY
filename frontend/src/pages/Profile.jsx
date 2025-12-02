@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getUser, updateUser, changePassword, getUserPurchases, getUserBookings, cancelBooking, getUserFavorites, removeFavorite } from '../api'
+import { getUser, updateUser, changePassword, getUserPurchases, getUserBookings, cancelBooking, getUserFavorites, removeFavorite, submitSessionFeedback, checkBookingFeedback } from '../api'
 
 function Profile({ user, onUpdateUser }) {
   const navigate = useNavigate()
@@ -24,6 +24,9 @@ function Profile({ user, onUpdateUser }) {
   const [bookings, setBookings] = useState([])
   const [favorites, setFavorites] = useState([])
   const [cancelConfirm, setCancelConfirm] = useState(null)
+  const [feedbackModal, setFeedbackModal] = useState(null)
+  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: '' })
+  const [bookingFeedbackStatus, setBookingFeedbackStatus] = useState({})
 
   useEffect(() => {
     if (!user) {
@@ -44,6 +47,16 @@ function Profile({ user, onUpdateUser }) {
         setPurchases(purchasesData)
         setBookings(bookingsData)
         setFavorites(favoritesData)
+        
+        // Check feedback status for past bookings
+        const feedbackStatus = {}
+        for (const booking of bookingsData) {
+          if (isPastBooking(booking) && booking.status !== 'cancelled') {
+            const result = await checkBookingFeedback(booking.id)
+            feedbackStatus[booking.id] = result.hasFeedback
+          }
+        }
+        setBookingFeedbackStatus(feedbackStatus)
       } catch (error) {
         console.error('Error fetching profile data:', error)
         setMessage({ text: 'Failed to load profile data', type: 'error' })
@@ -110,6 +123,40 @@ function Profile({ user, onUpdateUser }) {
       }
     } catch (error) {
       showMessage('Failed to change password', 'error')
+    }
+  }
+
+  // Check if a booking is in the past
+  const isPastBooking = (booking) => {
+    const bookingDate = new Date(booking.booking_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return bookingDate < today
+  }
+
+  // Handle feedback submission
+  const handleSubmitFeedback = async () => {
+    if (!feedbackModal) return
+    
+    try {
+      const result = await submitSessionFeedback(
+        feedbackModal.id,
+        user.id,
+        feedbackModal.coach_id,
+        feedbackForm.rating,
+        feedbackForm.comment
+      )
+      
+      if (result.success) {
+        showMessage('⭐ Thank you for your feedback!', 'success')
+        setBookingFeedbackStatus(prev => ({ ...prev, [feedbackModal.id]: true }))
+        setFeedbackModal(null)
+        setFeedbackForm({ rating: 5, comment: '' })
+      } else {
+        showMessage(result.message || 'Failed to submit feedback', 'error')
+      }
+    } catch (error) {
+      showMessage('Failed to submit feedback', 'error')
     }
   }
 
@@ -381,40 +428,82 @@ function Profile({ user, onUpdateUser }) {
           <div className="profile-section">
             <h2>My Coaching Sessions</h2>
             
-            {bookings.filter(b => b.status !== 'cancelled').length > 0 ? (
-              <div className="bookings-list">
-                {bookings.filter(b => b.status !== 'cancelled').map(booking => (
-                  <div key={booking.id} className="booking-card">
-                    <div className="booking-date-badge">
-                      <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
-                      <span className="booking-month">{new Date(booking.booking_date).toLocaleString('en-US', { month: 'short' })}</span>
+            {/* Upcoming Sessions */}
+            {bookings.filter(b => b.status !== 'cancelled' && !isPastBooking(b)).length > 0 && (
+              <>
+                <h3 className="bookings-section-title">📅 Upcoming Sessions</h3>
+                <div className="bookings-list">
+                  {bookings.filter(b => b.status !== 'cancelled' && !isPastBooking(b)).map(booking => (
+                    <div key={booking.id} className="booking-card">
+                      <div className="booking-date-badge">
+                        <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
+                        <span className="booking-month">{new Date(booking.booking_date).toLocaleString('en-US', { month: 'short' })}</span>
+                      </div>
+                      <div className="booking-info">
+                        <h4>Session with {booking.coach_name}</h4>
+                        <p>📅 {formatDate(booking.booking_date)}</p>
+                        <p>🕐 {formatTime(booking.booking_time)} (1 hour)</p>
+                        {booking.notes && (
+                          <div className="booking-notes">
+                            <span className="notes-label">📝 Notes:</span>
+                            <p>{booking.notes}</p>
+                          </div>
+                        )}
+                        <span className={`booking-status-badge ${booking.status}`}>
+                          {booking.status}
+                        </span>
+                      </div>
+                      <div className="booking-actions">
+                        <button 
+                          className="btn btn-cancel"
+                          onClick={() => setCancelConfirm(booking)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
-                    <div className="booking-info">
-                      <h4>Session with {booking.coach_name}</h4>
-                      <p>📅 {formatDate(booking.booking_date)}</p>
-                      <p>🕐 {formatTime(booking.booking_time)} (1 hour)</p>
-                      {booking.notes && (
-                        <div className="booking-notes">
-                          <span className="notes-label">📝 Notes:</span>
-                          <p>{booking.notes}</p>
-                        </div>
-                      )}
-                      <span className={`booking-status-badge ${booking.status}`}>
-                        {booking.status}
-                      </span>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Past Sessions */}
+            {bookings.filter(b => b.status !== 'cancelled' && isPastBooking(b)).length > 0 && (
+              <div className="past-sessions-section">
+                <h3 className="bookings-section-title">✅ Past Sessions</h3>
+                <div className="bookings-list">
+                  {bookings.filter(b => b.status !== 'cancelled' && isPastBooking(b)).map(booking => (
+                    <div key={booking.id} className="booking-card past">
+                      <div className="booking-date-badge past">
+                        <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
+                        <span className="booking-month">{new Date(booking.booking_date).toLocaleString('en-US', { month: 'short' })}</span>
+                      </div>
+                      <div className="booking-info">
+                        <h4>Session with {booking.coach_name}</h4>
+                        <p>📅 {formatDate(booking.booking_date)}</p>
+                        <p>🕐 {formatTime(booking.booking_time)} (1 hour)</p>
+                        <span className="booking-status-badge completed">Completed</span>
+                      </div>
+                      <div className="booking-actions">
+                        {bookingFeedbackStatus[booking.id] ? (
+                          <span className="feedback-given-badge">⭐ Feedback Given</span>
+                        ) : (
+                          <button 
+                            className="btn btn-primary"
+                            onClick={() => setFeedbackModal(booking)}
+                          >
+                            ⭐ Leave Feedback
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="booking-actions">
-                      <button 
-                        className="btn btn-cancel"
-                        onClick={() => setCancelConfirm(booking)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            ) : (
+            )}
+
+            {/* Empty State */}
+            {bookings.filter(b => b.status !== 'cancelled').length === 0 && (
               <div className="empty-state">
                 <span className="empty-icon">📅</span>
                 <h3>No bookings yet</h3>
@@ -425,10 +514,10 @@ function Profile({ user, onUpdateUser }) {
               </div>
             )}
 
-            {/* Past/Cancelled Bookings */}
+            {/* Cancelled Bookings */}
             {bookings.filter(b => b.status === 'cancelled').length > 0 && (
               <div className="past-bookings">
-                <h3>Cancelled Bookings</h3>
+                <h3 className="bookings-section-title">❌ Cancelled Bookings</h3>
                 <div className="bookings-list faded">
                   {bookings.filter(b => b.status === 'cancelled').map(booking => (
                     <div key={booking.id} className="booking-card cancelled">
@@ -544,6 +633,72 @@ function Profile({ user, onUpdateUser }) {
                 onClick={handleCancelBooking}
               >
                 Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Session Feedback Modal */}
+      {feedbackModal && (
+        <div className="confirm-overlay" onClick={() => { setFeedbackModal(null); setFeedbackForm({ rating: 5, comment: '' }); }}>
+          <div className="feedback-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="feedback-header">
+              <h3>⭐ Rate Your Session</h3>
+              <p>How was your session with <strong>{feedbackModal.coach_name}</strong>?</p>
+            </div>
+            
+            <div className="feedback-date">
+              📅 {formatDate(feedbackModal.booking_date)}
+            </div>
+            
+            <div className="feedback-rating">
+              <label>Rating</label>
+              <div className="star-rating-input">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    className={`star-btn ${star <= feedbackForm.rating ? 'active' : ''}`}
+                    onClick={() => setFeedbackForm(prev => ({ ...prev, rating: star }))}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <span className="rating-text">
+                {feedbackForm.rating === 1 && 'Poor'}
+                {feedbackForm.rating === 2 && 'Fair'}
+                {feedbackForm.rating === 3 && 'Good'}
+                {feedbackForm.rating === 4 && 'Very Good'}
+                {feedbackForm.rating === 5 && 'Excellent'}
+              </span>
+            </div>
+            
+            <div className="feedback-comment">
+              <label>Your Feedback (optional)</label>
+              <textarea
+                value={feedbackForm.comment}
+                onChange={(e) => setFeedbackForm(prev => ({ ...prev, comment: e.target.value }))}
+                placeholder="Share your experience with this coaching session..."
+                rows={4}
+                maxLength={500}
+              />
+              <span className="char-count">{feedbackForm.comment.length}/500</span>
+            </div>
+            
+            <div className="feedback-actions">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => { setFeedbackModal(null); setFeedbackForm({ rating: 5, comment: '' }); }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={handleSubmitFeedback}
+              >
+                Submit Feedback
               </button>
             </div>
           </div>

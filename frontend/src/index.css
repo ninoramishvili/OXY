@@ -2060,8 +2060,159 @@ body {
   color: #C00;
 }
 
+.booking-status-badge.completed {
+  background: #D5E8D4;
+  color: #166534;
+}
+
+.bookings-section-title {
+  font-size: 1.1rem;
+  margin: var(--space-lg) 0 var(--space-md);
+  color: var(--text-dark);
+}
+
+.booking-card.past {
+  opacity: 0.9;
+}
+
+.booking-date-badge.past {
+  background: var(--text-muted);
+}
+
+.past-sessions-section {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 2px solid var(--border);
+}
+
+.feedback-given-badge {
+  background: #D5E8D4;
+  color: #166534;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
 .booking-actions {
   flex-shrink: 0;
+}
+
+/* Feedback Modal */
+.feedback-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 450px;
+  width: 90%;
+  border: 2px solid var(--border);
+}
+
+.feedback-header {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+}
+
+.feedback-header h3 {
+  margin: 0 0 var(--space-xs);
+  color: var(--text-dark);
+  font-size: 1.3rem;
+}
+
+.feedback-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.feedback-date {
+  text-align: center;
+  padding: var(--space-sm);
+  background: var(--background);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-lg);
+  color: var(--text-muted);
+}
+
+.feedback-rating {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+}
+
+.feedback-rating label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-dark);
+}
+
+.star-rating-input {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 2.5rem;
+  color: var(--border);
+  cursor: pointer;
+  transition: all var(--transition);
+  padding: 0;
+}
+
+.star-btn:hover,
+.star-btn.active {
+  color: #F59E0B;
+  transform: scale(1.1);
+}
+
+.rating-text {
+  font-size: 0.9rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.feedback-comment {
+  margin-bottom: var(--space-lg);
+}
+
+.feedback-comment label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--text-dark);
+}
+
+.feedback-comment textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.feedback-comment textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.feedback-comment .char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
 }
 
 .btn-cancel {
