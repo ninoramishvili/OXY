@@ -464,12 +464,44 @@ function Profile({ user, onUpdateUser }) {
           <div className="profile-section">
             <h2>My Coaching Sessions</h2>
             
+            {/* Declined Sessions Notification */}
+            {bookings.filter(b => b.status === 'declined').length > 0 && (
+              <div className="declined-notification-section">
+                <h3 className="bookings-section-title">🔔 Session Updates</h3>
+                <div className="declined-notifications">
+                  {bookings.filter(b => b.status === 'declined').map(booking => (
+                    <div key={booking.id} className="declined-notification-card">
+                      <div className="notification-icon">❌</div>
+                      <div className="notification-content">
+                        <h4>Session Declined by Coach</h4>
+                        <p className="notification-details">
+                          Your session with <strong>{booking.coach_name}</strong> on {formatDate(booking.booking_date)} at {formatTime(booking.booking_time)} was declined.
+                        </p>
+                        {booking.decline_reason && (
+                          <div className="decline-reason-box">
+                            <span className="reason-label">💬 Coach's message:</span>
+                            <p>"{booking.decline_reason}"</p>
+                          </div>
+                        )}
+                        <p className="notification-action">
+                          ℹ️ The time slot is now available - you can book another session.
+                        </p>
+                        <Link to="/coaches" className="btn btn-primary btn-small">
+                          Book New Session
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Upcoming Sessions */}
-            {bookings.filter(b => b.status !== 'cancelled' && !isPastBooking(b)).length > 0 && (
+            {bookings.filter(b => b.status !== 'cancelled' && b.status !== 'declined' && !isPastBooking(b)).length > 0 && (
               <>
                 <h3 className="bookings-section-title">📅 Upcoming Sessions</h3>
                 <div className="bookings-list">
-                  {bookings.filter(b => b.status !== 'cancelled' && !isPastBooking(b)).map(booking => (
+                  {bookings.filter(b => b.status !== 'cancelled' && b.status !== 'declined' && !isPastBooking(b)).map(booking => (
                     <div key={booking.id} className="booking-card">
                       <div className="booking-date-badge">
                         <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
@@ -488,11 +520,7 @@ function Profile({ user, onUpdateUser }) {
                         <span className={`booking-status-badge ${booking.status}`}>
                           {booking.status === 'pending' && '⏳ Pending Approval'}
                           {booking.status === 'confirmed' && '✅ Confirmed'}
-                          {booking.status === 'declined' && '❌ Declined'}
                         </span>
-                        {booking.status === 'declined' && booking.decline_reason && (
-                          <p className="decline-reason-text">Reason: {booking.decline_reason}</p>
-                        )}
                       </div>
                       <div className="booking-actions">
                         <button 
@@ -509,11 +537,11 @@ function Profile({ user, onUpdateUser }) {
             )}
 
             {/* Past Sessions */}
-            {bookings.filter(b => b.status !== 'cancelled' && isPastBooking(b)).length > 0 && (
+            {bookings.filter(b => b.status !== 'cancelled' && b.status !== 'declined' && isPastBooking(b)).length > 0 && (
               <div className="past-sessions-section">
                 <h3 className="bookings-section-title">✅ Past Sessions</h3>
                 <div className="bookings-list">
-                  {bookings.filter(b => b.status !== 'cancelled' && isPastBooking(b)).map(booking => (
+                  {bookings.filter(b => b.status !== 'cancelled' && b.status !== 'declined' && isPastBooking(b)).map(booking => (
                     <div key={booking.id} className="booking-card past">
                       <div className="booking-date-badge past">
                         <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
@@ -552,31 +580,6 @@ function Profile({ user, onUpdateUser }) {
                 <Link to="/coaches" className="btn btn-primary">
                   Book a Session
                 </Link>
-              </div>
-            )}
-
-            {/* Declined Bookings */}
-            {bookings.filter(b => b.status === 'declined').length > 0 && (
-              <div className="past-bookings">
-                <h3 className="bookings-section-title">🚫 Declined Bookings</h3>
-                <div className="bookings-list faded">
-                  {bookings.filter(b => b.status === 'declined').map(booking => (
-                    <div key={booking.id} className="booking-card declined">
-                      <div className="booking-date-badge declined">
-                        <span className="booking-day">{new Date(booking.booking_date).getDate()}</span>
-                        <span className="booking-month">{new Date(booking.booking_date).toLocaleString('en-US', { month: 'short' })}</span>
-                      </div>
-                      <div className="booking-info">
-                        <h4>Session with {booking.coach_name}</h4>
-                        <p>📅 {formatDate(booking.booking_date)}</p>
-                        <span className="booking-status-badge declined">Declined</span>
-                        {booking.decline_reason && (
-                          <p className="decline-reason-text">💬 {booking.decline_reason}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
 
