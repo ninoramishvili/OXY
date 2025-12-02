@@ -767,12 +767,9 @@ app.post('/api/bookings', async (req, res) => {
     
     const result = await pool.query(
       `INSERT INTO bookings (coach_id, user_id, booking_date, booking_time, notes, status) 
-       VALUES ($1, $2, $3, $4, $5, 'confirmed') RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING *`,
       [coachId, userId || 1, date, time, notes || null]
     );
-    
-    // Update coach session count
-    await pool.query('UPDATE coaches SET sessions = sessions + 1 WHERE id = $1', [coachId]);
     
     res.status(201).json({ 
       success: true, 
@@ -814,6 +811,99 @@ app.delete('/api/bookings/:id', async (req, res) => {
   } catch (error) {
     console.error('Cancel booking error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/bookings/:id/confirm - Coach confirms a pending booking
+app.put('/api/bookings/:id/confirm', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if booking exists and is pending
+    const booking = await pool.query(
+      'SELECT * FROM bookings WHERE id = $1',
+      [id]
+    );
+    
+    if (booking.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    
+    if (booking.rows[0].status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Booking is not pending' });
+    }
+    
+    // Update status to confirmed
+    await pool.query(
+      "UPDATE bookings SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+      [id]
+    );
+    
+    // Update coach session count
+    await pool.query('UPDATE coaches SET sessions = sessions + 1 WHERE id = $1', [booking.rows[0].coach_id]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Booking confirmed successfully'
+    });
+  } catch (error) {
+    console.error('Confirm booking error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/bookings/:id/decline - Coach declines a pending booking
+app.put('/api/bookings/:id/decline', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Check if booking exists and is pending
+    const booking = await pool.query(
+      'SELECT * FROM bookings WHERE id = $1',
+      [id]
+    );
+    
+    if (booking.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    
+    if (booking.rows[0].status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Booking is not pending' });
+    }
+    
+    // Update status to declined with reason
+    await pool.query(
+      "UPDATE bookings SET status = 'declined', decline_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+      [id, reason || 'No reason provided']
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Booking declined'
+    });
+  } catch (error) {
+    console.error('Decline booking error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/bookings/pending/:coachId - Get pending bookings for a coach
+app.get('/api/bookings/pending/:coachId', async (req, res) => {
+  try {
+    const { coachId } = req.params;
+    const result = await pool.query(
+      `SELECT b.*, u.name as user_name, u.email as user_email
+       FROM bookings b
+       LEFT JOIN users u ON b.user_id = u.id
+       WHERE b.coach_id = $1 AND b.status = 'pending'
+       ORDER BY b.booking_date ASC, b.booking_time ASC`,
+      [coachId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching pending bookings:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
