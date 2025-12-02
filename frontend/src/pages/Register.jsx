@@ -11,6 +11,8 @@ function Register() {
     confirmPassword: ''
   })
   const [errors, setErrors] = useState({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [serverError, setServerError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -173,16 +175,26 @@ function Register() {
           
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Create a password (min. 6 characters)"
-              disabled={loading}
-              className={errors.password ? 'input-error' : ''}
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Create a password (min. 6 characters)"
+                disabled={loading}
+                className={errors.password ? 'input-error' : ''}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
             {formData.password && (
               <div className="password-strength">
                 <div className="strength-bar">
@@ -204,16 +216,26 @@ function Register() {
           
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm your password"
-              disabled={loading}
-              className={errors.confirmPassword ? 'input-error' : ''}
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm your password"
+                disabled={loading}
+                className={errors.confirmPassword ? 'input-error' : ''}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
             {errors.confirmPassword && <span className="field-error">{errors.confirmPassword}</span>}
           </div>
           
