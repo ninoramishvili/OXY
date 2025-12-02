@@ -4084,6 +4084,8 @@ body {
   max-width: 500px;
   width: 90%;
   border: 2px solid var(--border);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .comment-modal-header {
@@ -4158,6 +4160,18 @@ body {
 /* Session Feedback Modal */
 .session-feedback-modal {
   max-width: 550px;
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.session-feedback-modal .comment-modal-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  padding-top: var(--space-md);
+  margin-top: auto;
 }
 
 .label-hint {
@@ -6251,6 +6265,7 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: var(--space-md);
 }
 
 .confirm-popup {
