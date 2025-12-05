@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const API_BASE = 'http://localhost:5000/api'
 
 function Productivity({ user }) {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('day')
+  const [activeTab, setActiveTab] = useState('backlog')
   const [tasks, setTasks] = useState([])
   const [weekTasks, setWeekTasks] = useState([])
   const [backlog, setBacklog] = useState([])
@@ -14,10 +14,10 @@ function Productivity({ user }) {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()))
   const [message, setMessage] = useState({ text: '', type: '', icon: '' })
   
-  // Drag state for existing tasks
+  // Drag state
   const [draggedTask, setDraggedTask] = useState(null)
   
-  // Time range selection state
+  // Time selection state
   const [isSelecting, setIsSelecting] = useState(false)
   const [selectionStart, setSelectionStart] = useState(null)
   const [selectionEnd, setSelectionEnd] = useState(null)
@@ -29,21 +29,13 @@ function Productivity({ user }) {
   const [editCategory, setEditCategory] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   
-  // New task form with date/time
+  // New task form
   const [newTask, setNewTask] = useState({ 
-    title: '', 
-    description: '', 
-    categoryId: '', 
-    priority: 'medium', 
-    estimatedMinutes: 30,
-    startDate: '',
-    startTime: '',
-    endDate: '',
-    endTime: ''
+    title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30,
+    startDate: '', startTime: '', endDate: '', endTime: ''
   })
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
 
-  // Get Monday of a given week
   function getMonday(date) {
     const d = new Date(date)
     const day = d.getDay()
@@ -52,7 +44,6 @@ function Productivity({ user }) {
     return d.toISOString().split('T')[0]
   }
 
-  // Generate week days from Monday
   function getWeekDays(mondayStr) {
     const days = []
     const monday = new Date(mondayStr)
@@ -64,8 +55,8 @@ function Productivity({ user }) {
     return days
   }
 
-  // Calculate end time from start time and duration
   function calculateEndTime(startTime, minutes) {
+    if (!startTime) return ''
     const [hours, mins] = startTime.split(':').map(Number)
     const totalMins = hours * 60 + mins + minutes
     const endHours = Math.floor(totalMins / 60) % 24
@@ -73,37 +64,25 @@ function Productivity({ user }) {
     return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
   }
 
-  // Calculate duration in minutes between two times
   function calculateDuration(startTime, endTime) {
+    if (!startTime || !endTime) return 30
     const [sh, sm] = startTime.split(':').map(Number)
     const [eh, em] = endTime.split(':').map(Number)
-    return (eh * 60 + em) - (sh * 60 + sm)
+    const diff = (eh * 60 + em) - (sh * 60 + sm)
+    return diff > 0 ? diff : 30
   }
 
-  // Format duration as hours and minutes
   function formatDuration(minutes) {
-    if (minutes < 60) return `${minutes} min`
+    if (!minutes || minutes < 60) return `${minutes || 30} min`
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
-    if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`
-    return `${hours}h ${mins}min`
+    if (mins === 0) return `${hours}h`
+    return `${hours}h ${mins}m`
   }
 
-  // Calculate how many 30-min slots a task spans
-  function getTaskSlotSpan(task) {
-    const duration = task.estimated_minutes || 30
-    return Math.ceil(duration / 30)
-  }
-
-  // Check if a time slot is covered by a task (not just start time)
-  function isSlotCoveredByTask(task, slotTime) {
-    if (!task.scheduled_time) return false
-    const [th, tm] = task.scheduled_time.slice(0, 5).split(':').map(Number)
-    const [sh, sm] = slotTime.split(':').map(Number)
-    const taskStartMins = th * 60 + tm
-    const slotMins = sh * 60 + sm
-    const duration = task.estimated_minutes || 30
-    return slotMins >= taskStartMins && slotMins < taskStartMins + duration
+  // Calculate slot count for task height
+  function getSlotCount(minutes) {
+    return Math.max(1, Math.ceil((minutes || 30) / 30))
   }
 
   useEffect(() => {
@@ -122,10 +101,15 @@ function Productivity({ user }) {
         fetch(`${API_BASE}/tasks/${user.id}/date/${selectedDate}`),
         fetch(`${API_BASE}/tasks/${user.id}/week/${weekStart}`)
       ])
-      setCategories(await catRes.json())
-      setBacklog(await backlogRes.json())
-      setTasks(await dayRes.json())
-      setWeekTasks(await weekRes.json())
+      const catData = await catRes.json()
+      const backlogData = await backlogRes.json()
+      const dayData = await dayRes.json()
+      const weekData = await weekRes.json()
+      
+      setCategories(Array.isArray(catData) ? catData : [])
+      setBacklog(Array.isArray(backlogData) ? backlogData : [])
+      setTasks(Array.isArray(dayData) ? dayData : [])
+      setWeekTasks(Array.isArray(weekData) ? weekData : [])
     } catch (error) {
       console.error('Error fetching data:', error)
     }
@@ -136,41 +120,27 @@ function Productivity({ user }) {
     setTimeout(() => setMessage({ text: '', type: '', icon: '' }), 3000)
   }
 
-  // Reset new task form
   const resetNewTask = () => {
     setNewTask({ 
-      title: '', 
-      description: '', 
-      categoryId: '', 
-      priority: 'medium', 
-      estimatedMinutes: 30,
-      startDate: '',
-      startTime: '',
-      endDate: '',
-      endTime: ''
+      title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30,
+      startDate: '', startTime: '', endDate: '', endTime: ''
     })
   }
 
-  // Open add task modal with pre-filled date/time
   const openAddTaskWithTime = (date, startTime, endTime = null) => {
-    const calculatedEndTime = endTime || calculateEndTime(startTime, 30)
-    const duration = endTime ? calculateDuration(startTime, calculatedEndTime) : 30
+    const calcEndTime = endTime || calculateEndTime(startTime, 30)
+    const duration = calculateDuration(startTime, calcEndTime)
     
     setNewTask({
-      title: '',
-      description: '',
-      categoryId: '',
-      priority: 'medium',
+      title: '', description: '', categoryId: '', priority: 'medium',
       estimatedMinutes: duration,
-      startDate: date,
-      startTime: startTime,
-      endDate: date,
-      endTime: calculatedEndTime
+      startDate: date, startTime: startTime,
+      endDate: date, endTime: calcEndTime
     })
     setShowAddTask(true)
   }
 
-  // ========== TIME RANGE SELECTION ==========
+  // ========== TIME SELECTION ==========
   const handleSlotMouseDown = (date, time, hasTask) => {
     if (hasTask || draggedTask) return
     setIsSelecting(true)
@@ -207,7 +177,6 @@ function Productivity({ user }) {
   const isSlotSelected = (date, time) => {
     if (!isSelecting || !selectionStart || !selectionEnd) return false
     if (date !== selectionStart.date) return false
-    
     const times = [selectionStart.time, selectionEnd.time].sort()
     return time >= times[0] && time <= times[1]
   }
@@ -217,9 +186,9 @@ function Productivity({ user }) {
     e.preventDefault()
     if (!newTask.title.trim()) return
     
-    // Validate: if date is set, time must be set and vice versa
+    // Validate date/time together
     if ((newTask.startDate && !newTask.startTime) || (!newTask.startDate && newTask.startTime)) {
-      showToast('Please set both date and time, or leave both empty', 'error', '✕')
+      showToast('Set both date and time, or leave both empty', 'error', '✕')
       return
     }
     
@@ -259,13 +228,11 @@ function Productivity({ user }) {
     const hasDate = showEditTask.scheduled_date
     const hasTime = showEditTask.scheduled_time
     
-    // Validate: if date is set, time must be set and vice versa
     if ((hasDate && !hasTime) || (!hasDate && hasTime)) {
-      showToast('Please set both date and time, or leave both empty', 'error', '✕')
+      showToast('Set both date and time, or leave both empty', 'error', '✕')
       return
     }
     
-    // Determine status based on whether scheduled
     let status = showEditTask.status
     if (hasDate && hasTime) {
       if (status === 'backlog') status = 'planned'
@@ -280,9 +247,9 @@ function Productivity({ user }) {
         body: JSON.stringify({
           title: showEditTask.title,
           description: showEditTask.description,
-          categoryId: showEditTask.category_id || showEditTask.categoryId || null,
+          categoryId: showEditTask.category_id || null,
           priority: showEditTask.priority,
-          estimatedMinutes: showEditTask.estimated_minutes || showEditTask.estimatedMinutes,
+          estimatedMinutes: showEditTask.estimated_minutes,
           status: status,
           scheduledDate: showEditTask.scheduled_date || null,
           scheduledTime: showEditTask.scheduled_time || null,
@@ -347,7 +314,6 @@ function Productivity({ user }) {
   const handleAddCategory = async (e) => {
     e.preventDefault()
     if (!newCategory.name.trim()) return
-    
     try {
       const res = await fetch(`${API_BASE}/categories`, {
         method: 'POST',
@@ -361,7 +327,7 @@ function Productivity({ user }) {
         fetchData()
       }
     } catch (error) {
-      showToast('Failed to add category', 'error', '✕')
+      showToast('Failed', 'error', '✕')
     }
   }
 
@@ -377,7 +343,7 @@ function Productivity({ user }) {
       setEditCategory(null)
       fetchData()
     } catch (error) {
-      showToast('Failed to update', 'error', '✕')
+      showToast('Failed', 'error', '✕')
     }
   }
 
@@ -388,18 +354,13 @@ function Productivity({ user }) {
       setConfirmDelete(null)
       fetchData()
     } catch (error) {
-      showToast('Failed to delete', 'error', '✕')
+      showToast('Failed', 'error', '✕')
     }
   }
 
   // ========== DRAG & DROP ==========
-  const handleDragStart = (task) => {
-    setDraggedTask(task)
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-  }
+  const handleDragStart = (task) => setDraggedTask(task)
+  const handleDragOver = (e) => e.preventDefault()
 
   const handleDropOnSlot = async (date, time) => {
     if (!draggedTask) return
@@ -430,24 +391,17 @@ function Productivity({ user }) {
   }
 
   const goToToday = () => {
-    const today = new Date().toISOString().split('T')[0]
-    setSelectedDate(today)
+    setSelectedDate(new Date().toISOString().split('T')[0])
     setWeekStart(getMonday(new Date()))
   }
 
   const isToday = (dateStr) => dateStr === new Date().toISOString().split('T')[0]
 
-  // Generate 24-hour time slots with 30-minute intervals
+  // Time slots - 24h with 30min intervals
   const timeSlots = []
   for (let hour = 0; hour < 24; hour++) {
     timeSlots.push(`${hour.toString().padStart(2, '0')}:00`)
     timeSlots.push(`${hour.toString().padStart(2, '0')}:30`)
-  }
-
-  // Week view shows hourly slots
-  const weekTimeSlots = []
-  for (let hour = 0; hour < 24; hour++) {
-    weekTimeSlots.push(`${hour.toString().padStart(2, '0')}:00`)
   }
 
   const formatDate = (dateStr) => {
@@ -456,34 +410,11 @@ function Productivity({ user }) {
 
   const formatShortDate = (dateStr) => {
     const date = new Date(dateStr)
-    return {
-      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      date: date.getDate()
-    }
+    return { day: date.toLocaleDateString('en-US', { weekday: 'short' }), date: date.getDate() }
   }
 
-  // Handle end time change - update duration
-  const handleEndTimeChange = (endTime, isNewTask = true) => {
-    if (isNewTask) {
-      if (newTask.startTime && endTime) {
-        const duration = calculateDuration(newTask.startTime, endTime)
-        setNewTask({ ...newTask, endTime, estimatedMinutes: duration > 0 ? duration : 30 })
-      } else {
-        setNewTask({ ...newTask, endTime })
-      }
-    } else {
-      if (showEditTask?.scheduled_time && endTime) {
-        const duration = calculateDuration(showEditTask.scheduled_time, endTime)
-        setShowEditTask({ ...showEditTask, scheduled_end_time: endTime, estimated_minutes: duration > 0 ? duration : 30 })
-      } else {
-        setShowEditTask({ ...showEditTask, scheduled_end_time: endTime })
-      }
-    }
-  }
-
-  // Handle start time change - update end time
-  const handleStartTimeChange = (startTime, isNewTask = true) => {
-    if (isNewTask) {
+  const handleStartTimeChange = (startTime, isNew = true) => {
+    if (isNew) {
       const endTime = calculateEndTime(startTime, newTask.estimatedMinutes)
       setNewTask({ ...newTask, startTime, endTime })
     } else {
@@ -492,32 +423,13 @@ function Productivity({ user }) {
     }
   }
 
-  // Handle date change - sync end date and clear time if date is cleared
-  const handleDateChange = (date, isNewTask = true, isStartDate = true) => {
-    if (isNewTask) {
-      if (isStartDate) {
-        setNewTask({ 
-          ...newTask, 
-          startDate: date, 
-          endDate: date || newTask.endDate,
-          startTime: date ? newTask.startTime : '',
-          endTime: date ? newTask.endTime : ''
-        })
-      } else {
-        setNewTask({ ...newTask, endDate: date })
-      }
+  const handleEndTimeChange = (endTime, isNew = true) => {
+    if (isNew) {
+      const duration = calculateDuration(newTask.startTime, endTime)
+      setNewTask({ ...newTask, endTime, estimatedMinutes: duration })
     } else {
-      if (isStartDate) {
-        setShowEditTask({ 
-          ...showEditTask, 
-          scheduled_date: date,
-          scheduled_end_date: date || showEditTask.scheduled_end_date,
-          scheduled_time: date ? showEditTask.scheduled_time : null,
-          scheduled_end_time: date ? showEditTask.scheduled_end_time : null
-        })
-      } else {
-        setShowEditTask({ ...showEditTask, scheduled_end_date: date })
-      }
+      const duration = calculateDuration(showEditTask?.scheduled_time, endTime)
+      setShowEditTask({ ...showEditTask, scheduled_end_time: endTime, estimated_minutes: duration })
     }
   }
 
@@ -528,20 +440,25 @@ function Productivity({ user }) {
 
   const weekDays = getWeekDays(weekStart)
 
-  // Find tasks that START at a given slot (for rendering)
-  const getTasksStartingAt = (taskList, date, time) => {
+  // Check if task starts at this slot
+  const getTasksAt = (taskList, date, time) => {
     return taskList.filter(t => 
       t.scheduled_date?.split('T')[0] === date && 
       t.scheduled_time?.slice(0, 5) === time
     )
   }
 
-  // Check if a slot is occupied by a multi-slot task (but not starting here)
+  // Check if slot is covered by another task
   const isSlotOccupied = (taskList, date, time) => {
+    const [slotH, slotM] = time.split(':').map(Number)
+    const slotMins = slotH * 60 + slotM
+    
     return taskList.some(t => {
       if (t.scheduled_date?.split('T')[0] !== date) return false
-      if (t.scheduled_time?.slice(0, 5) === time) return false // This is start slot
-      return isSlotCoveredByTask(t, time)
+      const [taskH, taskM] = (t.scheduled_time?.slice(0, 5) || '00:00').split(':').map(Number)
+      const taskStart = taskH * 60 + taskM
+      const taskEnd = taskStart + (t.estimated_minutes || 30)
+      return slotMins > taskStart && slotMins < taskEnd
     })
   }
 
@@ -556,234 +473,20 @@ function Productivity({ user }) {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Backlog first */}
       <div className="prod-tabs">
+        <button className={`prod-tab ${activeTab === 'backlog' ? 'active' : ''}`} onClick={() => setActiveTab('backlog')}>
+          📥 Backlog ({backlog.length})
+        </button>
         <button className={`prod-tab ${activeTab === 'day' ? 'active' : ''}`} onClick={() => setActiveTab('day')}>
           📅 Day
         </button>
         <button className={`prod-tab ${activeTab === 'week' ? 'active' : ''}`} onClick={() => setActiveTab('week')}>
           📆 Week
         </button>
-        <button className={`prod-tab ${activeTab === 'backlog' ? 'active' : ''}`} onClick={() => setActiveTab('backlog')}>
-          📥 Backlog ({backlog.length})
-        </button>
       </div>
 
       <div className="prod-content">
-        {/* ========== DAY VIEW ========== */}
-        {activeTab === 'day' && (
-          <div className="day-view">
-            <div className="date-nav">
-              <button onClick={() => changeDate(-1)}>← Prev</button>
-              <button className="today-btn" onClick={goToToday}>Today</button>
-              <span className={`current-date ${isToday(selectedDate) ? 'today' : ''}`}>
-                {formatDate(selectedDate)}
-                {isToday(selectedDate) && <span className="today-badge">Today</span>}
-              </span>
-              <button onClick={() => changeDate(1)}>Next →</button>
-            </div>
-
-            <div className="day-layout">
-              {/* Timeline */}
-              <div className="timeline">
-                <h3>📅 Schedule <span className="timeline-hint">(Click or drag to add task)</span></h3>
-                <div className="time-slots">
-                  {timeSlots.map((time, index) => {
-                    const slotTasks = getTasksStartingAt(tasks, selectedDate, time)
-                    const isOccupied = isSlotOccupied(tasks, selectedDate, time)
-                    const isHour = time.endsWith(':00')
-                    const hasTask = slotTasks.length > 0
-                    const isSelected = isSlotSelected(selectedDate, time)
-                    
-                    return (
-                      <div 
-                        key={time} 
-                        className={`time-slot ${draggedTask ? 'droppable' : ''} ${isHour ? 'hour-slot' : 'half-slot'} ${isSelected ? 'selecting' : ''} ${isOccupied ? 'occupied' : ''}`}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDropOnSlot(selectedDate, time)}
-                        onMouseDown={() => handleSlotMouseDown(selectedDate, time, hasTask || isOccupied)}
-                        onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
-                      >
-                        <div className="time-label">{time}</div>
-                        <div className="slot-content">
-                          {hasTask ? (
-                            slotTasks.map(task => {
-                              const slots = getTaskSlotSpan(task)
-                              return (
-                                <div 
-                                  key={task.id} 
-                                  className={`scheduled-task ${task.status}`}
-                                  style={{ 
-                                    borderLeftColor: task.category_color || '#6B7280',
-                                    minHeight: slots > 1 ? `${slots * 32 - 4}px` : 'auto'
-                                  }}
-                                  draggable
-                                  onDragStart={() => handleDragStart(task)}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                >
-                                  <div className="task-header" onClick={() => setShowEditTask(task)}>
-                                    <span className="task-cat">{task.category_icon || '📋'}</span>
-                                    <span className="task-title">{task.title}</span>
-                                    <span className="task-duration">{formatDuration(task.estimated_minutes)}</span>
-                                    <span className={`priority-dot ${task.priority}`}></span>
-                                  </div>
-                                  <div className="task-actions">
-                                    {task.status !== 'completed' && (
-                                      <button onClick={() => handleCompleteTask(task.id)} title="Complete">✓</button>
-                                    )}
-                                    <button onClick={() => handleUnschedule(task.id)} title="Unschedule">↩</button>
-                                  </div>
-                                </div>
-                              )
-                            })
-                          ) : (
-                            <div className="empty-slot">{isSelected ? '+ New Task' : ''}</div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Quick Backlog Panel */}
-              <div 
-                className={`quick-backlog ${draggedTask ? 'droppable' : ''}`}
-                onDragOver={handleDragOver}
-                onDrop={handleDropOnBacklog}
-              >
-                <h3>📥 Backlog ({backlog.length})</h3>
-                <p className="hint">Drag tasks to schedule • Click to edit</p>
-                <div className="backlog-list">
-                  {backlog.slice(0, 10).map(task => (
-                    <div 
-                      key={task.id} 
-                      className="backlog-task" 
-                      style={{ borderLeftColor: task.category_color || '#6B7280' }}
-                      draggable
-                      onDragStart={() => handleDragStart(task)}
-                    >
-                      <div className="task-info" onClick={() => setShowEditTask(task)}>
-                        <span className="task-cat">{task.category_icon || '📋'}</span>
-                        <span className="task-title">{task.title}</span>
-                        <span className={`priority-badge ${task.priority}`}>{task.priority[0].toUpperCase()}</span>
-                      </div>
-                      <div className="schedule-times">
-                        {['09:00', '10:00', '14:00', '16:00'].map(t => (
-                          <button key={t} className="time-btn" onClick={() => handleScheduleTask(task.id, selectedDate, t)}>
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {backlog.length === 0 && <p className="empty-text">No tasks in backlog</p>}
-                  {backlog.length > 10 && <p className="more-text">+{backlog.length - 10} more</p>}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========== WEEK VIEW ========== */}
-        {activeTab === 'week' && (
-          <div className="week-view">
-            <div className="date-nav">
-              <button onClick={() => changeWeek(-1)}>← Prev Week</button>
-              <button className="today-btn" onClick={goToToday}>This Week</button>
-              <span className="current-date">
-                {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
-              </span>
-              <button onClick={() => changeWeek(1)}>Next Week →</button>
-            </div>
-
-            <div className="week-layout">
-              {/* Week Backlog Sidebar */}
-              <div 
-                className={`week-backlog ${draggedTask ? 'droppable' : ''}`}
-                onDragOver={handleDragOver}
-                onDrop={handleDropOnBacklog}
-              >
-                <h3>📥 Backlog</h3>
-                <div className="backlog-mini">
-                  {backlog.slice(0, 15).map(task => (
-                    <div 
-                      key={task.id}
-                      className="backlog-mini-task"
-                      style={{ borderLeftColor: task.category_color || '#6B7280' }}
-                      draggable
-                      onDragStart={() => handleDragStart(task)}
-                      onClick={() => setShowEditTask(task)}
-                    >
-                      <span className="mini-icon">{task.category_icon || '📋'}</span>
-                      <span className="mini-title">{task.title}</span>
-                      <span className={`mini-priority ${task.priority}`}></span>
-                    </div>
-                  ))}
-                  {backlog.length === 0 && <p className="empty-text">Empty</p>}
-                </div>
-              </div>
-
-              {/* Week Calendar Grid */}
-              <div className="week-calendar">
-                <div className="week-header">
-                  <div className="time-col"></div>
-                  {weekDays.map(day => {
-                    const { day: dayName, date } = formatShortDate(day)
-                    return (
-                      <div key={day} className={`day-col-header ${isToday(day) ? 'today' : ''}`}>
-                        <span className="day-name">{dayName}</span>
-                        <span className="day-date">{date}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div className="week-grid">
-                  {weekTimeSlots.map(time => {
-                    const halfTime = `${time.slice(0, 2)}:30`
-                    return (
-                      <div key={time} className="week-row">
-                        <div className="time-col">{time}</div>
-                        {weekDays.map(day => {
-                          const slotTasks = weekTasks.filter(t => 
-                            t.scheduled_date?.split('T')[0] === day && 
-                            (t.scheduled_time?.slice(0, 5) === time || t.scheduled_time?.slice(0, 5) === halfTime)
-                          )
-                          const hasTask = slotTasks.length > 0
-                          
-                          return (
-                            <div 
-                              key={`${day}-${time}`}
-                              className={`week-cell ${isToday(day) ? 'today' : ''} ${draggedTask ? 'droppable' : ''}`}
-                              onDragOver={handleDragOver}
-                              onDrop={() => handleDropOnSlot(day, time)}
-                              onClick={() => !hasTask && openAddTaskWithTime(day, time)}
-                            >
-                              {slotTasks.map(task => (
-                                <div 
-                                  key={task.id}
-                                  className={`week-task ${task.status}`}
-                                  style={{ background: task.category_color || '#6B7280' }}
-                                  draggable
-                                  onDragStart={() => handleDragStart(task)}
-                                  onClick={(e) => { e.stopPropagation(); setShowEditTask(task); }}
-                                  title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
-                                >
-                                  {task.category_icon} {task.title.slice(0, 8)}{task.title.length > 8 ? '..' : ''}
-                                </div>
-                              ))}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ========== BACKLOG VIEW ========== */}
         {activeTab === 'backlog' && (
           <div className="backlog-view">
@@ -792,7 +495,11 @@ function Productivity({ user }) {
               <span>{backlog.length} tasks</span>
             </div>
             
-            <div className="backlog-full">
+            <div 
+              className={`backlog-full ${draggedTask ? 'droppable' : ''}`}
+              onDragOver={handleDragOver}
+              onDrop={handleDropOnBacklog}
+            >
               {backlog.map(task => (
                 <div 
                   key={task.id} 
@@ -814,15 +521,9 @@ function Productivity({ user }) {
                     </div>
                   </div>
                   <div className="item-actions">
-                    <button className="btn btn-small btn-secondary" onClick={() => setShowEditTask(task)}>
-                      ✏️ Edit
-                    </button>
-                    <button className="btn btn-small btn-primary" onClick={() => handleScheduleTask(task.id, selectedDate, '09:00')}>
-                      📅 Schedule
-                    </button>
-                    <button className="btn btn-small btn-danger" onClick={() => setConfirmDelete({ type: 'task', id: task.id, name: task.title })}>
-                      🗑️
-                    </button>
+                    <button className="btn btn-small btn-secondary" onClick={() => setShowEditTask(task)}>✏️</button>
+                    <button className="btn btn-small btn-primary" onClick={() => handleScheduleTask(task.id, selectedDate, '09:00')}>📅</button>
+                    <button className="btn btn-small btn-danger" onClick={() => setConfirmDelete({ type: 'task', id: task.id, name: task.title })}>🗑️</button>
                   </div>
                 </div>
               ))}
@@ -835,24 +536,167 @@ function Productivity({ user }) {
             </div>
           </div>
         )}
+
+        {/* ========== DAY VIEW ========== */}
+        {activeTab === 'day' && (
+          <div className="day-view">
+            <div className="date-nav">
+              <button onClick={() => changeDate(-1)}>← Prev</button>
+              <button className="today-btn" onClick={goToToday}>Today</button>
+              <span className={`current-date ${isToday(selectedDate) ? 'today' : ''}`}>
+                {formatDate(selectedDate)}
+                {isToday(selectedDate) && <span className="today-badge">Today</span>}
+              </span>
+              <button onClick={() => changeDate(1)}>Next →</button>
+            </div>
+
+            <div className="day-calendar">
+              <div className="day-grid">
+                {timeSlots.map(time => {
+                  const slotTasks = getTasksAt(tasks, selectedDate, time)
+                  const occupied = isSlotOccupied(tasks, selectedDate, time)
+                  const isHour = time.endsWith(':00')
+                  const hasTask = slotTasks.length > 0
+                  const selected = isSlotSelected(selectedDate, time)
+                  
+                  return (
+                    <div 
+                      key={time} 
+                      className={`day-slot ${isHour ? 'hour' : 'half'} ${selected ? 'selecting' : ''} ${occupied ? 'occupied' : ''} ${draggedTask ? 'droppable' : ''}`}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDropOnSlot(selectedDate, time)}
+                      onMouseDown={() => handleSlotMouseDown(selectedDate, time, hasTask || occupied)}
+                      onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
+                    >
+                      <div className="slot-time">{time}</div>
+                      <div className="slot-content">
+                        {hasTask && slotTasks.map(task => {
+                          const slots = getSlotCount(task.estimated_minutes)
+                          return (
+                            <div 
+                              key={task.id} 
+                              className={`day-task ${task.status}`}
+                              style={{ 
+                                borderLeftColor: task.category_color || '#6B7280',
+                                height: `${slots * 32 - 4}px`
+                              }}
+                              draggable
+                              onDragStart={() => handleDragStart(task)}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={() => setShowEditTask(task)}
+                            >
+                              <span className="task-icon">{task.category_icon || '📋'}</span>
+                              <span className="task-title">{task.title}</span>
+                              <span className="task-time">{formatDuration(task.estimated_minutes)}</span>
+                              <div className="task-btns">
+                                {task.status !== 'completed' && (
+                                  <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }}>✓</button>
+                                )}
+                                <button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id); }}>↩</button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========== WEEK VIEW ========== */}
+        {activeTab === 'week' && (
+          <div className="week-view">
+            <div className="date-nav">
+              <button onClick={() => changeWeek(-1)}>← Prev</button>
+              <button className="today-btn" onClick={goToToday}>This Week</button>
+              <span className="current-date">
+                {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+              </span>
+              <button onClick={() => changeWeek(1)}>Next →</button>
+            </div>
+
+            <div className="week-calendar">
+              {/* Header row with days */}
+              <div className="week-header-row">
+                <div className="week-time-col"></div>
+                {weekDays.map(day => {
+                  const { day: dayName, date } = formatShortDate(day)
+                  return (
+                    <div key={day} className={`week-day-header ${isToday(day) ? 'today' : ''}`}>
+                      <span className="day-name">{dayName}</span>
+                      <span className="day-num">{date}</span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Time rows */}
+              <div className="week-body">
+                {timeSlots.map(time => {
+                  const isHour = time.endsWith(':00')
+                  return (
+                    <div key={time} className={`week-time-row ${isHour ? 'hour' : 'half'}`}>
+                      <div className="week-time-col">{isHour ? time : ''}</div>
+                      {weekDays.map(day => {
+                        const slotTasks = getTasksAt(weekTasks, day, time)
+                        const occupied = isSlotOccupied(weekTasks, day, time)
+                        const hasTask = slotTasks.length > 0
+                        const selected = isSlotSelected(day, time)
+                        
+                        return (
+                          <div 
+                            key={`${day}-${time}`}
+                            className={`week-slot ${isToday(day) ? 'today' : ''} ${selected ? 'selecting' : ''} ${occupied ? 'occupied' : ''} ${draggedTask ? 'droppable' : ''}`}
+                            onDragOver={handleDragOver}
+                            onDrop={() => handleDropOnSlot(day, time)}
+                            onMouseDown={() => handleSlotMouseDown(day, time, hasTask || occupied)}
+                            onMouseEnter={() => handleSlotMouseEnter(day, time)}
+                            onClick={() => !hasTask && !occupied && openAddTaskWithTime(day, time)}
+                          >
+                            {hasTask && slotTasks.map(task => {
+                              const slots = getSlotCount(task.estimated_minutes)
+                              return (
+                                <div 
+                                  key={task.id}
+                                  className={`week-task ${task.status}`}
+                                  style={{ 
+                                    background: task.category_color || '#6B7280',
+                                    height: `${slots * 24 - 2}px`
+                                  }}
+                                  draggable
+                                  onDragStart={() => handleDragStart(task)}
+                                  onClick={(e) => { e.stopPropagation(); setShowEditTask(task); }}
+                                  title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
+                                >
+                                  {task.title.slice(0, 8)}{task.title.length > 8 ? '..' : ''}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ========== ADD TASK MODAL ========== */}
       {showAddTask && (
         <div className="confirm-overlay" onClick={() => setShowAddTask(false)}>
-          <div className="task-modal compact" onClick={(e) => e.stopPropagation()}>
+          <div className="task-modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setShowAddTask(false)}>×</button>
             <h3>➕ New Task</h3>
             <form onSubmit={handleAddTask}>
               <div className="form-group">
-                <label>Task Title *</label>
-                <input
-                  type="text"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="What do you need to do?"
-                  autoFocus
-                />
+                <label>Title *</label>
+                <input type="text" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} placeholder="Task name" autoFocus />
               </div>
               
               <div className="form-row">
@@ -860,9 +704,7 @@ function Productivity({ user }) {
                   <label>Category</label>
                   <select value={newTask.categoryId} onChange={(e) => setNewTask({ ...newTask, categoryId: e.target.value })}>
                     <option value="">None</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                    ))}
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
@@ -875,49 +717,36 @@ function Productivity({ user }) {
                 </div>
               </div>
 
-              {/* Schedule Section */}
-              <div className="schedule-section compact">
-                <label className="section-label">📅 Schedule {!newTask.startDate && '(optional)'}</label>
+              <div className="schedule-box">
+                <label className="box-label">📅 Schedule</label>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Date</label>
-                    <input
-                      type="date"
-                      value={newTask.startDate}
-                      onChange={(e) => handleDateChange(e.target.value, true, true)}
-                    />
+                    <label>Start Date</label>
+                    <input type="date" value={newTask.startDate} onChange={(e) => setNewTask({ ...newTask, startDate: e.target.value, endDate: e.target.value || newTask.endDate })} />
                   </div>
                   <div className="form-group">
-                    <label>Start</label>
-                    <input
-                      type="time"
-                      value={newTask.startTime}
-                      onChange={(e) => handleStartTimeChange(e.target.value, true)}
-                      disabled={!newTask.startDate}
-                    />
+                    <label>Start Time</label>
+                    <input type="time" value={newTask.startTime} onChange={(e) => handleStartTimeChange(e.target.value, true)} disabled={!newTask.startDate} />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>End Date</label>
+                    <input type="date" value={newTask.endDate} onChange={(e) => setNewTask({ ...newTask, endDate: e.target.value })} disabled={!newTask.startDate} />
                   </div>
                   <div className="form-group">
-                    <label>End</label>
-                    <input
-                      type="time"
-                      value={newTask.endTime}
-                      onChange={(e) => handleEndTimeChange(e.target.value, true)}
-                      disabled={!newTask.startDate}
-                    />
+                    <label>End Time</label>
+                    <input type="time" value={newTask.endTime} onChange={(e) => handleEndTimeChange(e.target.value, true)} disabled={!newTask.startDate} />
                   </div>
                 </div>
                 {newTask.startTime && newTask.endTime && (
-                  <div className="duration-display">
-                    Duration: <strong>{formatDuration(newTask.estimatedMinutes)}</strong>
-                  </div>
+                  <div className="duration-badge">Duration: {formatDuration(newTask.estimatedMinutes)}</div>
                 )}
               </div>
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddTask(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">
-                  {newTask.startDate ? 'Schedule Task' : 'Add to Backlog'}
-                </button>
+                <button type="submit" className="btn btn-primary">{newTask.startDate ? 'Schedule' : 'Add to Backlog'}</button>
               </div>
             </form>
           </div>
@@ -927,39 +756,26 @@ function Productivity({ user }) {
       {/* ========== EDIT TASK MODAL ========== */}
       {showEditTask && (
         <div className="confirm-overlay" onClick={() => setShowEditTask(null)}>
-          <div className="task-modal compact" onClick={(e) => e.stopPropagation()}>
+          <div className="task-modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setShowEditTask(null)}>×</button>
             <h3>✏️ Edit Task</h3>
             <form onSubmit={handleEditTask}>
               <div className="form-group">
-                <label>Task Title *</label>
-                <input
-                  type="text"
-                  value={showEditTask.title || ''}
-                  onChange={(e) => setShowEditTask({ ...showEditTask, title: e.target.value })}
-                  autoFocus
-                />
+                <label>Title *</label>
+                <input type="text" value={showEditTask.title || ''} onChange={(e) => setShowEditTask({ ...showEditTask, title: e.target.value })} autoFocus />
               </div>
               
               <div className="form-row">
                 <div className="form-group">
                   <label>Category</label>
-                  <select 
-                    value={showEditTask.category_id || ''} 
-                    onChange={(e) => setShowEditTask({ ...showEditTask, category_id: e.target.value })}
-                  >
+                  <select value={showEditTask.category_id || ''} onChange={(e) => setShowEditTask({ ...showEditTask, category_id: e.target.value })}>
                     <option value="">None</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                    ))}
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Priority</label>
-                  <select 
-                    value={showEditTask.priority || 'medium'} 
-                    onChange={(e) => setShowEditTask({ ...showEditTask, priority: e.target.value })}
-                  >
+                  <select value={showEditTask.priority || 'medium'} onChange={(e) => setShowEditTask({ ...showEditTask, priority: e.target.value })}>
                     <option value="high">🔴 High</option>
                     <option value="medium">🟡 Medium</option>
                     <option value="low">🟢 Low</option>
@@ -967,55 +783,35 @@ function Productivity({ user }) {
                 </div>
               </div>
 
-              {/* Schedule Section */}
-              <div className="schedule-section compact">
-                <label className="section-label">📅 Schedule</label>
+              <div className="schedule-box">
+                <label className="box-label">📅 Schedule</label>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Date</label>
-                    <input
-                      type="date"
-                      value={showEditTask.scheduled_date?.split('T')[0] || ''}
-                      onChange={(e) => handleDateChange(e.target.value, false, true)}
-                    />
+                    <label>Start Date</label>
+                    <input type="date" value={showEditTask.scheduled_date?.split('T')[0] || ''} onChange={(e) => setShowEditTask({ ...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date })} />
                   </div>
                   <div className="form-group">
-                    <label>Start</label>
-                    <input
-                      type="time"
-                      value={showEditTask.scheduled_time?.slice(0, 5) || ''}
-                      onChange={(e) => handleStartTimeChange(e.target.value, false)}
-                      disabled={!showEditTask.scheduled_date}
-                    />
+                    <label>Start Time</label>
+                    <input type="time" value={showEditTask.scheduled_time?.slice(0, 5) || ''} onChange={(e) => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>End Date</label>
+                    <input type="date" value={showEditTask.scheduled_end_date?.split('T')[0] || ''} onChange={(e) => setShowEditTask({ ...showEditTask, scheduled_end_date: e.target.value })} disabled={!showEditTask.scheduled_date} />
                   </div>
                   <div className="form-group">
-                    <label>End</label>
-                    <input
-                      type="time"
-                      value={showEditTask.scheduled_end_time?.slice(0, 5) || ''}
-                      onChange={(e) => handleEndTimeChange(e.target.value, false)}
-                      disabled={!showEditTask.scheduled_date}
-                    />
+                    <label>End Time</label>
+                    <input type="time" value={showEditTask.scheduled_end_time?.slice(0, 5) || ''} onChange={(e) => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} />
                   </div>
                 </div>
                 {showEditTask.scheduled_time && showEditTask.scheduled_end_time && (
-                  <div className="duration-display">
-                    Duration: <strong>{formatDuration(showEditTask.estimated_minutes || 30)}</strong>
-                  </div>
-                )}
-                {!showEditTask.scheduled_date && (
-                  <p className="schedule-hint">Set a date to schedule this task</p>
+                  <div className="duration-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>
                 )}
               </div>
 
               <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="btn btn-danger" 
-                  onClick={() => setConfirmDelete({ type: 'task', id: showEditTask.id, name: showEditTask.title })}
-                >
-                  🗑️
-                </button>
+                <button type="button" className="btn btn-danger" onClick={() => setConfirmDelete({ type: 'task', id: showEditTask.id, name: showEditTask.title })}>🗑️</button>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Save</button>
               </div>
@@ -1024,13 +820,12 @@ function Productivity({ user }) {
         </div>
       )}
 
-      {/* ========== CATEGORIES MODAL ========== */}
+      {/* Categories Modal */}
       {showCategories && (
         <div className="confirm-overlay" onClick={() => setShowCategories(false)}>
           <div className="categories-modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setShowCategories(false)}>×</button>
-            <h3>🏷️ Manage Categories</h3>
-            
+            <h3>🏷️ Categories</h3>
             <div className="categories-list">
               {categories.map(cat => (
                 <div key={cat.id} className="category-item" style={{ borderLeftColor: cat.color }}>
@@ -1038,30 +833,13 @@ function Productivity({ user }) {
                     <form onSubmit={handleUpdateCategory} className="category-edit-form">
                       <div className="icon-select">
                         {iconOptions.map(icon => (
-                          <button
-                            key={icon}
-                            type="button"
-                            className={`icon-btn ${editCategory.icon === icon ? 'active' : ''}`}
-                            onClick={() => setEditCategory({ ...editCategory, icon })}
-                          >
-                            {icon}
-                          </button>
+                          <button key={icon} type="button" className={`icon-btn ${editCategory.icon === icon ? 'active' : ''}`} onClick={() => setEditCategory({ ...editCategory, icon })}>{icon}</button>
                         ))}
                       </div>
-                      <input
-                        type="text"
-                        value={editCategory.name}
-                        onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })}
-                      />
+                      <input type="text" value={editCategory.name} onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })} />
                       <div className="color-select">
                         {colorOptions.map(color => (
-                          <button
-                            key={color}
-                            type="button"
-                            className={`color-btn ${editCategory.color === color ? 'active' : ''}`}
-                            style={{ background: color }}
-                            onClick={() => setEditCategory({ ...editCategory, color })}
-                          />
+                          <button key={color} type="button" className={`color-btn ${editCategory.color === color ? 'active' : ''}`} style={{ background: color }} onClick={() => setEditCategory({ ...editCategory, color })} />
                         ))}
                       </div>
                       <div className="edit-actions">
@@ -1082,77 +860,43 @@ function Productivity({ user }) {
                 </div>
               ))}
             </div>
-
             <div className="add-category">
-              <h4>Add New Category</h4>
+              <h4>Add Category</h4>
               <form onSubmit={handleAddCategory}>
                 <div className="icon-select">
                   {iconOptions.map(icon => (
-                    <button
-                      key={icon}
-                      type="button"
-                      className={`icon-btn ${newCategory.icon === icon ? 'active' : ''}`}
-                      onClick={() => setNewCategory({ ...newCategory, icon })}
-                    >
-                      {icon}
-                    </button>
+                    <button key={icon} type="button" className={`icon-btn ${newCategory.icon === icon ? 'active' : ''}`} onClick={() => setNewCategory({ ...newCategory, icon })}>{icon}</button>
                   ))}
                 </div>
-                <input
-                  type="text"
-                  value={newCategory.name}
-                  onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                  placeholder="Category name"
-                />
+                <input type="text" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} placeholder="Name" />
                 <div className="color-select">
                   {colorOptions.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`color-btn ${newCategory.color === color ? 'active' : ''}`}
-                      style={{ background: color }}
-                      onClick={() => setNewCategory({ ...newCategory, color })}
-                    />
+                    <button key={color} type="button" className={`color-btn ${newCategory.color === color ? 'active' : ''}`} style={{ background: color }} onClick={() => setNewCategory({ ...newCategory, color })} />
                   ))}
                 </div>
-                <button type="submit" className="btn btn-primary">+ Add Category</button>
+                <button type="submit" className="btn btn-primary">+ Add</button>
               </form>
             </div>
           </div>
         </div>
       )}
 
-      {/* ========== DELETE CONFIRMATION MODAL ========== */}
+      {/* Delete Confirmation */}
       {confirmDelete && (
         <div className="confirm-overlay" onClick={() => setConfirmDelete(null)}>
           <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-icon">🗑️</div>
-            <h3>Delete {confirmDelete.type === 'task' ? 'Task' : 'Category'}?</h3>
-            <p>Are you sure you want to delete <strong>"{confirmDelete.name}"</strong>?</p>
-            {confirmDelete.type === 'category' && (
-              <p className="confirm-warning">Tasks in this category will become uncategorized.</p>
-            )}
+            <h3>Delete?</h3>
+            <p>Delete <strong>"{confirmDelete.name}"</strong>?</p>
             <div className="confirm-actions">
               <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button 
-                className="btn btn-danger" 
-                onClick={() => {
-                  if (confirmDelete.type === 'task') {
-                    handleDeleteTask(confirmDelete.id)
-                    setShowEditTask(null)
-                  } else {
-                    handleDeleteCategory(confirmDelete.id)
-                  }
-                }}
-              >
-                Delete
-              </button>
+              <button className="btn btn-danger" onClick={() => confirmDelete.type === 'task' ? (handleDeleteTask(confirmDelete.id), setShowEditTask(null)) : handleDeleteCategory(confirmDelete.id)}>Delete</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modern Toast */}
+      {/* Toast */}
       {message.text && (
         <div className={`modern-toast ${message.type}`}>
           <span className="toast-icon">{message.icon}</span>
