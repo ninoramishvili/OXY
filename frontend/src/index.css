@@ -7984,9 +7984,18 @@ body {
   display: flex;
   gap: var(--space-sm);
   justify-content: flex-end;
-  margin-top: var(--space-lg);
-  padding-top: var(--space-lg);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
   border-top: 1px solid var(--border);
+}
+
+.task-modal.compact .modal-actions {
+  margin-top: var(--space-sm);
+}
+
+.task-modal.compact .modal-actions .btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 
 /* Admin Avatar */
@@ -8471,23 +8480,128 @@ body {
 .categories-modal {
   background: var(--surface);
   border-radius: var(--radius-lg);
-  padding: var(--space-xl);
-  max-width: 500px;
+  padding: var(--space-lg);
+  max-width: 480px;
   width: 90%;
   position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.task-modal.compact {
+  padding: var(--space-md);
+  max-width: 420px;
+}
+
+.task-modal.compact .form-group {
+  margin-bottom: var(--space-sm);
+}
+
+.task-modal.compact label {
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+
+.task-modal.compact input,
+.task-modal.compact select {
+  padding: 6px 10px;
+  font-size: 0.9rem;
 }
 
 .task-modal h3,
 .categories-modal h3 {
-  font-size: 1.25rem;
-  margin-bottom: var(--space-lg);
+  font-size: 1.1rem;
+  margin-bottom: var(--space-md);
   color: var(--text-dark);
   padding-right: 30px;
 }
 
 .task-modal textarea {
   resize: vertical;
-  min-height: 60px;
+  min-height: 50px;
+}
+
+/* Schedule Section in Modal */
+.schedule-section {
+  background: var(--background);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) 0;
+}
+
+.schedule-section.compact {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.schedule-section .section-label {
+  display: block;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: var(--space-xs);
+  font-size: 0.85rem;
+}
+
+.schedule-section .form-row {
+  margin-bottom: 4px;
+  gap: var(--space-xs);
+}
+
+.schedule-section input[type="date"],
+.schedule-section input[type="time"] {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.schedule-section input:disabled {
+  background: var(--border);
+  cursor: not-allowed;
+}
+
+.duration-display {
+  text-align: center;
+  padding: 4px var(--space-sm);
+  background: var(--primary-light);
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  font-size: 0.8rem;
+  margin-top: var(--space-xs);
+}
+
+.schedule-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: var(--space-xs) 0 0 0;
+}
+
+/* Task spanning multiple slots */
+.scheduled-task {
+  position: relative;
+  z-index: 1;
+}
+
+.task-duration {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  padding-right: var(--space-xs);
+}
+
+/* Occupied slots (task continues from earlier) */
+.time-slot.occupied {
+  background: rgba(156, 163, 175, 0.1);
+}
+
+.time-slot.occupied .empty-slot {
+  display: none;
+}
+
+.week-cell {
+  cursor: pointer;
+}
+
+.week-cell:hover:not(.droppable) {
+  background: rgba(59, 130, 246, 0.1);
 }
 
 /* Modal Close X Button */
@@ -8542,6 +8656,28 @@ body {
 .time-slot.droppable {
   border: 2px dashed var(--primary);
   border-radius: var(--radius-sm);
+}
+
+/* Time slot selection */
+.time-slot.selecting {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: var(--primary) !important;
+}
+
+.time-slot.selecting .empty-slot {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.time-slot:not(.droppable) {
+  cursor: crosshair;
+}
+
+.timeline-hint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: var(--space-sm);
 }
 
 .week-cell.droppable {
@@ -8656,12 +8792,13 @@ body {
 .week-header {
   display: grid;
   grid-template-columns: 50px repeat(7, 1fr);
-  gap: 2px;
-  margin-bottom: 4px;
+  gap: 1px;
+  margin-bottom: 0;
   position: sticky;
   top: 0;
   background: var(--surface);
   z-index: 1;
+  border-bottom: 2px solid var(--border);
 }
 
 .time-col {
@@ -8699,24 +8836,30 @@ body {
 .week-grid {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
+  border: 1px solid var(--border);
 }
 
 .week-row {
   display: grid;
   grid-template-columns: 50px repeat(7, 1fr);
-  gap: 2px;
+  gap: 1px;
   min-height: 40px;
+  border-bottom: 1px solid var(--border);
 }
 
 .week-cell {
-  background: var(--background);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
   padding: 2px;
   min-height: 36px;
   display: flex;
   flex-direction: column;
   gap: 1px;
+  border-right: 1px solid var(--border);
+}
+
+.week-cell:last-child {
+  border-right: none;
 }
 
 .week-cell.today {

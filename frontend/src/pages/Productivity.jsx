@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const API_BASE = 'http://localhost:5000/api'
@@ -14,18 +14,33 @@ function Productivity({ user }) {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()))
   const [message, setMessage] = useState({ text: '', type: '', icon: '' })
   
-  // Drag state
+  // Drag state for existing tasks
   const [draggedTask, setDraggedTask] = useState(null)
+  
+  // Time range selection state
+  const [isSelecting, setIsSelecting] = useState(false)
+  const [selectionStart, setSelectionStart] = useState(null)
+  const [selectionEnd, setSelectionEnd] = useState(null)
   
   // Modals
   const [showAddTask, setShowAddTask] = useState(false)
   const [showEditTask, setShowEditTask] = useState(null)
   const [showCategories, setShowCategories] = useState(false)
   const [editCategory, setEditCategory] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState(null) // { type: 'task' | 'category', id, name }
+  const [confirmDelete, setConfirmDelete] = useState(null)
   
-  // New task form
-  const [newTask, setNewTask] = useState({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30 })
+  // New task form with date/time
+  const [newTask, setNewTask] = useState({ 
+    title: '', 
+    description: '', 
+    categoryId: '', 
+    priority: 'medium', 
+    estimatedMinutes: 30,
+    startDate: '',
+    startTime: '',
+    endDate: '',
+    endTime: ''
+  })
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
 
   // Get Monday of a given week
@@ -47,6 +62,48 @@ function Productivity({ user }) {
       days.push(day.toISOString().split('T')[0])
     }
     return days
+  }
+
+  // Calculate end time from start time and duration
+  function calculateEndTime(startTime, minutes) {
+    const [hours, mins] = startTime.split(':').map(Number)
+    const totalMins = hours * 60 + mins + minutes
+    const endHours = Math.floor(totalMins / 60) % 24
+    const endMins = totalMins % 60
+    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`
+  }
+
+  // Calculate duration in minutes between two times
+  function calculateDuration(startTime, endTime) {
+    const [sh, sm] = startTime.split(':').map(Number)
+    const [eh, em] = endTime.split(':').map(Number)
+    return (eh * 60 + em) - (sh * 60 + sm)
+  }
+
+  // Format duration as hours and minutes
+  function formatDuration(minutes) {
+    if (minutes < 60) return `${minutes} min`
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`
+    return `${hours}h ${mins}min`
+  }
+
+  // Calculate how many 30-min slots a task spans
+  function getTaskSlotSpan(task) {
+    const duration = task.estimated_minutes || 30
+    return Math.ceil(duration / 30)
+  }
+
+  // Check if a time slot is covered by a task (not just start time)
+  function isSlotCoveredByTask(task, slotTime) {
+    if (!task.scheduled_time) return false
+    const [th, tm] = task.scheduled_time.slice(0, 5).split(':').map(Number)
+    const [sh, sm] = slotTime.split(':').map(Number)
+    const taskStartMins = th * 60 + tm
+    const slotMins = sh * 60 + sm
+    const duration = task.estimated_minutes || 30
+    return slotMins >= taskStartMins && slotMins < taskStartMins + duration
   }
 
   useEffect(() => {
@@ -79,10 +136,92 @@ function Productivity({ user }) {
     setTimeout(() => setMessage({ text: '', type: '', icon: '' }), 3000)
   }
 
+  // Reset new task form
+  const resetNewTask = () => {
+    setNewTask({ 
+      title: '', 
+      description: '', 
+      categoryId: '', 
+      priority: 'medium', 
+      estimatedMinutes: 30,
+      startDate: '',
+      startTime: '',
+      endDate: '',
+      endTime: ''
+    })
+  }
+
+  // Open add task modal with pre-filled date/time
+  const openAddTaskWithTime = (date, startTime, endTime = null) => {
+    const calculatedEndTime = endTime || calculateEndTime(startTime, 30)
+    const duration = endTime ? calculateDuration(startTime, calculatedEndTime) : 30
+    
+    setNewTask({
+      title: '',
+      description: '',
+      categoryId: '',
+      priority: 'medium',
+      estimatedMinutes: duration,
+      startDate: date,
+      startTime: startTime,
+      endDate: date,
+      endTime: calculatedEndTime
+    })
+    setShowAddTask(true)
+  }
+
+  // ========== TIME RANGE SELECTION ==========
+  const handleSlotMouseDown = (date, time, hasTask) => {
+    if (hasTask || draggedTask) return
+    setIsSelecting(true)
+    setSelectionStart({ date, time })
+    setSelectionEnd({ date, time })
+  }
+
+  const handleSlotMouseEnter = (date, time) => {
+    if (!isSelecting || !selectionStart) return
+    if (date === selectionStart.date) {
+      setSelectionEnd({ date, time })
+    }
+  }
+
+  const handleSlotMouseUp = () => {
+    if (!isSelecting || !selectionStart || !selectionEnd) {
+      setIsSelecting(false)
+      setSelectionStart(null)
+      setSelectionEnd(null)
+      return
+    }
+
+    const times = [selectionStart.time, selectionEnd.time].sort()
+    const startTime = times[0]
+    const endTime = calculateEndTime(times[1], 30)
+    
+    openAddTaskWithTime(selectionStart.date, startTime, endTime)
+    
+    setIsSelecting(false)
+    setSelectionStart(null)
+    setSelectionEnd(null)
+  }
+
+  const isSlotSelected = (date, time) => {
+    if (!isSelecting || !selectionStart || !selectionEnd) return false
+    if (date !== selectionStart.date) return false
+    
+    const times = [selectionStart.time, selectionEnd.time].sort()
+    return time >= times[0] && time <= times[1]
+  }
+
   // ========== TASK HANDLERS ==========
   const handleAddTask = async (e) => {
     e.preventDefault()
     if (!newTask.title.trim()) return
+    
+    // Validate: if date is set, time must be set and vice versa
+    if ((newTask.startDate && !newTask.startTime) || (!newTask.startDate && newTask.startTime)) {
+      showToast('Please set both date and time, or leave both empty', 'error', '✕')
+      return
+    }
     
     try {
       const res = await fetch(`${API_BASE}/tasks`, {
@@ -94,13 +233,17 @@ function Productivity({ user }) {
           description: newTask.description,
           categoryId: newTask.categoryId || null,
           priority: newTask.priority,
-          estimatedMinutes: newTask.estimatedMinutes
+          estimatedMinutes: newTask.estimatedMinutes,
+          scheduledDate: newTask.startDate || null,
+          scheduledTime: newTask.startTime || null,
+          scheduledEndDate: newTask.endDate || null,
+          scheduledEndTime: newTask.endTime || null
         })
       })
       const data = await res.json()
       if (data.success) {
-        showToast('Task added to backlog', 'success', '✓')
-        setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30 })
+        showToast(newTask.startDate ? 'Task scheduled' : 'Task added to backlog', 'success', '✓')
+        resetNewTask()
         setShowAddTask(false)
         fetchData()
       }
@@ -113,6 +256,23 @@ function Productivity({ user }) {
     e.preventDefault()
     if (!showEditTask?.title?.trim()) return
     
+    const hasDate = showEditTask.scheduled_date
+    const hasTime = showEditTask.scheduled_time
+    
+    // Validate: if date is set, time must be set and vice versa
+    if ((hasDate && !hasTime) || (!hasDate && hasTime)) {
+      showToast('Please set both date and time, or leave both empty', 'error', '✕')
+      return
+    }
+    
+    // Determine status based on whether scheduled
+    let status = showEditTask.status
+    if (hasDate && hasTime) {
+      if (status === 'backlog') status = 'planned'
+    } else {
+      if (status === 'planned') status = 'backlog'
+    }
+    
     try {
       await fetch(`${API_BASE}/tasks/${showEditTask.id}`, {
         method: 'PUT',
@@ -123,9 +283,11 @@ function Productivity({ user }) {
           categoryId: showEditTask.category_id || showEditTask.categoryId || null,
           priority: showEditTask.priority,
           estimatedMinutes: showEditTask.estimated_minutes || showEditTask.estimatedMinutes,
-          status: showEditTask.status,
-          scheduledDate: showEditTask.scheduled_date,
-          scheduledTime: showEditTask.scheduled_time
+          status: status,
+          scheduledDate: showEditTask.scheduled_date || null,
+          scheduledTime: showEditTask.scheduled_time || null,
+          scheduledEndDate: showEditTask.scheduled_end_date || null,
+          scheduledEndTime: showEditTask.scheduled_end_time || null
         })
       })
       showToast('Task updated', 'success', '✓')
@@ -300,6 +462,65 @@ function Productivity({ user }) {
     }
   }
 
+  // Handle end time change - update duration
+  const handleEndTimeChange = (endTime, isNewTask = true) => {
+    if (isNewTask) {
+      if (newTask.startTime && endTime) {
+        const duration = calculateDuration(newTask.startTime, endTime)
+        setNewTask({ ...newTask, endTime, estimatedMinutes: duration > 0 ? duration : 30 })
+      } else {
+        setNewTask({ ...newTask, endTime })
+      }
+    } else {
+      if (showEditTask?.scheduled_time && endTime) {
+        const duration = calculateDuration(showEditTask.scheduled_time, endTime)
+        setShowEditTask({ ...showEditTask, scheduled_end_time: endTime, estimated_minutes: duration > 0 ? duration : 30 })
+      } else {
+        setShowEditTask({ ...showEditTask, scheduled_end_time: endTime })
+      }
+    }
+  }
+
+  // Handle start time change - update end time
+  const handleStartTimeChange = (startTime, isNewTask = true) => {
+    if (isNewTask) {
+      const endTime = calculateEndTime(startTime, newTask.estimatedMinutes)
+      setNewTask({ ...newTask, startTime, endTime })
+    } else {
+      const endTime = calculateEndTime(startTime, showEditTask?.estimated_minutes || 30)
+      setShowEditTask({ ...showEditTask, scheduled_time: startTime, scheduled_end_time: endTime })
+    }
+  }
+
+  // Handle date change - sync end date and clear time if date is cleared
+  const handleDateChange = (date, isNewTask = true, isStartDate = true) => {
+    if (isNewTask) {
+      if (isStartDate) {
+        setNewTask({ 
+          ...newTask, 
+          startDate: date, 
+          endDate: date || newTask.endDate,
+          startTime: date ? newTask.startTime : '',
+          endTime: date ? newTask.endTime : ''
+        })
+      } else {
+        setNewTask({ ...newTask, endDate: date })
+      }
+    } else {
+      if (isStartDate) {
+        setShowEditTask({ 
+          ...showEditTask, 
+          scheduled_date: date,
+          scheduled_end_date: date || showEditTask.scheduled_end_date,
+          scheduled_time: date ? showEditTask.scheduled_time : null,
+          scheduled_end_time: date ? showEditTask.scheduled_end_time : null
+        })
+      } else {
+        setShowEditTask({ ...showEditTask, scheduled_end_date: date })
+      }
+    }
+  }
+
   const iconOptions = ['📋', '💼', '👤', '🏃', '📚', '🎯', '💡', '🔧', '📞', '✉️', '🎨', '🎵', '🏠', '🚗', '💰', '❤️']
   const colorOptions = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6B7280']
 
@@ -307,14 +528,31 @@ function Productivity({ user }) {
 
   const weekDays = getWeekDays(weekStart)
 
+  // Find tasks that START at a given slot (for rendering)
+  const getTasksStartingAt = (taskList, date, time) => {
+    return taskList.filter(t => 
+      t.scheduled_date?.split('T')[0] === date && 
+      t.scheduled_time?.slice(0, 5) === time
+    )
+  }
+
+  // Check if a slot is occupied by a multi-slot task (but not starting here)
+  const isSlotOccupied = (taskList, date, time) => {
+    return taskList.some(t => {
+      if (t.scheduled_date?.split('T')[0] !== date) return false
+      if (t.scheduled_time?.slice(0, 5) === time) return false // This is start slot
+      return isSlotCoveredByTask(t, time)
+    })
+  }
+
   return (
-    <div className="productivity-page">
+    <div className="productivity-page" onMouseUp={handleSlotMouseUp} onMouseLeave={() => setIsSelecting(false)}>
       {/* Header */}
       <div className="prod-header">
         <h1>📋 Productivity</h1>
         <div className="prod-header-actions">
           <button className="btn btn-secondary" onClick={() => setShowCategories(true)}>🏷️ Categories</button>
-          <button className="btn btn-primary" onClick={() => setShowAddTask(true)}>+ New Task</button>
+          <button className="btn btn-primary" onClick={() => { resetNewTask(); setShowAddTask(true); }}>+ New Task</button>
         </div>
       </div>
 
@@ -346,46 +584,60 @@ function Productivity({ user }) {
             </div>
 
             <div className="day-layout">
-              {/* Timeline - 24h with 30min slots */}
+              {/* Timeline */}
               <div className="timeline">
-                <h3>📅 Schedule</h3>
+                <h3>📅 Schedule <span className="timeline-hint">(Click or drag to add task)</span></h3>
                 <div className="time-slots">
-                  {timeSlots.map(time => {
-                    const slotTasks = tasks.filter(t => t.scheduled_time?.slice(0, 5) === time)
+                  {timeSlots.map((time, index) => {
+                    const slotTasks = getTasksStartingAt(tasks, selectedDate, time)
+                    const isOccupied = isSlotOccupied(tasks, selectedDate, time)
                     const isHour = time.endsWith(':00')
+                    const hasTask = slotTasks.length > 0
+                    const isSelected = isSlotSelected(selectedDate, time)
+                    
                     return (
                       <div 
                         key={time} 
-                        className={`time-slot ${draggedTask ? 'droppable' : ''} ${isHour ? 'hour-slot' : 'half-slot'}`}
+                        className={`time-slot ${draggedTask ? 'droppable' : ''} ${isHour ? 'hour-slot' : 'half-slot'} ${isSelected ? 'selecting' : ''} ${isOccupied ? 'occupied' : ''}`}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDropOnSlot(selectedDate, time)}
+                        onMouseDown={() => handleSlotMouseDown(selectedDate, time, hasTask || isOccupied)}
+                        onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
                       >
                         <div className="time-label">{time}</div>
                         <div className="slot-content">
-                          {slotTasks.length > 0 ? (
-                            slotTasks.map(task => (
-                              <div 
-                                key={task.id} 
-                                className={`scheduled-task ${task.status}`}
-                                style={{ borderLeftColor: task.category_color || '#6B7280' }}
-                                draggable
-                                onDragStart={() => handleDragStart(task)}
-                              >
-                                <div className="task-header" onClick={() => setShowEditTask(task)}>
-                                  <span className="task-cat">{task.category_icon || '📋'}</span>
-                                  <span className="task-title">{task.title}</span>
-                                  <span className={`priority-dot ${task.priority}`}></span>
+                          {hasTask ? (
+                            slotTasks.map(task => {
+                              const slots = getTaskSlotSpan(task)
+                              return (
+                                <div 
+                                  key={task.id} 
+                                  className={`scheduled-task ${task.status}`}
+                                  style={{ 
+                                    borderLeftColor: task.category_color || '#6B7280',
+                                    minHeight: slots > 1 ? `${slots * 32 - 4}px` : 'auto'
+                                  }}
+                                  draggable
+                                  onDragStart={() => handleDragStart(task)}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <div className="task-header" onClick={() => setShowEditTask(task)}>
+                                    <span className="task-cat">{task.category_icon || '📋'}</span>
+                                    <span className="task-title">{task.title}</span>
+                                    <span className="task-duration">{formatDuration(task.estimated_minutes)}</span>
+                                    <span className={`priority-dot ${task.priority}`}></span>
+                                  </div>
+                                  <div className="task-actions">
+                                    {task.status !== 'completed' && (
+                                      <button onClick={() => handleCompleteTask(task.id)} title="Complete">✓</button>
+                                    )}
+                                    <button onClick={() => handleUnschedule(task.id)} title="Unschedule">↩</button>
+                                  </div>
                                 </div>
-                                <div className="task-actions">
-                                  {task.status !== 'completed' && (
-                                    <button onClick={() => handleCompleteTask(task.id)} title="Complete">✓</button>
-                                  )}
-                                  <button onClick={() => handleUnschedule(task.id)} title="Unschedule">↩</button>
-                                </div>
-                              </div>
-                            ))
+                              )
+                            })
                           ) : (
-                            <div className="empty-slot"></div>
+                            <div className="empty-slot">{isSelected ? '+ New Task' : ''}</div>
                           )}
                         </div>
                       </div>
@@ -425,12 +677,8 @@ function Productivity({ user }) {
                       </div>
                     </div>
                   ))}
-                  {backlog.length === 0 && (
-                    <p className="empty-text">No tasks in backlog</p>
-                  )}
-                  {backlog.length > 10 && (
-                    <p className="more-text">+{backlog.length - 10} more in backlog</p>
-                  )}
+                  {backlog.length === 0 && <p className="empty-text">No tasks in backlog</p>}
+                  {backlog.length > 10 && <p className="more-text">+{backlog.length - 10} more</p>}
                 </div>
               </div>
             </div>
@@ -476,7 +724,7 @@ function Productivity({ user }) {
                 </div>
               </div>
 
-              {/* Week Calendar Grid - 24h view */}
+              {/* Week Calendar Grid */}
               <div className="week-calendar">
                 <div className="week-header">
                   <div className="time-col"></div>
@@ -492,7 +740,6 @@ function Productivity({ user }) {
                 </div>
                 <div className="week-grid">
                   {weekTimeSlots.map(time => {
-                    // Also include :30 tasks in this hour slot
                     const halfTime = `${time.slice(0, 2)}:30`
                     return (
                       <div key={time} className="week-row">
@@ -502,12 +749,15 @@ function Productivity({ user }) {
                             t.scheduled_date?.split('T')[0] === day && 
                             (t.scheduled_time?.slice(0, 5) === time || t.scheduled_time?.slice(0, 5) === halfTime)
                           )
+                          const hasTask = slotTasks.length > 0
+                          
                           return (
                             <div 
                               key={`${day}-${time}`}
                               className={`week-cell ${isToday(day) ? 'today' : ''} ${draggedTask ? 'droppable' : ''}`}
                               onDragOver={handleDragOver}
                               onDrop={() => handleDropOnSlot(day, time)}
+                              onClick={() => !hasTask && openAddTaskWithTime(day, time)}
                             >
                               {slotTasks.map(task => (
                                 <div 
@@ -516,10 +766,10 @@ function Productivity({ user }) {
                                   style={{ background: task.category_color || '#6B7280' }}
                                   draggable
                                   onDragStart={() => handleDragStart(task)}
-                                  onClick={() => setShowEditTask(task)}
-                                  title={task.title}
+                                  onClick={(e) => { e.stopPropagation(); setShowEditTask(task); }}
+                                  title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
                                 >
-                                  {task.category_icon} {task.title.slice(0, 10)}{task.title.length > 10 ? '..' : ''}
+                                  {task.category_icon} {task.title.slice(0, 8)}{task.title.length > 8 ? '..' : ''}
                                 </div>
                               ))}
                             </div>
@@ -558,7 +808,7 @@ function Productivity({ user }) {
                       {task.description && <p className="item-desc">{task.description}</p>}
                       <div className="item-meta">
                         <span className={`priority ${task.priority}`}>{task.priority}</span>
-                        <span className="duration">{task.estimated_minutes} min</span>
+                        <span className="duration">{formatDuration(task.estimated_minutes)}</span>
                         {task.category_name && <span className="cat-name">{task.category_name}</span>}
                       </div>
                     </div>
@@ -568,7 +818,7 @@ function Productivity({ user }) {
                       ✏️ Edit
                     </button>
                     <button className="btn btn-small btn-primary" onClick={() => handleScheduleTask(task.id, selectedDate, '09:00')}>
-                      📅 Schedule Today
+                      📅 Schedule
                     </button>
                     <button className="btn btn-small btn-danger" onClick={() => setConfirmDelete({ type: 'task', id: task.id, name: task.title })}>
                       🗑️
@@ -590,7 +840,7 @@ function Productivity({ user }) {
       {/* ========== ADD TASK MODAL ========== */}
       {showAddTask && (
         <div className="confirm-overlay" onClick={() => setShowAddTask(false)}>
-          <div className="task-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="task-modal compact" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setShowAddTask(false)}>×</button>
             <h3>➕ New Task</h3>
             <form onSubmit={handleAddTask}>
@@ -602,16 +852,6 @@ function Productivity({ user }) {
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   placeholder="What do you need to do?"
                   autoFocus
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder="Add details (optional)"
-                  rows={2}
                 />
               </div>
               
@@ -635,21 +875,49 @@ function Productivity({ user }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Estimated Time</label>
-                <select value={newTask.estimatedMinutes} onChange={(e) => setNewTask({ ...newTask, estimatedMinutes: parseInt(e.target.value) })}>
-                  <option value={15}>15 min</option>
-                  <option value={30}>30 min</option>
-                  <option value={45}>45 min</option>
-                  <option value={60}>1 hour</option>
-                  <option value={90}>1.5 hours</option>
-                  <option value={120}>2 hours</option>
-                </select>
+              {/* Schedule Section */}
+              <div className="schedule-section compact">
+                <label className="section-label">📅 Schedule {!newTask.startDate && '(optional)'}</label>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Date</label>
+                    <input
+                      type="date"
+                      value={newTask.startDate}
+                      onChange={(e) => handleDateChange(e.target.value, true, true)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Start</label>
+                    <input
+                      type="time"
+                      value={newTask.startTime}
+                      onChange={(e) => handleStartTimeChange(e.target.value, true)}
+                      disabled={!newTask.startDate}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>End</label>
+                    <input
+                      type="time"
+                      value={newTask.endTime}
+                      onChange={(e) => handleEndTimeChange(e.target.value, true)}
+                      disabled={!newTask.startDate}
+                    />
+                  </div>
+                </div>
+                {newTask.startTime && newTask.endTime && (
+                  <div className="duration-display">
+                    Duration: <strong>{formatDuration(newTask.estimatedMinutes)}</strong>
+                  </div>
+                )}
               </div>
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddTask(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Add to Backlog</button>
+                <button type="submit" className="btn btn-primary">
+                  {newTask.startDate ? 'Schedule Task' : 'Add to Backlog'}
+                </button>
               </div>
             </form>
           </div>
@@ -659,7 +927,7 @@ function Productivity({ user }) {
       {/* ========== EDIT TASK MODAL ========== */}
       {showEditTask && (
         <div className="confirm-overlay" onClick={() => setShowEditTask(null)}>
-          <div className="task-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="task-modal compact" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-x" onClick={() => setShowEditTask(null)}>×</button>
             <h3>✏️ Edit Task</h3>
             <form onSubmit={handleEditTask}>
@@ -670,15 +938,6 @@ function Productivity({ user }) {
                   value={showEditTask.title || ''}
                   onChange={(e) => setShowEditTask({ ...showEditTask, title: e.target.value })}
                   autoFocus
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={showEditTask.description || ''}
-                  onChange={(e) => setShowEditTask({ ...showEditTask, description: e.target.value })}
-                  rows={2}
                 />
               </div>
               
@@ -708,32 +967,45 @@ function Productivity({ user }) {
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Estimated Time</label>
-                  <select 
-                    value={showEditTask.estimated_minutes || 30} 
-                    onChange={(e) => setShowEditTask({ ...showEditTask, estimated_minutes: parseInt(e.target.value) })}
-                  >
-                    <option value={15}>15 min</option>
-                    <option value={30}>30 min</option>
-                    <option value={45}>45 min</option>
-                    <option value={60}>1 hour</option>
-                    <option value={90}>1.5 hours</option>
-                    <option value={120}>2 hours</option>
-                  </select>
+              {/* Schedule Section */}
+              <div className="schedule-section compact">
+                <label className="section-label">📅 Schedule</label>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Date</label>
+                    <input
+                      type="date"
+                      value={showEditTask.scheduled_date?.split('T')[0] || ''}
+                      onChange={(e) => handleDateChange(e.target.value, false, true)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Start</label>
+                    <input
+                      type="time"
+                      value={showEditTask.scheduled_time?.slice(0, 5) || ''}
+                      onChange={(e) => handleStartTimeChange(e.target.value, false)}
+                      disabled={!showEditTask.scheduled_date}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>End</label>
+                    <input
+                      type="time"
+                      value={showEditTask.scheduled_end_time?.slice(0, 5) || ''}
+                      onChange={(e) => handleEndTimeChange(e.target.value, false)}
+                      disabled={!showEditTask.scheduled_date}
+                    />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Status</label>
-                  <select 
-                    value={showEditTask.status || 'backlog'} 
-                    onChange={(e) => setShowEditTask({ ...showEditTask, status: e.target.value })}
-                  >
-                    <option value="backlog">📥 Backlog</option>
-                    <option value="planned">📅 Planned</option>
-                    <option value="completed">✅ Completed</option>
-                  </select>
-                </div>
+                {showEditTask.scheduled_time && showEditTask.scheduled_end_time && (
+                  <div className="duration-display">
+                    Duration: <strong>{formatDuration(showEditTask.estimated_minutes || 30)}</strong>
+                  </div>
+                )}
+                {!showEditTask.scheduled_date && (
+                  <p className="schedule-hint">Set a date to schedule this task</p>
+                )}
               </div>
 
               <div className="modal-actions">
@@ -742,10 +1014,10 @@ function Productivity({ user }) {
                   className="btn btn-danger" 
                   onClick={() => setConfirmDelete({ type: 'task', id: showEditTask.id, name: showEditTask.title })}
                 >
-                  🗑️ Delete
+                  🗑️
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Changes</button>
+                <button type="submit" className="btn btn-primary">Save</button>
               </div>
             </form>
           </div>
@@ -759,7 +1031,6 @@ function Productivity({ user }) {
             <button className="modal-close-x" onClick={() => setShowCategories(false)}>×</button>
             <h3>🏷️ Manage Categories</h3>
             
-            {/* Existing Categories */}
             <div className="categories-list">
               {categories.map(cat => (
                 <div key={cat.id} className="category-item" style={{ borderLeftColor: cat.color }}>
@@ -812,7 +1083,6 @@ function Productivity({ user }) {
               ))}
             </div>
 
-            {/* Add New Category */}
             <div className="add-category">
               <h4>Add New Category</h4>
               <form onSubmit={handleAddCategory}>
