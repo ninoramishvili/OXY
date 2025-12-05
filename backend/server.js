@@ -2827,6 +2827,169 @@ app.delete('/api/goals/weekly/:id', async (req, res) => {
   }
 });
 
+// ============ EAT THE FROG ============
+
+// PUT /api/tasks/:id/frog - Set task as today's frog
+app.put('/api/tasks/:id/frog', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get task to find user_id
+    const taskResult = await pool.query('SELECT user_id FROM tasks WHERE id = $1', [taskId]);
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+    const userId = taskResult.rows[0].user_id;
+    
+    // Clear any existing frog for this user today
+    await pool.query(
+      `UPDATE tasks SET is_frog = FALSE WHERE user_id = $1 AND is_frog = TRUE`,
+      [userId]
+    );
+    
+    // Set this task as the frog
+    await pool.query(
+      `UPDATE tasks SET is_frog = TRUE WHERE id = $1`,
+      [taskId]
+    );
+    
+    // Upsert frog_history
+    await pool.query(`
+      INSERT INTO frog_history (user_id, task_id, frog_date)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, frog_date)
+      DO UPDATE SET task_id = $2
+    `, [userId, taskId, today]);
+    
+    res.json({ success: true, message: 'Task set as today\'s frog! 🐸' });
+  } catch (error) {
+    console.error('Error setting frog:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/tasks/:id/frog - Remove frog designation
+app.delete('/api/tasks/:id/frog', async (req, res) => {
+  try {
+    await pool.query('UPDATE tasks SET is_frog = FALSE WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing frog:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/frog/:userId/today - Get today's frog task
+app.get('/api/frog/:userId/today', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color,
+             fh.completed as frog_completed
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      LEFT JOIN frog_history fh ON fh.task_id = t.id AND fh.frog_date = $2
+      WHERE t.user_id = $1 AND t.is_frog = TRUE
+      LIMIT 1
+    `, [req.params.userId, today]);
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error fetching frog:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/frog/:userId/complete - Complete today's frog
+app.put('/api/frog/:userId/complete', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const userId = req.params.userId;
+    
+    // Get today's frog task
+    const frogResult = await pool.query(
+      `SELECT id FROM tasks WHERE user_id = $1 AND is_frog = TRUE`,
+      [userId]
+    );
+    
+    if (frogResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'No frog task found' });
+    }
+    
+    const taskId = frogResult.rows[0].id;
+    
+    // Complete the task
+    await pool.query(
+      `UPDATE tasks SET status = 'completed', completed_at = NOW(), frog_completed_at = NOW() WHERE id = $1`,
+      [taskId]
+    );
+    
+    // Update frog_history
+    await pool.query(`
+      UPDATE frog_history 
+      SET completed = TRUE, completed_at = NOW()
+      WHERE user_id = $1 AND frog_date = $2
+    `, [userId, today]);
+    
+    res.json({ success: true, message: 'Frog eaten! 🎉🐸' });
+  } catch (error) {
+    console.error('Error completing frog:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/frog/:userId/stats - Get frog statistics
+app.get('/api/frog/:userId/stats', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get frog stats
+    const totalResult = await pool.query(
+      `SELECT COUNT(*) as total FROM frog_history WHERE user_id = $1 AND completed = TRUE`,
+      [userId]
+    );
+    
+    // This month's frogs
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    const monthResult = await pool.query(
+      `SELECT COUNT(*) as total FROM frog_history WHERE user_id = $1 AND completed = TRUE AND frog_date >= $2`,
+      [userId, monthStart.toISOString().split('T')[0]]
+    );
+    
+    // Current streak (consecutive days)
+    const streakResult = await pool.query(`
+      WITH dates AS (
+        SELECT frog_date, completed,
+          frog_date - (ROW_NUMBER() OVER (ORDER BY frog_date DESC))::int AS streak_group
+        FROM frog_history
+        WHERE user_id = $1 AND completed = TRUE
+        ORDER BY frog_date DESC
+      )
+      SELECT COUNT(*) as streak
+      FROM dates
+      WHERE streak_group = (SELECT streak_group FROM dates LIMIT 1)
+    `, [userId]);
+    
+    // Today's frog status
+    const todayResult = await pool.query(
+      `SELECT completed FROM frog_history WHERE user_id = $1 AND frog_date = $2`,
+      [userId, today]
+    );
+    
+    res.json({
+      totalFrogsEaten: parseInt(totalResult.rows[0].total),
+      frogsThisMonth: parseInt(monthResult.rows[0].total),
+      currentStreak: parseInt(streakResult.rows[0]?.streak) || 0,
+      todayCompleted: todayResult.rows[0]?.completed || false
+    });
+  } catch (error) {
+    console.error('Error fetching frog stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);
