@@ -8335,7 +8335,7 @@ body {
 /* ============ EISENHOWER MATRIX ============ */
 .eisenhower-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 12px 0; }
 .eisenhower-title { font-size: 0.85rem; font-weight: 600; color: var(--text-dark); display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-.eis-help-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); color: white; font-size: 0.7rem; cursor: help; }
+.eis-help-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #14B8A6; color: white; font-size: 0.75rem; font-weight: 700; cursor: help; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 .eis-help-tooltip { position: relative; display: inline-block; }
 .eis-help-text { visibility: hidden; opacity: 0; position: absolute; z-index: 100; bottom: 125%; left: 50%; transform: translateX(-50%); width: 280px; background: var(--text-dark); color: white; padding: 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 400; line-height: 1.4; transition: opacity 0.3s; }
 .eis-help-text::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--text-dark); }
