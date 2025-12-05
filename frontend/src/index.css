@@ -8193,9 +8193,25 @@ body {
 .time-slot {
   display: flex;
   gap: var(--space-md);
-  padding: var(--space-sm);
+  padding: 4px var(--space-sm);
   border-radius: var(--radius-sm);
-  min-height: 50px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--border);
+}
+
+.time-slot.hour-slot {
+  min-height: 40px;
+  border-bottom: 2px solid var(--border);
+}
+
+.time-slot.half-slot {
+  min-height: 32px;
+}
+
+.time-slot.half-slot .time-label {
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-size: 0.75rem;
 }
 
 .time-slot:hover {
@@ -8203,20 +8219,35 @@ body {
 }
 
 .time-label {
-  width: 60px;
-  font-size: 0.85rem;
+  width: 50px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .slot-content {
   flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .empty-slot {
+  color: transparent;
+  font-size: 0.75rem;
+}
+
+.time-slot:hover .empty-slot {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  opacity: 0.5;
+}
+
+/* Timeline scrollable container */
+.timeline {
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 /* Scheduled Task */
@@ -8436,23 +8467,52 @@ body {
 }
 
 /* Task Modal */
-.task-modal {
+.task-modal,
+.categories-modal {
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   max-width: 500px;
   width: 90%;
+  position: relative;
 }
 
-.task-modal h3 {
+.task-modal h3,
+.categories-modal h3 {
   font-size: 1.25rem;
   margin-bottom: var(--space-lg);
   color: var(--text-dark);
+  padding-right: 30px;
 }
 
 .task-modal textarea {
   resize: vertical;
   min-height: 60px;
+}
+
+/* Modal Close X Button */
+.modal-close-x {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--background);
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close-x:hover {
+  background: var(--border);
+  color: var(--text-dark);
 }
 
 /* Prod Header */
@@ -8595,9 +8655,13 @@ body {
 
 .week-header {
   display: grid;
-  grid-template-columns: 60px repeat(7, 1fr);
+  grid-template-columns: 50px repeat(7, 1fr);
   gap: 2px;
   margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
 }
 
 .time-col {
@@ -8640,19 +8704,19 @@ body {
 
 .week-row {
   display: grid;
-  grid-template-columns: 60px repeat(7, 1fr);
+  grid-template-columns: 50px repeat(7, 1fr);
   gap: 2px;
-  min-height: 70px;
+  min-height: 40px;
 }
 
 .week-cell {
   background: var(--background);
   border-radius: var(--radius-sm);
-  padding: 4px;
-  min-height: 65px;
+  padding: 2px;
+  min-height: 36px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .week-cell.today {
@@ -8833,10 +8897,6 @@ body {
   padding: var(--space-sm) var(--space-md);
 }
 
-.close-btn {
-  width: 100%;
-}
-
 /* Productivity Responsive */
 @media (max-width: 1000px) {
   .week-layout {
@@ -8936,5 +8996,122 @@ body {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* Week Calendar Scrollable */
+.week-calendar {
+  overflow: auto;
+  max-height: 70vh;
+}
+
+.week-grid {
+  min-width: 600px;
+}
+
+/* Modern Toast Notification */
+.modern-toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--text-dark);
+  color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  z-index: 10000;
+  animation: slideUp 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+  font-weight: 500;
+}
+
+.modern-toast.success {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+}
+
+.modern-toast.error {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+}
+
+.toast-icon {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+}
+
+.toast-text {
+  font-size: 0.95rem;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Confirm Delete Modal */
+.confirm-modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.confirm-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+}
+
+.confirm-modal h3 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-sm);
+  color: var(--text-dark);
+}
+
+.confirm-modal p {
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+}
+
+.confirm-modal .confirm-warning {
+  font-size: 0.85rem;
+  color: var(--warning);
+  background: #FEF3C7;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+.confirm-actions button {
+  min-width: 100px;
 }
 

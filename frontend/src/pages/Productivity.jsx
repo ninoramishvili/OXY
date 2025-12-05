@@ -12,7 +12,7 @@ function Productivity({ user }) {
   const [categories, setCategories] = useState([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [weekStart, setWeekStart] = useState(getMonday(new Date()))
-  const [message, setMessage] = useState({ text: '', type: '' })
+  const [message, setMessage] = useState({ text: '', type: '', icon: '' })
   
   // Drag state
   const [draggedTask, setDraggedTask] = useState(null)
@@ -22,6 +22,7 @@ function Productivity({ user }) {
   const [showEditTask, setShowEditTask] = useState(null)
   const [showCategories, setShowCategories] = useState(false)
   const [editCategory, setEditCategory] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null) // { type: 'task' | 'category', id, name }
   
   // New task form
   const [newTask, setNewTask] = useState({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30 })
@@ -73,9 +74,9 @@ function Productivity({ user }) {
     }
   }
 
-  const showToast = (text, type) => {
-    setMessage({ text, type })
-    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
+  const showToast = (text, type, icon = '') => {
+    setMessage({ text, type, icon })
+    setTimeout(() => setMessage({ text: '', type: '', icon: '' }), 3000)
   }
 
   // ========== TASK HANDLERS ==========
@@ -98,13 +99,13 @@ function Productivity({ user }) {
       })
       const data = await res.json()
       if (data.success) {
-        showToast('✅ Task added to backlog', 'success')
+        showToast('Task added to backlog', 'success', '✓')
         setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30 })
         setShowAddTask(false)
         fetchData()
       }
     } catch (error) {
-      showToast('Failed to add task', 'error')
+      showToast('Failed to add task', 'error', '✕')
     }
   }
 
@@ -127,11 +128,11 @@ function Productivity({ user }) {
           scheduledTime: showEditTask.scheduled_time
         })
       })
-      showToast('✅ Task updated', 'success')
+      showToast('Task updated', 'success', '✓')
       setShowEditTask(null)
       fetchData()
     } catch (error) {
-      showToast('Failed to update task', 'error')
+      showToast('Failed to update task', 'error', '✕')
     }
   }
 
@@ -142,40 +143,41 @@ function Productivity({ user }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, time })
       })
-      showToast('📅 Task scheduled', 'success')
+      showToast('Task scheduled', 'success', '📅')
       fetchData()
     } catch (error) {
-      showToast('Failed to schedule', 'error')
+      showToast('Failed to schedule', 'error', '✕')
     }
   }
 
   const handleCompleteTask = async (taskId) => {
     try {
       await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' })
-      showToast('✅ Task completed!', 'success')
+      showToast('Task completed!', 'success', '✓')
       fetchData()
     } catch (error) {
-      showToast('Failed to complete', 'error')
+      showToast('Failed to complete', 'error', '✕')
     }
   }
 
   const handleUnschedule = async (taskId) => {
     try {
       await fetch(`${API_BASE}/tasks/${taskId}/unschedule`, { method: 'PUT' })
-      showToast('↩️ Moved to backlog', 'success')
+      showToast('Moved to backlog', 'success', '↩')
       fetchData()
     } catch (error) {
-      showToast('Failed', 'error')
+      showToast('Failed', 'error', '✕')
     }
   }
 
   const handleDeleteTask = async (taskId) => {
     try {
       await fetch(`${API_BASE}/tasks/${taskId}`, { method: 'DELETE' })
-      showToast('🗑️ Task deleted', 'success')
+      showToast('Task deleted', 'success', '🗑')
+      setConfirmDelete(null)
       fetchData()
     } catch (error) {
-      showToast('Failed to delete', 'error')
+      showToast('Failed to delete', 'error', '✕')
     }
   }
 
@@ -192,12 +194,12 @@ function Productivity({ user }) {
       })
       const data = await res.json()
       if (data.success) {
-        showToast('✅ Category added', 'success')
+        showToast('Category added', 'success', '✓')
         setNewCategory({ name: '', icon: '📋', color: '#6B7280' })
         fetchData()
       }
     } catch (error) {
-      showToast('Failed to add category', 'error')
+      showToast('Failed to add category', 'error', '✕')
     }
   }
 
@@ -209,22 +211,22 @@ function Productivity({ user }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editCategory)
       })
-      showToast('✅ Category updated', 'success')
+      showToast('Category updated', 'success', '✓')
       setEditCategory(null)
       fetchData()
     } catch (error) {
-      showToast('Failed to update', 'error')
+      showToast('Failed to update', 'error', '✕')
     }
   }
 
   const handleDeleteCategory = async (catId) => {
-    if (!confirm('Delete this category? Tasks will be uncategorized.')) return
     try {
       await fetch(`${API_BASE}/categories/${catId}`, { method: 'DELETE' })
-      showToast('🗑️ Category deleted', 'success')
+      showToast('Category deleted', 'success', '🗑')
+      setConfirmDelete(null)
       fetchData()
     } catch (error) {
-      showToast('Failed to delete', 'error')
+      showToast('Failed to delete', 'error', '✕')
     }
   }
 
@@ -273,10 +275,17 @@ function Productivity({ user }) {
 
   const isToday = (dateStr) => dateStr === new Date().toISOString().split('T')[0]
 
-  // Time slots (8:00 - 20:00 in 24h format)
+  // Generate 24-hour time slots with 30-minute intervals
   const timeSlots = []
-  for (let hour = 8; hour <= 20; hour++) {
+  for (let hour = 0; hour < 24; hour++) {
     timeSlots.push(`${hour.toString().padStart(2, '0')}:00`)
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:30`)
+  }
+
+  // Week view shows hourly slots
+  const weekTimeSlots = []
+  for (let hour = 0; hour < 24; hour++) {
+    weekTimeSlots.push(`${hour.toString().padStart(2, '0')}:00`)
   }
 
   const formatDate = (dateStr) => {
@@ -337,16 +346,17 @@ function Productivity({ user }) {
             </div>
 
             <div className="day-layout">
-              {/* Timeline */}
+              {/* Timeline - 24h with 30min slots */}
               <div className="timeline">
                 <h3>📅 Schedule</h3>
                 <div className="time-slots">
                   {timeSlots.map(time => {
                     const slotTasks = tasks.filter(t => t.scheduled_time?.slice(0, 5) === time)
+                    const isHour = time.endsWith(':00')
                     return (
                       <div 
                         key={time} 
-                        className={`time-slot ${draggedTask ? 'droppable' : ''}`}
+                        className={`time-slot ${draggedTask ? 'droppable' : ''} ${isHour ? 'hour-slot' : 'half-slot'}`}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDropOnSlot(selectedDate, time)}
                       >
@@ -375,7 +385,7 @@ function Productivity({ user }) {
                               </div>
                             ))
                           ) : (
-                            <div className="empty-slot">Drop task here</div>
+                            <div className="empty-slot"></div>
                           )}
                         </div>
                       </div>
@@ -466,7 +476,7 @@ function Productivity({ user }) {
                 </div>
               </div>
 
-              {/* Week Calendar Grid */}
+              {/* Week Calendar Grid - 24h view */}
               <div className="week-calendar">
                 <div className="week-header">
                   <div className="time-col"></div>
@@ -481,39 +491,43 @@ function Productivity({ user }) {
                   })}
                 </div>
                 <div className="week-grid">
-                  {timeSlots.filter((_, i) => i % 2 === 0).map(time => (
-                    <div key={time} className="week-row">
-                      <div className="time-col">{time}</div>
-                      {weekDays.map(day => {
-                        const slotTasks = weekTasks.filter(t => 
-                          t.scheduled_date?.split('T')[0] === day && 
-                          t.scheduled_time?.slice(0, 5) === time
-                        )
-                        return (
-                          <div 
-                            key={`${day}-${time}`}
-                            className={`week-cell ${isToday(day) ? 'today' : ''} ${draggedTask ? 'droppable' : ''}`}
-                            onDragOver={handleDragOver}
-                            onDrop={() => handleDropOnSlot(day, time)}
-                          >
-                            {slotTasks.map(task => (
-                              <div 
-                                key={task.id}
-                                className={`week-task ${task.status}`}
-                                style={{ background: task.category_color || '#6B7280' }}
-                                draggable
-                                onDragStart={() => handleDragStart(task)}
-                                onClick={() => setShowEditTask(task)}
-                                title={task.title}
-                              >
-                                {task.category_icon} {task.title.slice(0, 12)}{task.title.length > 12 ? '...' : ''}
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ))}
+                  {weekTimeSlots.map(time => {
+                    // Also include :30 tasks in this hour slot
+                    const halfTime = `${time.slice(0, 2)}:30`
+                    return (
+                      <div key={time} className="week-row">
+                        <div className="time-col">{time}</div>
+                        {weekDays.map(day => {
+                          const slotTasks = weekTasks.filter(t => 
+                            t.scheduled_date?.split('T')[0] === day && 
+                            (t.scheduled_time?.slice(0, 5) === time || t.scheduled_time?.slice(0, 5) === halfTime)
+                          )
+                          return (
+                            <div 
+                              key={`${day}-${time}`}
+                              className={`week-cell ${isToday(day) ? 'today' : ''} ${draggedTask ? 'droppable' : ''}`}
+                              onDragOver={handleDragOver}
+                              onDrop={() => handleDropOnSlot(day, time)}
+                            >
+                              {slotTasks.map(task => (
+                                <div 
+                                  key={task.id}
+                                  className={`week-task ${task.status}`}
+                                  style={{ background: task.category_color || '#6B7280' }}
+                                  draggable
+                                  onDragStart={() => handleDragStart(task)}
+                                  onClick={() => setShowEditTask(task)}
+                                  title={task.title}
+                                >
+                                  {task.category_icon} {task.title.slice(0, 10)}{task.title.length > 10 ? '..' : ''}
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -556,7 +570,7 @@ function Productivity({ user }) {
                     <button className="btn btn-small btn-primary" onClick={() => handleScheduleTask(task.id, selectedDate, '09:00')}>
                       📅 Schedule Today
                     </button>
-                    <button className="btn btn-small btn-danger" onClick={() => handleDeleteTask(task.id)}>
+                    <button className="btn btn-small btn-danger" onClick={() => setConfirmDelete({ type: 'task', id: task.id, name: task.title })}>
                       🗑️
                     </button>
                   </div>
@@ -577,6 +591,7 @@ function Productivity({ user }) {
       {showAddTask && (
         <div className="confirm-overlay" onClick={() => setShowAddTask(false)}>
           <div className="task-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setShowAddTask(false)}>×</button>
             <h3>➕ New Task</h3>
             <form onSubmit={handleAddTask}>
               <div className="form-group">
@@ -645,6 +660,7 @@ function Productivity({ user }) {
       {showEditTask && (
         <div className="confirm-overlay" onClick={() => setShowEditTask(null)}>
           <div className="task-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setShowEditTask(null)}>×</button>
             <h3>✏️ Edit Task</h3>
             <form onSubmit={handleEditTask}>
               <div className="form-group">
@@ -724,7 +740,7 @@ function Productivity({ user }) {
                 <button 
                   type="button" 
                   className="btn btn-danger" 
-                  onClick={() => { handleDeleteTask(showEditTask.id); setShowEditTask(null); }}
+                  onClick={() => setConfirmDelete({ type: 'task', id: showEditTask.id, name: showEditTask.title })}
                 >
                   🗑️ Delete
                 </button>
@@ -740,6 +756,7 @@ function Productivity({ user }) {
       {showCategories && (
         <div className="confirm-overlay" onClick={() => setShowCategories(false)}>
           <div className="categories-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-x" onClick={() => setShowCategories(false)}>×</button>
             <h3>🏷️ Manage Categories</h3>
             
             {/* Existing Categories */}
@@ -787,7 +804,7 @@ function Productivity({ user }) {
                       <span className="cat-name">{cat.name}</span>
                       <div className="cat-actions">
                         <button onClick={() => setEditCategory(cat)}>✏️</button>
-                        <button onClick={() => handleDeleteCategory(cat.id)}>🗑️</button>
+                        <button onClick={() => setConfirmDelete({ type: 'category', id: cat.id, name: cat.name })}>🗑️</button>
                       </div>
                     </>
                   )}
@@ -831,15 +848,46 @@ function Productivity({ user }) {
                 <button type="submit" className="btn btn-primary">+ Add Category</button>
               </form>
             </div>
-
-            <button className="btn btn-secondary close-btn" onClick={() => setShowCategories(false)}>Close</button>
           </div>
         </div>
       )}
 
-      {/* Toast */}
+      {/* ========== DELETE CONFIRMATION MODAL ========== */}
+      {confirmDelete && (
+        <div className="confirm-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon">🗑️</div>
+            <h3>Delete {confirmDelete.type === 'task' ? 'Task' : 'Category'}?</h3>
+            <p>Are you sure you want to delete <strong>"{confirmDelete.name}"</strong>?</p>
+            {confirmDelete.type === 'category' && (
+              <p className="confirm-warning">Tasks in this category will become uncategorized.</p>
+            )}
+            <div className="confirm-actions">
+              <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button 
+                className="btn btn-danger" 
+                onClick={() => {
+                  if (confirmDelete.type === 'task') {
+                    handleDeleteTask(confirmDelete.id)
+                    setShowEditTask(null)
+                  } else {
+                    handleDeleteCategory(confirmDelete.id)
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Toast */}
       {message.text && (
-        <div className={`toast-message ${message.type}`}>{message.text}</div>
+        <div className={`modern-toast ${message.type}`}>
+          <span className="toast-icon">{message.icon}</span>
+          <span className="toast-text">{message.text}</span>
+        </div>
       )}
     </div>
   )
