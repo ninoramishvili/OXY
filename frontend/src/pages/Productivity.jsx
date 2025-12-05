@@ -49,7 +49,7 @@ function Productivity({ user }) {
   const [recurringDeleteOptions, setRecurringDeleteOptions] = useState(null)
   
   const [newTask, setNewTask] = useState({ 
-    title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30,
+    title: '', description: '', categoryId: '', isUrgent: false, isImportant: false, estimatedMinutes: 30,
     startDate: '', startTime: '', endDate: '', endTime: '',
     isRecurring: false, recurrenceRule: '', recurrenceEndDate: ''
   })
@@ -257,7 +257,7 @@ function Productivity({ user }) {
   }
 
   const resetNewTask = () => {
-    setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30, startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '' })
+    setNewTask({ title: '', description: '', categoryId: '', isUrgent: false, isImportant: false, estimatedMinutes: 30, startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '' })
   }
 
   const openAddTaskWithTime = (date, startTime, endTime = null) => {
@@ -283,7 +283,7 @@ function Productivity({ user }) {
     try {
       const res = await fetch(`${API_BASE}/tasks`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, title: newTask.title, description: newTask.description, categoryId: newTask.categoryId || null, priority: newTask.priority, estimatedMinutes: newTask.estimatedMinutes, scheduledDate: newTask.startDate || null, scheduledTime: newTask.startTime || null, scheduledEndDate: newTask.endDate || null, scheduledEndTime: newTask.endTime || null, isRecurring: newTask.isRecurring, recurrenceRule: newTask.isRecurring ? newTask.recurrenceRule : null, recurrenceEndDate: newTask.isRecurring ? newTask.recurrenceEndDate : null })
+        body: JSON.stringify({ userId: user.id, title: newTask.title, description: newTask.description, categoryId: newTask.categoryId || null, isUrgent: newTask.isUrgent, isImportant: newTask.isImportant, estimatedMinutes: newTask.estimatedMinutes, scheduledDate: newTask.startDate || null, scheduledTime: newTask.startTime || null, scheduledEndDate: newTask.endDate || null, scheduledEndTime: newTask.endTime || null, isRecurring: newTask.isRecurring, recurrenceRule: newTask.isRecurring ? newTask.recurrenceRule : null, recurrenceEndDate: newTask.isRecurring ? newTask.recurrenceEndDate : null })
       })
       if ((await res.json()).success) { showToast(newTask.isRecurring ? 'Recurring task created' : (newTask.startDate ? 'Scheduled' : 'Added'), 'success', '✓'); resetNewTask(); setShowAddTask(false); fetchData() }
     } catch { showToast('Failed', 'error', '✕') }
@@ -304,7 +304,8 @@ function Productivity({ user }) {
           title: showEditTask.title, 
           description: showEditTask.description, 
           categoryId: showEditTask.category_id || null, 
-          priority: showEditTask.priority, 
+          isUrgent: showEditTask.is_urgent || false, 
+          isImportant: showEditTask.is_important || false, 
           estimatedMinutes: showEditTask.estimated_minutes, 
           status, 
           scheduledDate: schedDate || null, 
@@ -526,8 +527,18 @@ function Productivity({ user }) {
                   <div className="bl-main" onClick={() => setShowEditTask(t)}>
                     <span className="bl-icon">{t.category_icon || '📋'}</span>
                     <div className="bl-info">
-                      <span className="bl-title">{t.title} {(t.is_recurring || t.parent_task_id) && <span className="recurring-badge">🔄</span>}</span>
-                      <div className="bl-meta"><span className={`pri ${t.priority}`}>{t.priority}</span><span>{formatDuration(t.estimated_minutes)}</span></div>
+                      <span className="bl-title">
+                        {t.title} 
+                        {(t.is_recurring || t.parent_task_id) && <span className="recurring-badge">🔄</span>}
+                        {(t.is_urgent || t.is_important) && (
+                          <span className={`eisenhower-badge-mini q${(t.is_urgent ? 1 : 0) + (t.is_important ? 2 : 0)}`}>
+                            {t.is_urgent && t.is_important && '🔴'}
+                            {!t.is_urgent && t.is_important && '🟠'}
+                            {t.is_urgent && !t.is_important && '🟡'}
+                          </span>
+                        )}
+                      </span>
+                      <div className="bl-meta"><span>{formatDuration(t.estimated_minutes)}</span></div>
                     </div>
                   </div>
                   <div className="bl-btns">
@@ -620,7 +631,7 @@ function Productivity({ user }) {
               <div className="slots-column">
                 {timeSlots.map(time => <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: DAY_SLOT_HEIGHT }} onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)} onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)} onDragOver={handleDragOver} onDrop={(e) => handleDropOnSlot(e, selectedDate, time)} />)}
                 {(() => { const range = getSelectionRange(selectedDate); if (!range) return null; return <div className="selection-overlay" style={{ top: range.startIdx * DAY_SLOT_HEIGHT, height: range.slots * DAY_SLOT_HEIGHT }} /> })()}
-                {(() => { const positions = getTaskPositions(dayTasks); return dayTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; return <div key={task.id} className={`cal-task ${task.status} ${task.is_frog ? 'is-frog' : ''} ${task.is_highlight ? 'is-highlight' : ''}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><div className="ct-badges">{task.is_frog && <span className="ct-badge frog">🐸</span>}{task.is_highlight && <span className="ct-badge highlight">⭐</span>}</div><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <><button onClick={(e) => { e.stopPropagation(); handleSetFrog(task.id) }} className={task.is_frog ? 'active' : ''} title="Set as frog">🐸</button><button onClick={(e) => { e.stopPropagation(); handleSetHighlight(task.id) }} className={task.is_highlight ? 'active' : ''} title="Set as highlight">⭐</button><button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button></>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
+                {(() => { const positions = getTaskPositions(dayTasks); return dayTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; const quadrant = `q${(task.is_urgent ? 1 : 0) + (task.is_important ? 2 : 0)}`; return <div key={task.id} className={`cal-task ${task.status} ${task.is_frog ? 'is-frog' : ''} ${task.is_highlight ? 'is-highlight' : ''} ${quadrant !== 'q0' ? quadrant : ''}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><div className="ct-badges">{task.is_frog && <span className="ct-badge frog">🐸</span>}{task.is_highlight && <span className="ct-badge highlight">⭐</span>}</div><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <><button onClick={(e) => { e.stopPropagation(); handleSetFrog(task.id) }} className={task.is_frog ? 'active' : ''} title="Set as frog">🐸</button><button onClick={(e) => { e.stopPropagation(); handleSetHighlight(task.id) }} className={task.is_highlight ? 'active' : ''} title="Set as highlight">⭐</button><button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button></>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
               </div>
             </div>
           </div>
@@ -1039,7 +1050,27 @@ function Productivity({ user }) {
             <h3>➕ New Task</h3>
             <form onSubmit={handleAddTask}>
               <div className="fg"><label>Title *</label><input type="text" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} autoFocus /></div>
-              <div className="fr"><div className="fg"><label>Category</label><select value={newTask.categoryId} onChange={e => setNewTask({...newTask, categoryId: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div><div className="fg"><label>Priority</label><select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div></div>
+              <div className="fg"><label>Category</label><select value={newTask.categoryId} onChange={e => setNewTask({...newTask, categoryId: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
+              <div className="eisenhower-box">
+                <label className="eisenhower-title">🎯 Eisenhower Matrix</label>
+                <div className="eisenhower-toggles">
+                  <label className={`eis-toggle ${newTask.isUrgent ? 'active' : ''}`}>
+                    <input type="checkbox" checked={newTask.isUrgent} onChange={e => setNewTask({...newTask, isUrgent: e.target.checked})} />
+                    <span>⚡ Urgent</span>
+                  </label>
+                  <label className={`eis-toggle ${newTask.isImportant ? 'active' : ''}`}>
+                    <input type="checkbox" checked={newTask.isImportant} onChange={e => setNewTask({...newTask, isImportant: e.target.checked})} />
+                    <span>⭐ Important</span>
+                  </label>
+                </div>
+                {(newTask.isUrgent || newTask.isImportant) && (
+                  <div className={`eisenhower-badge q${(newTask.isUrgent ? 1 : 0) + (newTask.isImportant ? 2 : 0)}`}>
+                    {newTask.isUrgent && newTask.isImportant && '🔴 DO FIRST'}
+                    {!newTask.isUrgent && newTask.isImportant && '🟠 SCHEDULE'}
+                    {newTask.isUrgent && !newTask.isImportant && '🟡 DELEGATE'}
+                  </div>
+                )}
+              </div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={newTask.startDate} onChange={e => setNewTask({...newTask, startDate: e.target.value, endDate: e.target.value || newTask.endDate})} /></div><div className="fg"><label>Start Time</label><input type="time" value={newTask.startTime} onChange={e => handleStartTimeChange(e.target.value, true)} disabled={!newTask.startDate} /></div></div>
@@ -1063,7 +1094,27 @@ function Productivity({ user }) {
             <h3>✏️ Edit Task</h3>
             <form onSubmit={handleEditTask}>
               <div className="fg"><label>Title *</label><input type="text" value={showEditTask.title || ''} onChange={e => setShowEditTask({...showEditTask, title: e.target.value})} /></div>
-              <div className="fr"><div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div><div className="fg"><label>Priority</label><select value={showEditTask.priority || 'medium'} onChange={e => setShowEditTask({...showEditTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div></div>
+              <div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
+              <div className="eisenhower-box">
+                <label className="eisenhower-title">🎯 Eisenhower Matrix</label>
+                <div className="eisenhower-toggles">
+                  <label className={`eis-toggle ${showEditTask.is_urgent ? 'active' : ''}`}>
+                    <input type="checkbox" checked={showEditTask.is_urgent || false} onChange={e => setShowEditTask({...showEditTask, is_urgent: e.target.checked})} />
+                    <span>⚡ Urgent</span>
+                  </label>
+                  <label className={`eis-toggle ${showEditTask.is_important ? 'active' : ''}`}>
+                    <input type="checkbox" checked={showEditTask.is_important || false} onChange={e => setShowEditTask({...showEditTask, is_important: e.target.checked})} />
+                    <span>⭐ Important</span>
+                  </label>
+                </div>
+                {(showEditTask.is_urgent || showEditTask.is_important) && (
+                  <div className={`eisenhower-badge q${(showEditTask.is_urgent ? 1 : 0) + (showEditTask.is_important ? 2 : 0)}`}>
+                    {showEditTask.is_urgent && showEditTask.is_important && '🔴 DO FIRST'}
+                    {!showEditTask.is_urgent && showEditTask.is_important && '🟠 SCHEDULE'}
+                    {showEditTask.is_urgent && !showEditTask.is_important && '🟡 DELEGATE'}
+                  </div>
+                )}
+              </div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>

@@ -1748,7 +1748,7 @@ app.get('/api/tasks/:userId/backlog', async (req, res) => {
 // POST /api/tasks - Create task (with recurring support)
 app.post('/api/tasks', async (req, res) => {
   try {
-    const { userId, title, description, categoryId, priority, estimatedMinutes, 
+    const { userId, title, description, categoryId, isUrgent, isImportant, estimatedMinutes, 
             scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime,
             isRecurring, recurrenceRule, recurrenceEndDate } = req.body;
     
@@ -1759,11 +1759,11 @@ app.post('/api/tasks', async (req, res) => {
     if (isRecurring && recurrenceRule && scheduledDate) {
       // Create the parent template task (stores recurrence info but not scheduled itself)
       const result = await pool.query(
-        `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
+        `INSERT INTO tasks (user_id, title, description, category_id, is_urgent, is_important, estimated_minutes, 
           scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
           is_recurring, recurrence_rule, recurrence_end_date)
-         VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, NULL, NULL, 'backlog', $7, $8, $9) RETURNING *`,
-        [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, NULL, NULL, 'backlog', $8, $9, $10) RETURNING *`,
+        [userId, title, description, categoryId, isUrgent || false, isImportant || false, estimatedMinutes || 30,
          true, recurrenceRule, recurrenceEndDate || null]
       );
       
@@ -1799,10 +1799,10 @@ app.post('/api/tasks', async (req, res) => {
         if (shouldCreate) {
           const dateStr = currentDate.toISOString().split('T')[0];
           await pool.query(
-            `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes,
+            `INSERT INTO tasks (user_id, title, description, category_id, is_urgent, is_important, estimated_minutes,
              scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status, parent_task_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planned', $11)`,
-            [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', $12)`,
+            [userId, title, description, categoryId, isUrgent || false, isImportant || false, estimatedMinutes || 30,
              dateStr, scheduledTime, dateStr, scheduledEndTime, parentTask.id]
           );
         }
@@ -1814,11 +1814,11 @@ app.post('/api/tasks', async (req, res) => {
     } else {
       // Non-recurring task - create normally
       const result = await pool.query(
-        `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
+        `INSERT INTO tasks (user_id, title, description, category_id, is_urgent, is_important, estimated_minutes, 
           scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
           is_recurring, recurrence_rule, recurrence_end_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-        [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+        [userId, title, description, categoryId, isUrgent || false, isImportant || false, estimatedMinutes || 30,
          scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status,
          false, null, null]
       );
@@ -1834,13 +1834,13 @@ app.post('/api/tasks', async (req, res) => {
 // PUT /api/tasks/:id - Update task
 app.put('/api/tasks/:id', async (req, res) => {
   try {
-    const { title, description, categoryId, priority, estimatedMinutes, status, 
+    const { title, description, categoryId, isUrgent, isImportant, estimatedMinutes, status, 
             scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime } = req.body;
     await pool.query(
-      `UPDATE tasks SET title = $1, description = $2, category_id = $3, priority = $4, 
-       estimated_minutes = $5, status = $6, scheduled_date = $7, scheduled_time = $8,
-       scheduled_end_date = $9, scheduled_end_time = $10 WHERE id = $11`,
-      [title, description, categoryId, priority, estimatedMinutes, status, 
+      `UPDATE tasks SET title = $1, description = $2, category_id = $3, is_urgent = $4, is_important = $5,
+       estimated_minutes = $6, status = $7, scheduled_date = $8, scheduled_time = $9,
+       scheduled_end_date = $10, scheduled_end_time = $11 WHERE id = $12`,
+      [title, description, categoryId, isUrgent || false, isImportant || false, estimatedMinutes, status, 
        scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime, req.params.id]
     );
     res.json({ success: true });

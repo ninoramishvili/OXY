@@ -8332,11 +8332,37 @@ body {
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes firework { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 
+/* ============ EISENHOWER MATRIX ============ */
+.eisenhower-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.eisenhower-title { font-size: 0.85rem; font-weight: 600; color: var(--text-dark); display: block; margin-bottom: 8px; }
+.eisenhower-toggles { display: flex; gap: 12px; margin-bottom: 8px; }
+.eis-toggle { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; user-select: none; }
+.eis-toggle input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.eis-toggle span { font-size: 0.85rem; font-weight: 500; }
+.eis-toggle:hover { border-color: var(--primary); background: rgba(20,184,166,0.05); }
+.eis-toggle.active { border-color: var(--primary); background: rgba(20,184,166,0.1); }
+
+.eisenhower-badge { padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; text-align: center; }
+.eisenhower-badge.q3 { background: linear-gradient(135deg, #EF4444, #DC2626); color: white; } /* Urgent + Important */
+.eisenhower-badge.q2 { background: linear-gradient(135deg, #F59E0B, #D97706); color: white; } /* Not Urgent + Important */
+.eisenhower-badge.q1 { background: linear-gradient(135deg, #FCD34D, #F59E0B); color: #78350F; } /* Urgent + Not Important */
+
+.eisenhower-badge-mini { display: inline-block; font-size: 0.7rem; margin-left: 4px; padding: 1px 4px; border-radius: 3px; }
+.eisenhower-badge-mini.q3 { background: #EF4444; } /* Red */
+.eisenhower-badge-mini.q2 { background: #F59E0B; } /* Orange */
+.eisenhower-badge-mini.q1 { background: #FCD34D; } /* Yellow */
+
+/* Task color coding by quadrant */
+.cal-task.q3 { border-left: 4px solid #EF4444; } /* DO FIRST */
+.cal-task.q2 { border-left: 4px solid #F59E0B; } /* SCHEDULE */
+.cal-task.q1 { border-left: 4px solid #FCD34D; } /* DELEGATE */
+
 @media (max-width: 768px) {
   .day-focus-cards { grid-template-columns: 1fr; }
   .focus-card { padding: 10px; }
   .celebration-content { padding: 20px 30px; margin: 20px; }
   .celebration-icon { font-size: 3rem; }
+  .eisenhower-toggles { flex-direction: column; }
 }
 
 @media (max-width: 768px) {
