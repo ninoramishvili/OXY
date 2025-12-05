@@ -1,190 +1,231 @@
-# OXY Productivity Tools - Feature Documentation
+# OXY Productivity Tools - Complete Feature Documentation
 
 ## Overview
 
-The Productivity module provides comprehensive task management, planning, and analytics features to help users manage their time effectively.
+The Productivity module is a comprehensive task management and time tracking system integrated into the OXY platform. It enables users to organize tasks, plan their days and weeks, and analyze their productivity patterns.
 
 ---
 
-## Features Implemented
+## 1. Core Features
 
-### Phase 1: Core Task Management ✅
+### 1.1 Task Management
 
-#### 1.1 Task Categories
-- Custom categories with name, icon, and color
-- Default categories: Work, Personal, Health, Learning
-- CRUD operations for categories
-- Tasks inherit category styling
+#### Task Properties
+| Property | Type | Description |
+|----------|------|-------------|
+| title | string | Task name (required) |
+| description | text | Detailed description |
+| category | reference | Link to task category |
+| priority | enum | high, medium, low |
+| estimated_minutes | integer | Planned duration |
+| status | enum | backlog, planned, completed |
+| scheduled_date | date | When task is scheduled |
+| scheduled_time | time | Start time |
+| scheduled_end_date | date | End date (for multi-day) |
+| scheduled_end_time | time | End time |
 
-#### 1.2 Task Backlog
-- Central repository for all unscheduled tasks
-- Task properties: title, description, category, priority, estimated duration
-- Priority levels: High (🔴), Medium (🟡), Low (🟢)
-- Drag-and-drop to calendar views
+#### Task Status Flow
+```
+backlog → planned → completed
+   ↑___________|
+   (unschedule)
+```
 
-#### 1.3 Day View Calendar
-- 24-hour timeline with 30-minute slots
-- Click/drag to create new tasks
-- Visual task blocks with category colors
-- Tasks span multiple slots based on duration
-- Overlapping tasks display side-by-side (Google Calendar style)
+### 1.2 Categories
 
-#### 1.4 Week View Calendar
-- 7-day grid view (Monday-Sunday)
-- Same functionality as day view
-- Navigate between weeks
-- "Today" highlighting
+Users can create custom categories to organize tasks:
+- **Properties**: name, icon (emoji), color
+- **Default Categories**: Work 💼, Personal 👤, Health 🏃, Learning 📚
+- **Icons Available**: 📋💼👤🏃📚🎯💡🔧📞✉️🎨🎵🏠🚗💰❤️
+- **Colors**: Blue, Purple, Green, Amber, Red, Pink, Cyan, Gray
+
+### 1.3 Recurring Tasks
+
+Create tasks that repeat automatically:
+
+| Frequency | Description |
+|-----------|-------------|
+| Daily | Every day |
+| Weekdays | Monday through Friday |
+| Weekly | Same day each week |
+| Monthly | Same date each month |
+
+**Recurrence End Date**: Optional date to stop generating instances
+
+**Deletion Options**:
+- Just this task (single instance)
+- This and future tasks
+- All tasks in series
 
 ---
 
-### Phase 2: Planning & Recurring ✅
+## 2. Views
 
-#### 2.1 Recurring Tasks
-- Frequency options: Daily, Weekdays (Mon-Fri), Weekly, Monthly
-- Optional end date for recurrence
-- Parent task (template) + child instances
-- Delete options:
-  - Just this task
-  - This and future tasks
-  - All tasks in series
+### 2.1 Backlog Tab
 
-#### 2.2 Task Scheduling
-- Drag from backlog to calendar
+Central repository for unscheduled tasks:
+- List view with category colors
+- Priority badges
+- Duration display
 - Quick schedule button (📅)
-- Edit date/time in task modal
-- Start date + end date support
+- Delete button (🗑️)
+- Drag to calendar views
+
+### 2.2 Day View Tab
+
+24-hour calendar for daily planning:
+- Time slots: 00:00 - 23:30 (30-min intervals)
+- Tasks display as colored blocks
+- Block height = task duration
+- Overlapping tasks side-by-side
+- Click slot to add task
+- Drag to select time range
+- Navigate between days
+
+### 2.3 Week View Tab
+
+7-day overview for weekly planning:
+- Monday to Sunday layout
+- Same time slot structure
+- Compact task display
+- Today column highlighted
+- Click/drag to add tasks
+- Navigate between weeks
 
 ---
 
-### Phase 3: Analytics & Reviews ✅
+## 3. Analytics Dashboard
 
-#### 3.1 Analytics Dashboard
-**Daily Statistics:**
-- Tasks completed vs planned
+### 3.1 Daily Summary Card
+Shows for the selected date:
+- Tasks completed / total
 - Completion percentage
-- Total hours planned
-- Progress bar visualization
+- Hours planned
+- Progress bar
 
-**Weekly Statistics:**
-- Weekly task summary
-- Day-by-day bar chart
-- Category breakdown with percentages
+### 3.2 Weekly Summary Card
+Shows for the selected week:
+- Same metrics as daily
+- Aggregated for 7 days
 
-**Category Breakdown:**
-- Visual bar chart by category
+### 3.3 Category Breakdown
+Bar chart showing:
 - Time allocated per category
-- Task count per category
+- Percentage of total
+- Tasks completed vs planned
 
-#### 3.2 Daily Review
-- Date navigation
-- Summary statistics (completed, planned, rate, hours)
-- Productivity rating (1-5 stars)
-- Notes/reflections textarea
-- Save draft or finalize day
-- Task list with completion status
+### 3.4 Task List
+Interactive list with:
+- Task icon and title
+- Scheduled time
+- Duration
+- **Complete button** for pending tasks
+- ✓ Done indicator for completed
 
-#### 3.3 Weekly Review
-- Week navigation
-- Summary statistics
-- Weekly goals management:
-  - Add/delete goals
-  - Toggle goal completion
-- Productivity score (1-10)
-- Weekly reflections
-- Category breakdown for the week
-- Save draft or finalize week
+### 3.5 Week Overview Chart
+Bar chart showing daily distribution:
+- One bar per day
+- Height = planned minutes
+- Completed/total task count
+- Today highlighted
 
 ---
 
-## User Interface
+## 4. Daily Review
 
-### Navigation Tabs
-1. **📥 Backlog** - Unscheduled tasks
-2. **📅 Day** - Daily calendar view
-3. **📆 Week** - Weekly calendar view
-4. **📊 Analytics** - Statistics dashboard
-5. **✍️ Daily** - Daily review
-6. **📝 Weekly** - Weekly review
+End-of-day reflection feature:
 
-### Visual Elements
-- Category color coding throughout
-- Priority badges (🔴🟡🟢)
-- Recurring task indicator (🔄)
-- Today highlighting in calendars
-- Progress bars and charts
-- Toast notifications for feedback
+### Components
+1. **Summary Stats** (gradient header)
+   - Completed tasks count
+   - Planned tasks count
+   - Completion percentage
+   - Total hours
 
----
+2. **Productivity Score**
+   - 1-10 scale input
+   - Numeric rating
 
-## Database Schema
+3. **Notes Section**
+   - Text area for reflections
+   - "What went well? What could improve?"
 
-### task_categories
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INTEGER | Owner |
-| name | VARCHAR | Category name |
-| icon | VARCHAR | Emoji icon |
-| color | VARCHAR | Hex color |
+4. **Task List**
+   - All tasks for the day
+   - Complete button for pending tasks
+   - Checkmarks for completed
 
-### tasks
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INTEGER | Owner |
-| title | VARCHAR | Task title |
-| description | TEXT | Details |
-| category_id | INTEGER | FK to categories |
-| priority | VARCHAR | high/medium/low |
-| estimated_minutes | INTEGER | Planned duration |
-| status | VARCHAR | backlog/planned/completed |
-| scheduled_date | DATE | Start date |
-| scheduled_time | TIME | Start time |
-| scheduled_end_date | DATE | End date |
-| scheduled_end_time | TIME | End time |
-| is_recurring | BOOLEAN | Is template |
-| recurrence_rule | VARCHAR | daily/weekly/etc |
-| recurrence_end_date | DATE | When to stop |
-| parent_task_id | INTEGER | FK to parent |
-| completed_at | TIMESTAMP | When completed |
+5. **Actions**
+   - Save Draft
+   - Finalize Day (locks the review)
 
-### daily_reviews
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INTEGER | Owner |
-| review_date | DATE | Which day |
-| productivity_rating | INTEGER | 1-5 stars |
-| notes | TEXT | Reflections |
-| tasks_completed | INTEGER | Count |
-| tasks_planned | INTEGER | Count |
-| is_finalized | BOOLEAN | Locked |
-
-### weekly_reviews
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INTEGER | Owner |
-| week_start | DATE | Monday |
-| productivity_score | DECIMAL | 1-10 |
-| total_hours | DECIMAL | Hours logged |
-| goals_achieved | INTEGER | Count |
-| goals_total | INTEGER | Count |
-| notes | TEXT | Reflections |
-| is_finalized | BOOLEAN | Locked |
-
-### weekly_goals
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INTEGER | Owner |
-| week_start | DATE | Which week |
-| goal_text | VARCHAR | Goal description |
-| is_achieved | BOOLEAN | Completed |
+### Date Display
+Clear indication of which day is being reviewed (full date format)
 
 ---
 
-## API Endpoints
+## 5. Weekly Review
+
+End-of-week reflection and goal tracking:
+
+### Components
+1. **Summary Stats** (gradient header)
+   - Same as daily, aggregated for week
+
+2. **Weekly Goals**
+   - Add goals at week start
+   - Check off as achieved
+   - Delete goals
+   - Progress tracking
+
+3. **Productivity Score**
+   - 1-10 scale input
+
+4. **Reflections**
+   - Key accomplishments
+   - Lessons learned
+   - Goals for next week
+
+5. **Category Breakdown**
+   - Time per category
+   - Completed vs total tasks
+
+6. **Actions**
+   - Save Draft
+   - Finalize Week
+
+### Date Range Display
+Shows the week's date range (e.g., "Mon, Dec 2 - Sun, Dec 8")
+
+---
+
+## 6. Interactions
+
+### Drag & Drop
+- Drag tasks from backlog to calendar
+- Drag between Day and Week views
+- Visual feedback during drag
+- Drop on time slots to schedule
+
+### Click to Add
+- Click empty slot to add task
+- Pre-fills date and time
+- Opens add task modal
+
+### Drag to Select
+- Click and drag across slots
+- Highlights selection
+- Creates task with full time range
+
+### Task Actions
+- Click task to edit
+- Complete button (✓)
+- Unschedule button (↩)
+- Delete button (🗑️)
+
+---
+
+## 7. API Endpoints
 
 ### Categories
 ```
@@ -232,53 +273,88 @@ DELETE /api/goals/weekly/:id
 
 ---
 
-## Future Enhancements (Phase 4-5)
+## 8. Database Tables
 
-### Phase 4: Productivity Techniques
-- [ ] Pomodoro Timer
-- [ ] Eisenhower Matrix
-- [ ] Eat The Frog feature
-- [ ] 2-Minute Rule detection
+### task_categories
+- id (UUID, PK)
+- user_id (FK to users)
+- name, icon, color
+- created_at, updated_at
 
-### Phase 5: Advanced Features
-- [ ] Tags and advanced filtering
-- [ ] Export/reports (PDF)
-- [ ] Notifications/reminders
-- [ ] Keyboard shortcuts
-- [ ] Mobile optimization
+### tasks
+- id (SERIAL, PK)
+- user_id (FK)
+- title, description
+- category_id (FK)
+- priority, estimated_minutes, status
+- scheduled_date, scheduled_time
+- scheduled_end_date, scheduled_end_time
+- is_recurring, recurrence_rule, recurrence_end_date
+- parent_task_id (FK, self-reference)
+- completed_at
+- timestamps
+
+### daily_reviews
+- id (PK)
+- user_id (FK)
+- review_date (UNIQUE with user_id)
+- productivity_rating (1-10)
+- notes, task stats
+- is_finalized
+
+### weekly_reviews
+- id (PK)
+- user_id (FK)
+- week_start (UNIQUE with user_id)
+- productivity_score (1-10)
+- total_hours, goal stats
+- notes, is_finalized
+
+### weekly_goals
+- id (PK)
+- user_id (FK)
+- week_start
+- goal_text
+- is_achieved
 
 ---
 
-## Usage Guide
+## 9. UI Components
 
-### Creating a Task
-1. Click "+ New" button
-2. Enter title (required)
-3. Select category and priority
-4. Optionally set schedule (date + time)
-5. For recurring: check "🔄 Recurring task" and set frequency
+### Modals
+- **Add Task**: Title, category, priority, schedule, recurrence
+- **Edit Task**: All task fields, delete option
+- **Categories**: List, edit inline, add new
+- **Confirm Delete**: Simple yes/no
+- **Recurring Delete**: Three options
 
-### Scheduling from Backlog
-- **Drag & drop**: Drag task to Day or Week view
-- **Quick schedule**: Click 📅 button on task
+### Navigation
+- Tab bar: Backlog, Day, Week, Analytics, Daily, Weekly
+- Date navigation: ← Today →
+- Full date display in headers
 
-### Using Analytics
-1. Go to "📊 Analytics" tab
-2. Navigate dates with ← → buttons
-3. View daily summary, weekly chart, and category breakdown
+### Visual Feedback
+- Toast notifications (success/error)
+- Selection overlay (blue border)
+- Drop target highlighting
+- Drag hint banner
 
-### Daily Review Process
-1. Go to "✍️ Daily" tab at end of day
-2. Review task completion summary
-3. Rate your productivity (1-5 stars)
-4. Add notes/reflections
-5. Click "Finalize Day" to lock
+---
 
-### Weekly Review Process
-1. Go to "📝 Weekly" tab
-2. Add weekly goals at week start
-3. Mark goals as achieved during week
-4. At week end: rate productivity (1-10)
-5. Add reflections
-6. Click "Finalize Week" to lock
+## 10. Future Enhancements
 
+### Planned
+- [ ] Pomodoro Timer integration
+- [ ] Eisenhower Matrix view
+- [ ] Keyboard shortcuts
+- [ ] Mobile optimization
+- [ ] Export reports (PDF/CSV)
+- [ ] Email reminders
+- [ ] Team collaboration
+
+### Considerations
+- Sync across devices
+- Offline support
+- Calendar integrations (Google, Outlook)
+- Habit tracking
+- Streak statistics

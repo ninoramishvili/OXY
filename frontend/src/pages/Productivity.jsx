@@ -41,6 +41,20 @@ function Productivity({ user }) {
   })
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
 
+  // Helper to safely format date for input (avoid timezone issues)
+  function formatDateForInput(dateStr) {
+    if (!dateStr) return ''
+    // If already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+    // If ISO format with T, just take the date part
+    if (dateStr.includes('T')) return dateStr.split('T')[0]
+    // Otherwise try to parse
+    try {
+      const d = new Date(dateStr)
+      return d.toISOString().split('T')[0]
+    } catch { return '' }
+  }
+
   function getMonday(date) {
     const d = new Date(date)
     const day = d.getDay()
@@ -51,7 +65,7 @@ function Productivity({ user }) {
 
   function getWeekDays(mondayStr) {
     const days = []
-    const monday = new Date(mondayStr)
+    const monday = new Date(mondayStr + 'T12:00:00') // Add time to avoid timezone issues
     for (let i = 0; i < 7; i++) {
       const day = new Date(monday)
       day.setDate(monday.getDate() + i)
@@ -195,7 +209,7 @@ function Productivity({ user }) {
     setShowAddTask(true)
   }
 
-  // Selection & drag handlers (same as before)
+  // Selection & drag handlers
   const handleSlotMouseDown = (e, date, time) => { if (e.button !== 0 || draggedTask) return; e.preventDefault(); setIsSelecting(true); setSelectionStart({ date, time }); setSelectionEnd({ date, time }) }
   const handleSlotMouseEnter = (date, time) => { if (!isSelecting || !selectionStart || date !== selectionStart.date) return; setSelectionEnd({ date, time }) }
   const handleMouseUp = () => { if (!isSelecting) return; if (selectionStart && selectionEnd && selectionStart.date === selectionEnd.date) { const times = [selectionStart.time, selectionEnd.time].sort(); openAddTaskWithTime(selectionStart.date, times[0], calculateEndTime(times[1], 30)) } setIsSelecting(false); setSelectionStart(null); setSelectionEnd(null) }
@@ -220,28 +234,65 @@ function Productivity({ user }) {
   const handleEditTask = async (e) => {
     e.preventDefault()
     if (!showEditTask?.title?.trim()) return
-    const hasDate = showEditTask.scheduled_date, hasTime = showEditTask.scheduled_time
-    if ((hasDate && !hasTime) || (!hasDate && hasTime)) { showToast('Set both date and time', 'error', '✕'); return }
-    let status = hasDate && hasTime ? (showEditTask.status === 'backlog' ? 'planned' : showEditTask.status) : 'backlog'
+    const schedDate = formatDateForInput(showEditTask.scheduled_date)
+    const schedTime = showEditTask.scheduled_time?.slice(0,5) || ''
+    if ((schedDate && !schedTime) || (!schedDate && schedTime)) { showToast('Set both date and time', 'error', '✕'); return }
+    let status = schedDate && schedTime ? (showEditTask.status === 'backlog' ? 'planned' : showEditTask.status) : 'backlog'
     try {
-      await fetch(`${API_BASE}/tasks/${showEditTask.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: showEditTask.title, description: showEditTask.description, categoryId: showEditTask.category_id || null, priority: showEditTask.priority, estimatedMinutes: showEditTask.estimated_minutes, status, scheduledDate: showEditTask.scheduled_date || null, scheduledTime: showEditTask.scheduled_time || null, scheduledEndDate: showEditTask.scheduled_end_date || null, scheduledEndTime: showEditTask.scheduled_end_time || null }) })
-      showToast('Updated', 'success', '✓'); setShowEditTask(null); fetchData()
+      await fetch(`${API_BASE}/tasks/${showEditTask.id}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          title: showEditTask.title, 
+          description: showEditTask.description, 
+          categoryId: showEditTask.category_id || null, 
+          priority: showEditTask.priority, 
+          estimatedMinutes: showEditTask.estimated_minutes, 
+          status, 
+          scheduledDate: schedDate || null, 
+          scheduledTime: schedTime || null, 
+          scheduledEndDate: formatDateForInput(showEditTask.scheduled_end_date) || null, 
+          scheduledEndTime: showEditTask.scheduled_end_time?.slice(0,5) || null 
+        }) 
+      })
+      showToast('Updated', 'success', '✓')
+      setShowEditTask(null)
+      fetchData()
     } catch { showToast('Failed', 'error', '✕') }
   }
 
-  const handleScheduleTask = async (taskId, date, time) => { try { await fetch(`${API_BASE}/tasks/${taskId}/schedule`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, time }) }); showToast('Scheduled', 'success', '📅'); setDraggedTask(null); setIsDragging(false); fetchData() } catch { showToast('Failed', 'error', '✕') } }
-  const handleCompleteTask = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' }); showToast('Done!', 'success', '✓'); fetchData() } catch {} }
+  const handleScheduleTask = async (taskId, date, time) => { 
+    try { 
+      await fetch(`${API_BASE}/tasks/${taskId}/schedule`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, time }) })
+      showToast('Scheduled', 'success', '📅')
+      setDraggedTask(null)
+      setIsDragging(false)
+      fetchData()
+    } catch { showToast('Failed', 'error', '✕') } 
+  }
+
+  const handleCompleteTask = async (taskId) => { 
+    try { 
+      await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' })
+      showToast('Done!', 'success', '✓')
+      fetchData()
+      // Refresh analytics if on those tabs
+      if (activeTab === 'analytics' || activeTab === 'daily-review') fetchDailyAnalytics()
+      if (activeTab === 'analytics' || activeTab === 'weekly-review') fetchWeeklyAnalytics()
+    } catch {} 
+  }
+
   const handleUnschedule = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}/unschedule`, { method: 'PUT' }); showToast('Moved', 'success', '↩'); setDraggedTask(null); setIsDragging(false); fetchData() } catch {} }
   const handleDeleteClick = (task) => { if (task.is_recurring || task.parent_task_id) setRecurringDeleteOptions(task); else setConfirmDelete({ type: 'task', id: task.id, name: task.title }) }
   const handleDeleteTask = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}`, { method: 'DELETE' }); showToast('Deleted', 'success', '🗑'); setConfirmDelete(null); setShowEditTask(null); fetchData() } catch {} }
-  const handleDeleteRecurring = async (mode) => { const task = recurringDeleteOptions; if (!task) return; try { await fetch(`${API_BASE}/tasks/${task.id}/delete-recurring`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, taskDate: task.scheduled_date }) }); showToast('Deleted', 'success', '🗑'); setRecurringDeleteOptions(null); setShowEditTask(null); fetchData() } catch { showToast('Failed', 'error', '✕') } }
+  const handleDeleteRecurring = async (mode) => { const task = recurringDeleteOptions; if (!task) return; try { await fetch(`${API_BASE}/tasks/${task.id}/delete-recurring`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, taskDate: formatDateForInput(task.scheduled_date) }) }); showToast('Deleted', 'success', '🗑'); setRecurringDeleteOptions(null); setShowEditTask(null); fetchData() } catch { showToast('Failed', 'error', '✕') } }
 
   // Category handlers
   const handleAddCategory = async (e) => { e.preventDefault(); if (!newCategory.name.trim()) return; try { await fetch(`${API_BASE}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, ...newCategory }) }); setNewCategory({ name: '', icon: '📋', color: '#6B7280' }); fetchData() } catch {} }
   const handleUpdateCategory = async (e) => { e.preventDefault(); try { await fetch(`${API_BASE}/categories/${editCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editCategory) }); setEditCategory(null); fetchData() } catch {} }
   const handleDeleteCategory = async (catId) => { try { await fetch(`${API_BASE}/categories/${catId}`, { method: 'DELETE' }); setConfirmDelete(null); fetchData() } catch {} }
 
-  // Review handlers
+  // Review handlers - changed to 10-point scale for daily
   const handleSaveDailyReview = async (rating, notes, finalize = false) => {
     try {
       await fetch(`${API_BASE}/reviews/daily`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, date: selectedDate, productivityRating: rating, notes, isFinalized: finalize }) })
@@ -285,15 +336,26 @@ function Productivity({ user }) {
   const handleDropOnSlot = (e, date, time) => { e.preventDefault(); if (draggedTask) handleScheduleTask(draggedTask.id, date, time) }
   const handleDropOnBacklog = (e) => { e.preventDefault(); if (draggedTask && draggedTask.status !== 'backlog') handleUnschedule(draggedTask.id); else { setDraggedTask(null); setIsDragging(false) } }
 
-  // Navigation
-  const changeDate = (d) => { const dt = new Date(selectedDate); dt.setDate(dt.getDate() + d); setSelectedDate(dt.toISOString().split('T')[0]) }
-  const changeWeek = (w) => { const dt = new Date(weekStart); dt.setDate(dt.getDate() + w * 7); setWeekStart(dt.toISOString().split('T')[0]) }
+  // Navigation - Fixed to avoid timezone issues
+  const changeDate = (d) => { 
+    const dt = new Date(selectedDate + 'T12:00:00')
+    dt.setDate(dt.getDate() + d)
+    setSelectedDate(dt.toISOString().split('T')[0]) 
+  }
+  const changeWeek = (w) => { 
+    const dt = new Date(weekStart + 'T12:00:00')
+    dt.setDate(dt.getDate() + w * 7)
+    setWeekStart(dt.toISOString().split('T')[0]) 
+  }
   const goToToday = () => { setSelectedDate(new Date().toISOString().split('T')[0]); setWeekStart(getMonday(new Date())) }
   const isToday = (d) => d === new Date().toISOString().split('T')[0]
 
   const timeSlots = []; for (let h = 0; h < 24; h++) { timeSlots.push(`${h.toString().padStart(2, '0')}:00`); timeSlots.push(`${h.toString().padStart(2, '0')}:30`) }
-  const formatDate = (d) => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const formatShortDay = (d) => ({ day: new Date(d).toLocaleDateString('en-US', { weekday: 'short' }), num: new Date(d).getDate() })
+  
+  const formatDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const formatFullDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const formatShortDay = (d) => ({ day: new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' }), num: new Date(d + 'T12:00:00').getDate() })
+  
   const handleStartTimeChange = (t, isNew) => { if (isNew) setNewTask({ ...newTask, startTime: t, endTime: calculateEndTime(t, newTask.estimatedMinutes) }); else setShowEditTask({ ...showEditTask, scheduled_time: t, scheduled_end_time: calculateEndTime(t, showEditTask?.estimated_minutes || 30) }) }
   const handleEndTimeChange = (t, isNew) => { if (isNew) setNewTask({ ...newTask, endTime: t, estimatedMinutes: calculateDuration(newTask.startTime, t) }); else setShowEditTask({ ...showEditTask, scheduled_end_time: t, estimated_minutes: calculateDuration(showEditTask?.scheduled_time, t) }) }
 
@@ -303,7 +365,7 @@ function Productivity({ user }) {
 
   if (!user) return null
   const weekDays = getWeekDays(weekStart)
-  const getTasksForDate = (taskList, date) => taskList.filter(t => t.scheduled_date?.split('T')[0] === date)
+  const getTasksForDate = (taskList, date) => taskList.filter(t => formatDateForInput(t.scheduled_date) === date)
   const DAY_SLOT_HEIGHT = 24, WEEK_SLOT_HEIGHT = 20
 
   return (
@@ -399,7 +461,7 @@ function Productivity({ user }) {
             <div className="nav-bar">
               <button onClick={() => { changeDate(-1); changeWeek(-1) }}>←</button>
               <button className="today-btn" onClick={goToToday}>Today</button>
-              <span className="nav-date">{formatDate(selectedDate)}</span>
+              <span className="nav-date">{formatFullDate(selectedDate)}</span>
               <button onClick={() => { changeDate(1); changeWeek(1) }}>→</button>
             </div>
             
@@ -407,6 +469,7 @@ function Productivity({ user }) {
               {/* Daily Stats */}
               <div className="analytics-card">
                 <h3>📅 Daily Summary</h3>
+                <div className="card-date">{formatFullDate(selectedDate)}</div>
                 {dailyAnalytics && (
                   <div className="stats-content">
                     <div className="stat-row"><span>Tasks</span><strong>{dailyAnalytics.summary.completedTasks}/{dailyAnalytics.summary.totalTasks}</strong></div>
@@ -420,6 +483,7 @@ function Productivity({ user }) {
               {/* Weekly Stats */}
               <div className="analytics-card">
                 <h3>📆 Weekly Summary</h3>
+                <div className="card-date">{formatDate(weekDays[0])} - {formatDate(weekDays[6])}</div>
                 {weeklyAnalytics && (
                   <div className="stats-content">
                     <div className="stat-row"><span>Tasks</span><strong>{weeklyAnalytics.summary.completedTasks}/{weeklyAnalytics.summary.totalTasks}</strong></div>
@@ -432,7 +496,8 @@ function Productivity({ user }) {
 
               {/* Category Breakdown */}
               <div className="analytics-card full-width">
-                <h3>🏷️ Time by Category (Today)</h3>
+                <h3>🏷️ Time by Category</h3>
+                <div className="card-date">For {formatFullDate(selectedDate)}</div>
                 {dailyAnalytics?.categories?.length > 0 ? (
                   <div className="category-chart">
                     {dailyAnalytics.categories.map(cat => {
@@ -447,7 +512,7 @@ function Productivity({ user }) {
                           <div className="cat-bar-track">
                             <div className="cat-bar-fill" style={{ width: `${pct}%`, backgroundColor: cat.color || '#6B7280' }} />
                           </div>
-                          <div className="cat-bar-tasks">{cat.completed_count}/{cat.task_count} tasks</div>
+                          <div className="cat-bar-tasks">{cat.completed_count}/{cat.task_count} tasks completed</div>
                         </div>
                       )
                     })}
@@ -455,9 +520,33 @@ function Productivity({ user }) {
                 ) : <p className="no-data">No tasks scheduled for this day</p>}
               </div>
 
+              {/* Tasks for the day - with complete button */}
+              <div className="analytics-card full-width">
+                <h3>📋 Tasks for {formatDate(selectedDate)}</h3>
+                {dailyAnalytics?.tasks?.length > 0 ? (
+                  <div className="analytics-tasks">
+                    {dailyAnalytics.tasks.map(t => (
+                      <div key={t.id} className={`analytics-task ${t.status}`}>
+                        <span className="at-icon">{t.category_icon || '📋'}</span>
+                        <div className="at-info">
+                          <span className="at-title">{t.title}</span>
+                          <span className="at-meta">{t.scheduled_time?.slice(0,5)} • {formatDuration(t.estimated_minutes)}</span>
+                        </div>
+                        {t.status === 'completed' ? (
+                          <span className="at-done">✓ Done</span>
+                        ) : (
+                          <button className="at-complete" onClick={() => handleCompleteTask(t.id)}>Complete</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="no-data">No tasks scheduled</p>}
+              </div>
+
               {/* Weekly by Day */}
               <div className="analytics-card full-width">
                 <h3>📈 Week Overview</h3>
+                <div className="card-date">{formatDate(weekDays[0])} - {formatDate(weekDays[6])}</div>
                 {weeklyAnalytics?.daily?.length > 0 ? (
                   <div className="week-chart">
                     {weekDays.map(day => {
@@ -490,13 +579,13 @@ function Productivity({ user }) {
             <div className="nav-bar">
               <button onClick={() => changeDate(-1)}>←</button>
               <button className="today-btn" onClick={goToToday}>Today</button>
-              <span className="nav-date">{formatDate(selectedDate)}</span>
+              <span className="nav-date">{formatFullDate(selectedDate)}</span>
               <button onClick={() => changeDate(1)}>→</button>
             </div>
 
             <div className="review-content">
               <div className="review-summary">
-                <h3>📊 Day Summary</h3>
+                <h3>📊 Day Summary - {formatFullDate(selectedDate)}</h3>
                 {dailyAnalytics && (
                   <div className="summary-stats">
                     <div className="summary-stat"><span className="stat-num">{dailyAnalytics.summary.completedTasks}</span><span className="stat-label">Completed</span></div>
@@ -508,15 +597,17 @@ function Productivity({ user }) {
               </div>
 
               <div className="review-form">
-                <h3>✍️ Daily Review {dailyReview?.is_finalized && <span className="finalized-badge">✓ Finalized</span>}</h3>
+                <h3>✍️ Daily Review for {formatDate(selectedDate)} {dailyReview?.is_finalized && <span className="finalized-badge">✓ Finalized</span>}</h3>
                 
-                <div className="rating-section">
-                  <label>How productive was your day?</label>
-                  <div className="rating-stars">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <button key={star} className={`star ${(dailyReview?.productivity_rating || 0) >= star ? 'active' : ''}`}
-                        onClick={() => handleSaveDailyReview(star, dailyReview?.notes || '')}>⭐</button>
-                    ))}
+                <div className="score-section">
+                  <label>Daily Productivity Score</label>
+                  <div className="score-input">
+                    <input type="number" min="1" max="10" 
+                      value={dailyReview?.productivity_rating || ''} 
+                      onChange={(e) => setDailyReview({ ...dailyReview, productivity_rating: e.target.value })} 
+                      disabled={dailyReview?.is_finalized} 
+                    />
+                    <span>/ 10</span>
                   </div>
                 </div>
 
@@ -529,22 +620,26 @@ function Productivity({ user }) {
 
                 {!dailyReview?.is_finalized && (
                   <div className="review-actions">
-                    <button className="btn btn-secondary" onClick={() => handleSaveDailyReview(dailyReview?.productivity_rating || 3, dailyReview?.notes || '', false)}>Save Draft</button>
-                    <button className="btn btn-primary" onClick={() => handleSaveDailyReview(dailyReview?.productivity_rating || 3, dailyReview?.notes || '', true)}>✓ Finalize Day</button>
+                    <button className="btn btn-secondary" onClick={() => handleSaveDailyReview(dailyReview?.productivity_rating || 5, dailyReview?.notes || '', false)}>Save Draft</button>
+                    <button className="btn btn-primary" onClick={() => handleSaveDailyReview(dailyReview?.productivity_rating || 5, dailyReview?.notes || '', true)}>✓ Finalize Day</button>
                   </div>
                 )}
               </div>
 
-              {/* Tasks completed today */}
+              {/* Tasks for the day with complete button */}
               {dailyAnalytics?.tasks?.length > 0 && (
                 <div className="review-tasks">
-                  <h4>Tasks ({dailyAnalytics.summary.completedTasks} completed)</h4>
+                  <h4>Tasks ({dailyAnalytics.summary.completedTasks} of {dailyAnalytics.summary.totalTasks} completed)</h4>
                   <div className="task-list-mini">
                     {dailyAnalytics.tasks.map(t => (
                       <div key={t.id} className={`task-mini ${t.status}`}>
                         <span className="task-mini-icon">{t.category_icon || '📋'}</span>
                         <span className="task-mini-title">{t.title}</span>
-                        <span className={`task-mini-status ${t.status}`}>{t.status === 'completed' ? '✓' : '○'}</span>
+                        {t.status === 'completed' ? (
+                          <span className="task-mini-status completed">✓</span>
+                        ) : (
+                          <button className="task-mini-complete" onClick={() => handleCompleteTask(t.id)}>✓</button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -566,7 +661,7 @@ function Productivity({ user }) {
 
             <div className="review-content">
               <div className="review-summary">
-                <h3>📊 Week Summary</h3>
+                <h3>📊 Week Summary - {formatDate(weekDays[0])} to {formatDate(weekDays[6])}</h3>
                 {weeklyAnalytics && (
                   <div className="summary-stats">
                     <div className="summary-stat"><span className="stat-num">{weeklyAnalytics.summary.completedTasks}</span><span className="stat-label">Completed</span></div>
@@ -597,7 +692,7 @@ function Productivity({ user }) {
               </div>
 
               <div className="review-form">
-                <h3>📝 Weekly Review {weeklyReview.review?.is_finalized && <span className="finalized-badge">✓ Finalized</span>}</h3>
+                <h3>📝 Weekly Review for {formatDate(weekDays[0])} - {formatDate(weekDays[6])} {weeklyReview.review?.is_finalized && <span className="finalized-badge">✓ Finalized</span>}</h3>
                 
                 <div className="score-section">
                   <label>Weekly Productivity Score</label>
@@ -641,7 +736,7 @@ function Productivity({ user }) {
         )}
       </div>
 
-      {/* MODALS - Same as before */}
+      {/* MODALS */}
       {showAddTask && (
         <div className="modal-bg" onClick={() => setShowAddTask(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -676,8 +771,8 @@ function Productivity({ user }) {
               <div className="fr"><div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div><div className="fg"><label>Priority</label><select value={showEditTask.priority || 'medium'} onChange={e => setShowEditTask({...showEditTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div></div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
-                <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={showEditTask.scheduled_date?.split('T')[0] || ''} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
-                <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={showEditTask.scheduled_end_date?.split('T')[0] || ''} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
+                <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
+                <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_end_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 {showEditTask.scheduled_time && showEditTask.scheduled_end_time && <div className="dur-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>}
               </div>
               <div className="modal-btns"><button type="button" className="btn btn-danger" onClick={() => handleDeleteClick(showEditTask)}>🗑️</button><button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>

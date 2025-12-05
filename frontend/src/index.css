@@ -8221,7 +8221,8 @@ body {
 .analytics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm); }
 .analytics-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: var(--space-sm); }
 .analytics-card.full-width { grid-column: span 2; }
-.analytics-card h3 { font-size: 0.9rem; margin-bottom: var(--space-xs); color: var(--text-dark); }
+.analytics-card h3 { font-size: 0.9rem; margin-bottom: 4px; color: var(--text-dark); }
+.card-date { font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-xs); font-weight: 500; }
 .stats-content { display: flex; flex-direction: column; gap: 6px; }
 .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
 .stat-row span { color: var(--text-muted); }
@@ -8229,6 +8230,22 @@ body {
 .progress-bar { height: 6px; background: var(--background); border-radius: 3px; overflow: hidden; margin-top: 6px; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--teal)); border-radius: 3px; transition: width 0.3s; }
 .no-data { color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: var(--space-sm); }
+
+/* Analytics Task List */
+.analytics-tasks { display: flex; flex-direction: column; gap: 6px; }
+.analytics-task { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--background); border-radius: 6px; }
+.analytics-task.completed { opacity: 0.7; }
+.at-icon { font-size: 1rem; }
+.at-info { flex: 1; display: flex; flex-direction: column; }
+.at-title { font-size: 0.85rem; font-weight: 500; }
+.at-meta { font-size: 0.7rem; color: var(--text-muted); }
+.at-done { font-size: 0.75rem; color: var(--success); font-weight: 600; }
+.at-complete { background: var(--primary); color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+.at-complete:hover { background: var(--teal); }
+
+/* Task mini complete button */
+.task-mini-complete { background: var(--primary); color: white; border: none; width: 20px; height: 20px; border-radius: 50%; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.task-mini-complete:hover { background: var(--success); }
 
 /* Category Chart */
 .category-chart { display: flex; flex-direction: column; gap: 10px; }
