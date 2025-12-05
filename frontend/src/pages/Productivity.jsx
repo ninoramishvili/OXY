@@ -27,6 +27,11 @@ function Productivity({ user }) {
   const [weeklyReview, setWeeklyReview] = useState({ review: null, goals: [] })
   const [newGoal, setNewGoal] = useState('')
   
+  // Eat The Frog state
+  const [todaysFrog, setTodaysFrog] = useState(null)
+  const [frogStats, setFrogStats] = useState(null)
+  const [showFrogCelebration, setShowFrogCelebration] = useState(false)
+  
   const [draggedTask, setDraggedTask] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isSelecting, setIsSelecting] = useState(false)
@@ -152,9 +157,10 @@ function Productivity({ user }) {
   useEffect(() => {
     if (activeTab === 'analytics' || activeTab === 'daily-review') fetchDailyAnalytics()
     if (activeTab === 'analytics' || activeTab === 'weekly-review') fetchWeeklyAnalytics()
-    if (activeTab === 'analytics') { fetchMonthlyAnalytics(); fetchAllTimeAnalytics() }
+    if (activeTab === 'analytics') { fetchMonthlyAnalytics(); fetchAllTimeAnalytics(); fetchFrogStats() }
     if (activeTab === 'daily-review') fetchDailyReview()
     if (activeTab === 'weekly-review') fetchWeeklyReview()
+    if (activeTab === 'day' || activeTab === 'backlog') { fetchTodaysFrog(); fetchFrogStats() }
   }, [activeTab, selectedDate, weekStart, selectedMonth])
 
   const fetchData = async () => {
@@ -197,6 +203,20 @@ function Productivity({ user }) {
     try {
       const res = await fetch(`${API_BASE}/analytics/${user.id}/alltime`)
       setAllTimeAnalytics(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchTodaysFrog = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/frog/${user.id}/today`)
+      setTodaysFrog(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchFrogStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/frog/${user.id}/stats`)
+      setFrogStats(await res.json())
     } catch (error) { console.error('Error:', error) }
   }
 
@@ -307,6 +327,40 @@ function Productivity({ user }) {
   const handleDeleteClick = (task) => { if (task.is_recurring || task.parent_task_id) setRecurringDeleteOptions(task); else setConfirmDelete({ type: 'task', id: task.id, name: task.title }) }
   const handleDeleteTask = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}`, { method: 'DELETE' }); showToast('Deleted', 'success', '🗑'); setConfirmDelete(null); setShowEditTask(null); fetchData() } catch {} }
   const handleDeleteRecurring = async (mode) => { const task = recurringDeleteOptions; if (!task) return; try { await fetch(`${API_BASE}/tasks/${task.id}/delete-recurring`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, taskDate: formatDateForInput(task.scheduled_date) }) }); showToast('Deleted', 'success', '🗑'); setRecurringDeleteOptions(null); setShowEditTask(null); fetchData() } catch { showToast('Failed', 'error', '✕') } }
+
+  // Eat The Frog handlers
+  const handleSetFrog = async (taskId) => {
+    try {
+      const res = await fetch(`${API_BASE}/tasks/${taskId}/frog`, { method: 'PUT' })
+      if ((await res.json()).success) {
+        showToast('Frog set! 🐸', 'success', '🐸')
+        fetchTodaysFrog()
+        fetchData()
+      }
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleRemoveFrog = async (taskId) => {
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}/frog`, { method: 'DELETE' })
+      showToast('Frog removed', 'success', '✓')
+      setTodaysFrog(null)
+      fetchData()
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleCompleteFrog = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/frog/${user.id}/complete`, { method: 'PUT' })
+      if ((await res.json()).success) {
+        setShowFrogCelebration(true)
+        setTimeout(() => setShowFrogCelebration(false), 3000)
+        fetchTodaysFrog()
+        fetchFrogStats()
+        fetchData()
+      }
+    } catch { showToast('Failed', 'error', '✕') }
+  }
 
   // Category handlers
   const handleAddCategory = async (e) => { e.preventDefault(); if (!newCategory.name.trim()) return; try { await fetch(`${API_BASE}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, ...newCategory }) }); setNewCategory({ name: '', icon: '📋', color: '#6B7280' }); fetchData() } catch {} }
@@ -426,6 +480,7 @@ function Productivity({ user }) {
                     </div>
                   </div>
                   <div className="bl-btns">
+                    <button onClick={() => handleSetFrog(t.id)} title="Set as today's frog" className={t.is_frog ? 'active-frog' : ''}>🐸</button>
                     <button onClick={() => handleScheduleTask(t.id, selectedDate, '09:00')}>📅</button>
                     <button onClick={() => handleDeleteClick(t)}>🗑️</button>
                   </div>
@@ -446,6 +501,44 @@ function Productivity({ user }) {
               <span className="nav-date">{formatDate(selectedDate)} {isToday(selectedDate) && <span className="today-tag">Today</span>}</span>
               <button onClick={() => changeDate(1)}>→</button>
             </div>
+            
+            {/* Eat The Frog Banner */}
+            {isToday(selectedDate) && (
+              <div className={`frog-banner ${todaysFrog ? (todaysFrog.status === 'completed' ? 'completed' : 'active') : 'empty'}`}>
+                <div className="frog-header">
+                  <span className="frog-icon">🐸</span>
+                  <span className="frog-title">Eat The Frog</span>
+                  {frogStats && <span className="frog-streak">🔥 {frogStats.currentStreak} day streak</span>}
+                </div>
+                {todaysFrog ? (
+                  <div className="frog-task">
+                    <div className="frog-task-info">
+                      <span className="frog-task-icon">{todaysFrog.category_icon || '📋'}</span>
+                      <div className="frog-task-details">
+                        <span className="frog-task-title">{todaysFrog.title}</span>
+                        <span className="frog-task-meta">{formatDuration(todaysFrog.estimated_minutes)} • {todaysFrog.category_name || 'No category'}</span>
+                      </div>
+                    </div>
+                    <div className="frog-task-actions">
+                      {todaysFrog.status === 'completed' ? (
+                        <span className="frog-eaten">✓ Eaten!</span>
+                      ) : (
+                        <>
+                          <button className="frog-complete-btn" onClick={handleCompleteFrog}>🍽️ Eat it!</button>
+                          <button className="frog-remove-btn" onClick={() => handleRemoveFrog(todaysFrog.id)}>×</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="frog-empty">
+                    <p>No frog set for today! Pick your hardest task and mark it as today's frog 🐸</p>
+                    <small>Tip: Click the 🐸 button on any task to set it as your frog</small>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className={`calendar-grid day-calendar ${isDragging ? 'drag-active' : ''}`}>
               <div className="time-column">{timeSlots.map(time => <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>)}</div>
               <div className="slots-column">
@@ -573,6 +666,25 @@ function Productivity({ user }) {
                       <span className="insight-value">{allTimeAnalytics.summary.completionRate}%</span>
                       <span className="insight-label">Success Rate</span>
                     </div>
+                    {frogStats && (
+                      <>
+                        <div className="insight-item frog-insight">
+                          <span className="insight-icon">🐸</span>
+                          <span className="insight-value">{frogStats.currentStreak}</span>
+                          <span className="insight-label">Frog Streak</span>
+                        </div>
+                        <div className="insight-item frog-insight">
+                          <span className="insight-icon">🏆</span>
+                          <span className="insight-value">{frogStats.frogsThisMonth}</span>
+                          <span className="insight-label">Frogs This Month</span>
+                        </div>
+                        <div className="insight-item frog-insight">
+                          <span className="insight-icon">🎯</span>
+                          <span className="insight-value">{frogStats.totalFrogsEaten}</span>
+                          <span className="insight-label">Total Frogs Eaten</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -919,6 +1031,24 @@ function Productivity({ user }) {
           <div className="confirm-box" onClick={e => e.stopPropagation()}>
             <p>Delete <strong>"{confirmDelete.name}"</strong>?</p>
             <div className="confirm-btns"><button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button><button className="btn btn-danger" onClick={() => confirmDelete.type === 'task' ? handleDeleteTask(confirmDelete.id) : handleDeleteCategory(confirmDelete.id)}>Delete</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* Frog Celebration */}
+      {showFrogCelebration && (
+        <div className="frog-celebration">
+          <div className="frog-celebration-content">
+            <div className="frog-fireworks">🎉</div>
+            <div className="frog-big">🐸</div>
+            <h2>Frog Eaten!</h2>
+            <p>You completed your hardest task first!</p>
+            {frogStats && (
+              <div className="frog-celebration-stats">
+                <span>🔥 {frogStats.currentStreak} day streak</span>
+                <span>🏆 {frogStats.frogsThisMonth} frogs this month</span>
+              </div>
+            )}
           </div>
         </div>
       )}
