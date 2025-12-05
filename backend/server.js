@@ -1831,6 +1831,53 @@ app.delete('/api/tasks/:id', async (req, res) => {
   }
 });
 
+// GET /api/tasks/:userId/week/:startDate - Get tasks for a week (7 days from startDate)
+app.get('/api/tasks/:userId/week/:startDate', async (req, res) => {
+  try {
+    const { userId, startDate } = req.params;
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date >= $2 AND t.scheduled_date <= $3
+      ORDER BY t.scheduled_date, t.scheduled_time
+    `, [userId, startDate, endDate.toISOString().split('T')[0]]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching week tasks:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/categories/:id - Update category
+app.put('/api/categories/:id', async (req, res) => {
+  try {
+    const { name, icon, color } = req.body;
+    await pool.query(
+      'UPDATE task_categories SET name = $1, icon = $2, color = $3 WHERE id = $4',
+      [name, icon, color, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/categories/:id - Delete category
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM task_categories WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);
