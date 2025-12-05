@@ -54,6 +54,8 @@ function Productivity({ user }) {
     isRecurring: false, recurrenceRule: '', recurrenceEndDate: ''
   })
   const [backlogView, setBacklogView] = useState('list') // 'list' or 'matrix'
+  const [show2MinPrompt, setShow2MinPrompt] = useState(false)
+  const [twoMinTask, setTwoMinTask] = useState(null)
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
 
   // Helper to safely format date for input (avoid timezone issues)
@@ -281,12 +283,57 @@ function Productivity({ user }) {
     if ((newTask.startDate && !newTask.startTime) || (!newTask.startDate && newTask.startTime)) { showToast('Set both date and time', 'error', '✕'); return }
     if (newTask.isRecurring && !newTask.recurrenceRule) { showToast('Select recurrence frequency', 'error', '✕'); return }
     if (newTask.isRecurring && !newTask.startDate) { showToast('Recurring tasks need a start date', 'error', '✕'); return }
+    
+    // 2-Minute Rule: Prompt if task is quick
+    if (newTask.estimatedMinutes <= 2 && !newTask.startDate && !newTask.isRecurring) {
+      setTwoMinTask(newTask)
+      setShow2MinPrompt(true)
+      return
+    }
+    
     try {
       const res = await fetch(`${API_BASE}/tasks`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, title: newTask.title, description: newTask.description, categoryId: newTask.categoryId || null, isUrgent: newTask.isUrgent, isImportant: newTask.isImportant, estimatedMinutes: newTask.estimatedMinutes, scheduledDate: newTask.startDate || null, scheduledTime: newTask.startTime || null, scheduledEndDate: newTask.endDate || null, scheduledEndTime: newTask.endTime || null, isRecurring: newTask.isRecurring, recurrenceRule: newTask.isRecurring ? newTask.recurrenceRule : null, recurrenceEndDate: newTask.isRecurring ? newTask.recurrenceEndDate : null })
       })
       if ((await res.json()).success) { showToast(newTask.isRecurring ? 'Recurring task created' : (newTask.startDate ? 'Scheduled' : 'Added'), 'success', '✓'); resetNewTask(); setShowAddTask(false); fetchData() }
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleDoItNow = async () => {
+    // Mark task as completed immediately (2-minute rule)
+    try {
+      const res = await fetch(`${API_BASE}/tasks`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, title: twoMinTask.title, description: twoMinTask.description, categoryId: twoMinTask.categoryId || null, isUrgent: twoMinTask.isUrgent, isImportant: twoMinTask.isImportant, estimatedMinutes: twoMinTask.estimatedMinutes, scheduledDate: null, scheduledTime: null, status: 'completed' })
+      })
+      const data = await res.json()
+      if (data.success) { 
+        showToast('⚡ Done! Quick win!', 'success', '✓')
+        setShow2MinPrompt(false)
+        setTwoMinTask(null)
+        resetNewTask()
+        setShowAddTask(false)
+        fetchData()
+      }
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleAddToQueue = async () => {
+    // Add to backlog normally
+    try {
+      const res = await fetch(`${API_BASE}/tasks`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, title: twoMinTask.title, description: twoMinTask.description, categoryId: twoMinTask.categoryId || null, isUrgent: twoMinTask.isUrgent, isImportant: twoMinTask.isImportant, estimatedMinutes: twoMinTask.estimatedMinutes, scheduledDate: null, scheduledTime: null })
+      })
+      if ((await res.json()).success) { 
+        showToast('Added to 2-Min Queue', 'success', '✓')
+        setShow2MinPrompt(false)
+        setTwoMinTask(null)
+        resetNewTask()
+        setShowAddTask(false)
+        fetchData()
+      }
     } catch { showToast('Failed', 'error', '✕') }
   }
 
@@ -532,6 +579,38 @@ function Productivity({ user }) {
 
             {backlogView === 'list' && (
               <>
+                {/* 2-Minute Queue */}
+                {backlog.filter(t => t.estimated_minutes <= 2).length > 0 && (
+                  <div className="two-min-queue">
+                    <div className="two-min-queue-header">
+                      <div className="two-min-queue-title">
+                        <span>⚡</span>
+                        <span>2-Min Queue</span>
+                        <span className="two-min-badge">{backlog.filter(t => t.estimated_minutes <= 2).length}</span>
+                      </div>
+                      <button className="two-min-clear-btn" onClick={() => {
+                        const quickTasks = backlog.filter(t => t.estimated_minutes <= 2)
+                        if (quickTasks.length > 0 && confirm(`Clear all ${quickTasks.length} quick tasks?`)) {
+                          quickTasks.forEach(t => handleCompleteTask(t.id))
+                        }
+                      }}>
+                        Clear the Queue
+                      </button>
+                    </div>
+                    <div className="two-min-list">
+                      {backlog.filter(t => t.estimated_minutes <= 2).map(t => (
+                        <div key={t.id} className="two-min-item">
+                          <div className="two-min-item-check" onClick={() => handleCompleteTask(t.id)}>✓</div>
+                          <div className="two-min-item-info" onClick={() => setShowEditTask(t)}>
+                            <div className="two-min-item-title">{t.category_icon || '📋'} {t.title}</div>
+                            <div className="two-min-item-time">⏱️ {t.estimated_minutes} min{t.estimated_minutes > 1 ? 's' : ''}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
                   {backlog.map(t => (
                     <div key={t.id} className="bl-item" style={{ borderLeftColor: t.category_color || '#6B7280' }} draggable onDragStart={(e) => handleDragStart(e, t)} onDragEnd={handleDragEnd}>
@@ -1324,6 +1403,31 @@ function Productivity({ user }) {
                 <span>⭐ {highlightStats.highlightsThisMonth} this month</span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {show2MinPrompt && twoMinTask && (
+        <div className="modal-bg" onClick={() => setShow2MinPrompt(false)}>
+          <div className="two-min-prompt" onClick={e => e.stopPropagation()}>
+            <div className="two-min-icon">⚡</div>
+            <h3 className="two-min-title">This is quick!</h3>
+            <p className="two-min-message">This task takes {twoMinTask.estimatedMinutes} minute{twoMinTask.estimatedMinutes > 1 ? 's' : ''}. According to the 2-Minute Rule, do it now instead of planning it later!</p>
+            <div className="two-min-task-preview">
+              <div className="two-min-task-title">{twoMinTask.title}</div>
+              <div className="two-min-task-time">⏱️ {twoMinTask.estimatedMinutes} min</div>
+            </div>
+            <div className="two-min-actions">
+              <button className="two-min-btn two-min-btn-primary" onClick={handleDoItNow}>
+                ✓ Do It Now & Mark Done
+              </button>
+              <button className="two-min-btn two-min-btn-secondary" onClick={handleAddToQueue}>
+                Add to 2-Min Queue
+              </button>
+              <button className="two-min-btn two-min-btn-secondary" onClick={() => setShow2MinPrompt(false)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

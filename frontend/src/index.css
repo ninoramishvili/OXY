@@ -8388,6 +8388,37 @@ body {
 .view-toggle-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
 .view-toggle-btn:hover { border-color: var(--primary); }
 
+/* ============ 2-MINUTE RULE ============ */
+.two-min-prompt { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1001; max-width: 400px; width: 90%; }
+.two-min-icon { font-size: 3rem; text-align: center; margin-bottom: 12px; }
+.two-min-title { font-size: 1.3rem; font-weight: 700; color: var(--text-dark); text-align: center; margin-bottom: 8px; }
+.two-min-message { font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 20px; line-height: 1.5; }
+.two-min-task-preview { background: var(--surface); border-left: 4px solid #FCD34D; border-radius: 6px; padding: 12px; margin-bottom: 20px; }
+.two-min-task-title { font-weight: 600; color: var(--text-dark); margin-bottom: 4px; }
+.two-min-task-time { font-size: 0.8rem; color: var(--text-muted); }
+.two-min-actions { display: flex; flex-direction: column; gap: 10px; }
+.two-min-btn { padding: 12px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.two-min-btn-primary { background: linear-gradient(135deg, #10B981, #059669); color: white; }
+.two-min-btn-primary:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(16,185,129,0.4); }
+.two-min-btn-secondary { background: var(--surface); color: var(--text-dark); border: 2px solid var(--border); }
+.two-min-btn-secondary:hover { border-color: var(--primary); }
+
+.two-min-queue { background: linear-gradient(135deg, rgba(252,211,77,0.1), rgba(245,158,11,0.05)); border: 2px solid #FCD34D; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.two-min-queue-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.two-min-queue-title { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+.two-min-badge { background: #FCD34D; color: #78350F; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; }
+.two-min-clear-btn { padding: 6px 12px; background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.two-min-clear-btn:hover { transform: scale(1.05); }
+.two-min-list { display: flex; flex-direction: column; gap: 6px; }
+.two-min-item { display: flex; align-items: center; gap: 8px; background: white; padding: 10px; border-radius: 6px; transition: all 0.2s; }
+.two-min-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.two-min-item-check { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 0.7rem; }
+.two-min-item-check:hover { border-color: #10B981; background: rgba(16,185,129,0.1); }
+.two-min-item-info { flex: 1; min-width: 0; }
+.two-min-item-title { font-size: 0.85rem; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.two-min-item-time { font-size: 0.7rem; color: var(--text-muted); }
+.two-min-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem; }
+
 @media (max-width: 768px) {
   .day-focus-cards { grid-template-columns: 1fr; }
   .focus-card { padding: 10px; }
