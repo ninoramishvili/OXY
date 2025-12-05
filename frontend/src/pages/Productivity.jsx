@@ -53,6 +53,7 @@ function Productivity({ user }) {
     startDate: '', startTime: '', endDate: '', endTime: '',
     isRecurring: false, recurrenceRule: '', recurrenceEndDate: ''
   })
+  const [backlogView, setBacklogView] = useState('list') // 'list' or 'matrix'
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
 
   // Helper to safely format date for input (avoid timezone issues)
@@ -520,36 +521,143 @@ function Productivity({ user }) {
         {/* BACKLOG */}
         {activeTab === 'backlog' && (
           <div className="backlog-view">
-            <div className="bl-head"><h3>📥 Backlog</h3><span>{backlog.length}</span></div>
-            <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
-              {backlog.map(t => (
-                <div key={t.id} className="bl-item" style={{ borderLeftColor: t.category_color || '#6B7280' }} draggable onDragStart={(e) => handleDragStart(e, t)} onDragEnd={handleDragEnd}>
-                  <div className="bl-main" onClick={() => setShowEditTask(t)}>
-                    <span className="bl-icon">{t.category_icon || '📋'}</span>
-                    <div className="bl-info">
-                      <span className="bl-title">
-                        {t.title} 
-                        {(t.is_recurring || t.parent_task_id) && <span className="recurring-badge">🔄</span>}
-                        {(t.is_urgent || t.is_important) && (
-                          <span className={`eisenhower-badge-mini q${(t.is_urgent ? 1 : 0) + (t.is_important ? 2 : 0)}`}>
-                            {t.is_urgent && t.is_important && '🔴'}
-                            {!t.is_urgent && t.is_important && '🟠'}
-                            {t.is_urgent && !t.is_important && '🟡'}
+            <div className="bl-head">
+              <h3>📥 Backlog</h3>
+              <span>{backlog.length}</span>
+              <div className="backlog-view-toggle" style={{ marginLeft: 'auto' }}>
+                <button className={`view-toggle-btn ${backlogView === 'list' ? 'active' : ''}`} onClick={() => setBacklogView('list')}>📋 List</button>
+                <button className={`view-toggle-btn ${backlogView === 'matrix' ? 'active' : ''}`} onClick={() => setBacklogView('matrix')}>🎯 Matrix</button>
+              </div>
+            </div>
+
+            {backlogView === 'list' && (
+              <>
+                <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
+                  {backlog.map(t => (
+                    <div key={t.id} className="bl-item" style={{ borderLeftColor: t.category_color || '#6B7280' }} draggable onDragStart={(e) => handleDragStart(e, t)} onDragEnd={handleDragEnd}>
+                      <div className="bl-main" onClick={() => setShowEditTask(t)}>
+                        <span className="bl-icon">{t.category_icon || '📋'}</span>
+                        <div className="bl-info">
+                          <span className="bl-title">
+                            {t.title} 
+                            {(t.is_recurring || t.parent_task_id) && <span className="recurring-badge">🔄</span>}
+                            <span className={`eisenhower-badge-mini q${(t.is_urgent ? 1 : 0) + (t.is_important ? 2 : 0)}`}>
+                              {t.is_urgent && t.is_important && '🔴'}
+                              {!t.is_urgent && t.is_important && '🟠'}
+                              {t.is_urgent && !t.is_important && '🟡'}
+                              {!t.is_urgent && !t.is_important && '⚪'}
+                            </span>
                           </span>
-                        )}
-                      </span>
-                      <div className="bl-meta"><span>{formatDuration(t.estimated_minutes)}</span></div>
+                          <div className="bl-meta"><span>{formatDuration(t.estimated_minutes)}</span></div>
+                        </div>
+                      </div>
+                      <div className="bl-btns">
+                        <button onClick={() => handleScheduleTask(t.id, selectedDate, '09:00')}>📅</button>
+                        <button onClick={() => handleDeleteClick(t)}>🗑️</button>
+                      </div>
+                    </div>
+                  ))}
+                  {backlog.length === 0 && <div className="empty">🎉 Empty!</div>}
+                </div>
+                {isDragging && <div className="quick-drop-zones"><button className="quick-drop" onClick={() => setActiveTab('day')}>📅 Go to Day View</button><button className="quick-drop" onClick={() => setActiveTab('week')}>📆 Go to Week View</button></div>}
+              </>
+            )}
+
+            {backlogView === 'matrix' && (
+              <div className="matrix-view">
+                {/* Q3: Urgent + Important - DO FIRST */}
+                <div className="matrix-quadrant q3">
+                  <div className="matrix-header">
+                    <span className="matrix-icon">🔴</span>
+                    <div>
+                      <div className="matrix-title">DO FIRST</div>
+                      <div className="matrix-subtitle">Urgent & Important</div>
                     </div>
                   </div>
-                  <div className="bl-btns">
-                    <button onClick={() => handleScheduleTask(t.id, selectedDate, '09:00')}>📅</button>
-                    <button onClick={() => handleDeleteClick(t)}>🗑️</button>
+                  <div className="matrix-tasks">
+                    {backlog.filter(t => t.is_urgent && t.is_important).map(t => (
+                      <div key={t.id} className="matrix-task" onClick={() => setShowEditTask(t)}>
+                        <div className="matrix-task-title">{t.category_icon || '📋'} {t.title}</div>
+                        <div className="matrix-task-meta">
+                          <span>{formatDuration(t.estimated_minutes)}</span>
+                          {t.category_name && <span>• {t.category_name}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {backlog.filter(t => t.is_urgent && t.is_important).length === 0 && <div className="matrix-empty">No tasks</div>}
                   </div>
                 </div>
-              ))}
-              {backlog.length === 0 && <div className="empty">🎉 Empty!</div>}
-            </div>
-            {isDragging && <div className="quick-drop-zones"><button className="quick-drop" onClick={() => setActiveTab('day')}>📅 Go to Day View</button><button className="quick-drop" onClick={() => setActiveTab('week')}>📆 Go to Week View</button></div>}
+
+                {/* Q2: Not Urgent + Important - SCHEDULE */}
+                <div className="matrix-quadrant q2">
+                  <div className="matrix-header">
+                    <span className="matrix-icon">🟠</span>
+                    <div>
+                      <div className="matrix-title">SCHEDULE</div>
+                      <div className="matrix-subtitle">Not Urgent but Important</div>
+                    </div>
+                  </div>
+                  <div className="matrix-tasks">
+                    {backlog.filter(t => !t.is_urgent && t.is_important).map(t => (
+                      <div key={t.id} className="matrix-task" onClick={() => setShowEditTask(t)}>
+                        <div className="matrix-task-title">{t.category_icon || '📋'} {t.title}</div>
+                        <div className="matrix-task-meta">
+                          <span>{formatDuration(t.estimated_minutes)}</span>
+                          {t.category_name && <span>• {t.category_name}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {backlog.filter(t => !t.is_urgent && t.is_important).length === 0 && <div className="matrix-empty">No tasks</div>}
+                  </div>
+                </div>
+
+                {/* Q1: Urgent + Not Important - DELEGATE */}
+                <div className="matrix-quadrant q1">
+                  <div className="matrix-header">
+                    <span className="matrix-icon">🟡</span>
+                    <div>
+                      <div className="matrix-title">DELEGATE</div>
+                      <div className="matrix-subtitle">Urgent but Not Important</div>
+                    </div>
+                  </div>
+                  <div className="matrix-tasks">
+                    {backlog.filter(t => t.is_urgent && !t.is_important).map(t => (
+                      <div key={t.id} className="matrix-task" onClick={() => setShowEditTask(t)}>
+                        <div className="matrix-task-title">{t.category_icon || '📋'} {t.title}</div>
+                        <div className="matrix-task-meta">
+                          <span>{formatDuration(t.estimated_minutes)}</span>
+                          {t.category_name && <span>• {t.category_name}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {backlog.filter(t => t.is_urgent && !t.is_important).length === 0 && <div className="matrix-empty">No tasks</div>}
+                  </div>
+                </div>
+
+                {/* Q0: Not Urgent + Not Important - ELIMINATE */}
+                <div className="matrix-quadrant q0">
+                  <div className="matrix-header">
+                    <span className="matrix-icon">⚪</span>
+                    <div>
+                      <div className="matrix-title">ELIMINATE</div>
+                      <div className="matrix-subtitle">Not Urgent & Not Important</div>
+                    </div>
+                  </div>
+                  <div className="matrix-tasks">
+                    {backlog.filter(t => !t.is_urgent && !t.is_important).map(t => (
+                      <div key={t.id} className="matrix-task" onClick={() => setShowEditTask(t)}>
+                        <div className="matrix-task-title">{t.category_icon || '📋'} {t.title}</div>
+                        <div className="matrix-task-meta">
+                          <span>{formatDuration(t.estimated_minutes)}</span>
+                          {t.category_name && <span>• {t.category_name}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {backlog.filter(t => !t.is_urgent && !t.is_important).length === 0 && <div className="matrix-empty">No tasks</div>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1052,7 +1160,19 @@ function Productivity({ user }) {
               <div className="fg"><label>Title *</label><input type="text" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} autoFocus /></div>
               <div className="fg"><label>Category</label><select value={newTask.categoryId} onChange={e => setNewTask({...newTask, categoryId: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
               <div className="eisenhower-box">
-                <label className="eisenhower-title">🎯 Eisenhower Matrix</label>
+                <label className="eisenhower-title">
+                  🎯 Eisenhower Matrix
+                  <span className="eis-help-tooltip">
+                    <span className="eis-help-icon">?</span>
+                    <span className="eis-help-text">
+                      Prioritize tasks by urgency and importance:<br/>
+                      🔴 <strong>DO FIRST</strong> - Urgent & Important (crises, deadlines)<br/>
+                      🟠 <strong>SCHEDULE</strong> - Important but not urgent (planning, learning)<br/>
+                      🟡 <strong>DELEGATE</strong> - Urgent but not important (interruptions)<br/>
+                      ⚪ <strong>ELIMINATE</strong> - Neither urgent nor important (time wasters)
+                    </span>
+                  </span>
+                </label>
                 <div className="eisenhower-toggles">
                   <label className={`eis-toggle ${newTask.isUrgent ? 'active' : ''}`}>
                     <input type="checkbox" checked={newTask.isUrgent} onChange={e => setNewTask({...newTask, isUrgent: e.target.checked})} />
@@ -1063,13 +1183,12 @@ function Productivity({ user }) {
                     <span>⭐ Important</span>
                   </label>
                 </div>
-                {(newTask.isUrgent || newTask.isImportant) && (
-                  <div className={`eisenhower-badge q${(newTask.isUrgent ? 1 : 0) + (newTask.isImportant ? 2 : 0)}`}>
-                    {newTask.isUrgent && newTask.isImportant && '🔴 DO FIRST'}
-                    {!newTask.isUrgent && newTask.isImportant && '🟠 SCHEDULE'}
-                    {newTask.isUrgent && !newTask.isImportant && '🟡 DELEGATE'}
-                  </div>
-                )}
+                <div className={`eisenhower-badge q${(newTask.isUrgent ? 1 : 0) + (newTask.isImportant ? 2 : 0)}`}>
+                  {newTask.isUrgent && newTask.isImportant && '🔴 DO FIRST'}
+                  {!newTask.isUrgent && newTask.isImportant && '🟠 SCHEDULE'}
+                  {newTask.isUrgent && !newTask.isImportant && '🟡 DELEGATE'}
+                  {!newTask.isUrgent && !newTask.isImportant && '⚪ ELIMINATE'}
+                </div>
               </div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
@@ -1096,7 +1215,19 @@ function Productivity({ user }) {
               <div className="fg"><label>Title *</label><input type="text" value={showEditTask.title || ''} onChange={e => setShowEditTask({...showEditTask, title: e.target.value})} /></div>
               <div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
               <div className="eisenhower-box">
-                <label className="eisenhower-title">🎯 Eisenhower Matrix</label>
+                <label className="eisenhower-title">
+                  🎯 Eisenhower Matrix
+                  <span className="eis-help-tooltip">
+                    <span className="eis-help-icon">?</span>
+                    <span className="eis-help-text">
+                      Prioritize tasks by urgency and importance:<br/>
+                      🔴 <strong>DO FIRST</strong> - Urgent & Important (crises, deadlines)<br/>
+                      🟠 <strong>SCHEDULE</strong> - Important but not urgent (planning, learning)<br/>
+                      🟡 <strong>DELEGATE</strong> - Urgent but not important (interruptions)<br/>
+                      ⚪ <strong>ELIMINATE</strong> - Neither urgent nor important (time wasters)
+                    </span>
+                  </span>
+                </label>
                 <div className="eisenhower-toggles">
                   <label className={`eis-toggle ${showEditTask.is_urgent ? 'active' : ''}`}>
                     <input type="checkbox" checked={showEditTask.is_urgent || false} onChange={e => setShowEditTask({...showEditTask, is_urgent: e.target.checked})} />
@@ -1107,13 +1238,12 @@ function Productivity({ user }) {
                     <span>⭐ Important</span>
                   </label>
                 </div>
-                {(showEditTask.is_urgent || showEditTask.is_important) && (
-                  <div className={`eisenhower-badge q${(showEditTask.is_urgent ? 1 : 0) + (showEditTask.is_important ? 2 : 0)}`}>
-                    {showEditTask.is_urgent && showEditTask.is_important && '🔴 DO FIRST'}
-                    {!showEditTask.is_urgent && showEditTask.is_important && '🟠 SCHEDULE'}
-                    {showEditTask.is_urgent && !showEditTask.is_important && '🟡 DELEGATE'}
-                  </div>
-                )}
+                <div className={`eisenhower-badge q${(showEditTask.is_urgent ? 1 : 0) + (showEditTask.is_important ? 2 : 0)}`}>
+                  {showEditTask.is_urgent && showEditTask.is_important && '🔴 DO FIRST'}
+                  {!showEditTask.is_urgent && showEditTask.is_important && '🟠 SCHEDULE'}
+                  {showEditTask.is_urgent && !showEditTask.is_important && '🟡 DELEGATE'}
+                  {!showEditTask.is_urgent && !showEditTask.is_important && '⚪ ELIMINATE'}
+                </div>
               </div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
