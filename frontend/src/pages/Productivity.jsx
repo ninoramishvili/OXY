@@ -14,6 +14,12 @@ function Productivity({ user }) {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()))
   const [message, setMessage] = useState({ text: '', type: '', icon: '' })
   
+  // Time tracking
+  const [activeTask, setActiveTask] = useState(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [stats, setStats] = useState({ todayMinutes: 0, weekMinutes: 0, categories: [], tasksCompleted: 0 })
+  const timerRef = useRef(null)
+  
   const [draggedTask, setDraggedTask] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isSelecting, setIsSelecting] = useState(false)
@@ -25,15 +31,14 @@ function Productivity({ user }) {
   const [showCategories, setShowCategories] = useState(false)
   const [editCategory, setEditCategory] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [showStats, setShowStats] = useState(false)
   
   const [newTask, setNewTask] = useState({ 
     title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30,
-    startDate: '', startTime: '', endDate: '', endTime: ''
+    startDate: '', startTime: '', endDate: '', endTime: '',
+    isRecurring: false, recurrenceRule: '', recurrenceEndDate: ''
   })
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
-
-  const dayColumnRef = useRef(null)
-  const weekColumnsRef = useRef({})
 
   function getMonday(date) {
     const d = new Date(date)
@@ -79,6 +84,14 @@ function Productivity({ user }) {
     return `${hours}h${mins}m`
   }
 
+  function formatTimer(seconds) {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = seconds % 60
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
   function getSlotIndex(time) {
     const [h, m] = time.split(':').map(Number)
     return h * 2 + (m >= 30 ? 1 : 0)
@@ -122,7 +135,25 @@ function Productivity({ user }) {
   useEffect(() => {
     if (!user) { navigate('/login'); return }
     fetchData()
+    fetchActiveTask()
+    fetchStats()
   }, [user, selectedDate, weekStart])
+
+  // Timer effect
+  useEffect(() => {
+    if (activeTask?.started_at) {
+      const startTime = new Date(activeTask.started_at).getTime()
+      const updateTimer = () => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000))
+      }
+      updateTimer()
+      timerRef.current = setInterval(updateTimer, 1000)
+      return () => clearInterval(timerRef.current)
+    } else {
+      setElapsedTime(0)
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [activeTask])
 
   const fetchData = async () => {
     try {
@@ -141,20 +172,61 @@ function Productivity({ user }) {
     }
   }
 
+  const fetchActiveTask = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/tasks/${user.id}/active`)
+      const data = await res.json()
+      setActiveTask(data)
+    } catch (error) {
+      console.error('Error fetching active task:', error)
+    }
+  }
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/time-entries/${user.id}/stats`)
+      const data = await res.json()
+      setStats(data)
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    }
+  }
+
   const showToast = (text, type, icon = '') => {
     setMessage({ text, type, icon })
     setTimeout(() => setMessage({ text: '', type: '', icon: '' }), 2500)
   }
 
   const resetNewTask = () => {
-    setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30, startDate: '', startTime: '', endDate: '', endTime: '' })
+    setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30, 
+      startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '' })
   }
 
   const openAddTaskWithTime = (date, startTime, endTime = null) => {
     const calcEndTime = endTime || calculateEndTime(startTime, 30)
     const duration = calculateDuration(startTime, calcEndTime)
-    setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: duration, startDate: date, startTime, endDate: date, endTime: calcEndTime })
+    setNewTask({ ...newTask, estimatedMinutes: duration, startDate: date, startTime, endDate: date, endTime: calcEndTime })
     setShowAddTask(true)
+  }
+
+  // Timer handlers
+  const handleStartTimer = async (taskId) => {
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}/start`, { method: 'PUT' })
+      showToast('Timer started', 'success', '▶️')
+      fetchActiveTask()
+      fetchData()
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleStopTimer = async (taskId) => {
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}/stop`, { method: 'PUT' })
+      showToast('Timer stopped', 'success', '⏹️')
+      setActiveTask(null)
+      fetchStats()
+      fetchData()
+    } catch { showToast('Failed', 'error', '✕') }
   }
 
   // Selection handlers
@@ -168,7 +240,6 @@ function Productivity({ user }) {
 
   const handleSlotMouseEnter = (date, time) => {
     if (!isSelecting || !selectionStart) return
-    // Only allow selection within same date
     if (date === selectionStart.date) {
       setSelectionEnd({ date, time })
     }
@@ -176,18 +247,15 @@ function Productivity({ user }) {
 
   const handleMouseUp = () => {
     if (!isSelecting) return
-    
     if (selectionStart && selectionEnd && selectionStart.date === selectionEnd.date) {
       const times = [selectionStart.time, selectionEnd.time].sort()
       openAddTaskWithTime(selectionStart.date, times[0], calculateEndTime(times[1], 30))
     }
-    
     setIsSelecting(false)
     setSelectionStart(null)
     setSelectionEnd(null)
   }
 
-  // Get selection range for overlay
   const getSelectionRange = (date) => {
     if (!isSelecting || !selectionStart || !selectionEnd || selectionStart.date !== date) return null
     const startIdx = getSlotIndex(selectionStart.time)
@@ -217,7 +285,26 @@ function Productivity({ user }) {
           scheduledEndDate: newTask.endDate || null, scheduledEndTime: newTask.endTime || null
         })
       })
-      if ((await res.json()).success) {
+      const data = await res.json()
+      if (data.success) {
+        // If recurring, set up recurrence
+        if (newTask.isRecurring && newTask.recurrenceRule && data.task) {
+          await fetch(`${API_BASE}/tasks/${data.task.id}/recurring`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              isRecurring: true,
+              recurrenceRule: newTask.recurrenceRule,
+              recurrenceEndDate: newTask.recurrenceEndDate || null
+            })
+          })
+          // Generate recurring instances
+          await fetch(`${API_BASE}/tasks/${data.task.id}/generate-recurring`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days: 30 })
+          })
+        }
         showToast(newTask.startDate ? 'Scheduled' : 'Added', 'success', '✓')
         resetNewTask()
         setShowAddTask(false)
@@ -244,6 +331,18 @@ function Productivity({ user }) {
           scheduledEndDate: showEditTask.scheduled_end_date || null, scheduledEndTime: showEditTask.scheduled_end_time || null
         })
       })
+      // Update recurring if changed
+      if (showEditTask.is_recurring !== undefined) {
+        await fetch(`${API_BASE}/tasks/${showEditTask.id}/recurring`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isRecurring: showEditTask.is_recurring,
+            recurrenceRule: showEditTask.recurrence_rule,
+            recurrenceEndDate: showEditTask.recurrence_end_date || null
+          })
+        })
+      }
       showToast('Updated', 'success', '✓')
       setShowEditTask(null)
       fetchData()
@@ -265,7 +364,17 @@ function Productivity({ user }) {
   }
 
   const handleCompleteTask = async (taskId) => {
-    try { await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' }); showToast('Done!', 'success', '✓'); fetchData() } catch {}
+    try { 
+      // Stop timer if running on this task
+      if (activeTask?.id === taskId) {
+        await fetch(`${API_BASE}/tasks/${taskId}/stop`, { method: 'PUT' })
+        setActiveTask(null)
+      }
+      await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' }) 
+      showToast('Done!', 'success', '✓')
+      fetchStats()
+      fetchData() 
+    } catch {}
   }
 
   const handleUnschedule = async (taskId) => {
@@ -291,39 +400,11 @@ function Productivity({ user }) {
   }
 
   // Drag & Drop
-  const handleDragStart = (e, task) => {
-    setDraggedTask(task)
-    setIsDragging(true)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', task.id)
-  }
-  
-  const handleDragEnd = () => {
-    setDraggedTask(null)
-    setIsDragging(false)
-  }
-  
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-  
-  const handleDropOnSlot = (e, date, time) => {
-    e.preventDefault()
-    if (draggedTask) {
-      handleScheduleTask(draggedTask.id, date, time)
-    }
-  }
-  
-  const handleDropOnBacklog = (e) => {
-    e.preventDefault()
-    if (draggedTask && draggedTask.status !== 'backlog') {
-      handleUnschedule(draggedTask.id)
-    } else {
-      setDraggedTask(null)
-      setIsDragging(false)
-    }
-  }
+  const handleDragStart = (e, task) => { setDraggedTask(task); setIsDragging(true); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', task.id) }
+  const handleDragEnd = () => { setDraggedTask(null); setIsDragging(false) }
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
+  const handleDropOnSlot = (e, date, time) => { e.preventDefault(); if (draggedTask) handleScheduleTask(draggedTask.id, date, time) }
+  const handleDropOnBacklog = (e) => { e.preventDefault(); if (draggedTask && draggedTask.status !== 'backlog') handleUnschedule(draggedTask.id); else { setDraggedTask(null); setIsDragging(false) } }
 
   // Navigation
   const changeDate = (d) => { const dt = new Date(selectedDate); dt.setDate(dt.getDate() + d); setSelectedDate(dt.toISOString().split('T')[0]) }
@@ -348,23 +429,42 @@ function Productivity({ user }) {
 
   const icons = ['📋', '💼', '👤', '🏃', '📚', '🎯', '💡', '🔧', '📞', '✉️', '🎨', '🎵', '🏠', '🚗', '💰', '❤️']
   const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6B7280']
+  const recurrenceOptions = [{ value: 'daily', label: 'Daily' }, { value: 'weekdays', label: 'Weekdays' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]
 
   if (!user) return null
   const weekDays = getWeekDays(weekStart)
   const getTasksForDate = (taskList, date) => taskList.filter(t => t.scheduled_date?.split('T')[0] === date)
-
-  // Slot height constants
   const DAY_SLOT_HEIGHT = 24
   const WEEK_SLOT_HEIGHT = 20
 
   return (
     <div className="productivity-page" onMouseUp={handleMouseUp} onMouseLeave={() => { if (isSelecting) { setIsSelecting(false); setSelectionStart(null); setSelectionEnd(null) } }}>
+      {/* Active Timer Banner */}
+      {activeTask && (
+        <div className="timer-banner">
+          <div className="timer-info">
+            <span className="timer-icon">{activeTask.category_icon || '📋'}</span>
+            <span className="timer-title">{activeTask.title}</span>
+            <span className="timer-display">{formatTimer(elapsedTime)}</span>
+          </div>
+          <button className="timer-stop" onClick={() => handleStopTimer(activeTask.id)}>⏹️ Stop</button>
+        </div>
+      )}
+
       <div className="prod-header">
         <h1>📋 Productivity</h1>
         <div className="prod-actions">
+          <button className="btn btn-stats" onClick={() => setShowStats(true)} title="Stats">📊</button>
           <button className="btn btn-secondary" onClick={() => setShowCategories(true)}>🏷️</button>
           <button className="btn btn-primary" onClick={() => { resetNewTask(); setShowAddTask(true) }}>+ New</button>
         </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="quick-stats">
+        <div className="stat-item"><span className="stat-icon">⏱️</span><span className="stat-value">{formatDuration(stats.todayMinutes)}</span><span className="stat-label">Today</span></div>
+        <div className="stat-item"><span className="stat-icon">📅</span><span className="stat-value">{formatDuration(stats.weekMinutes)}</span><span className="stat-label">Week</span></div>
+        <div className="stat-item"><span className="stat-icon">✅</span><span className="stat-value">{stats.tasksCompleted}</span><span className="stat-label">Done</span></div>
       </div>
 
       <div className="prod-tabs">
@@ -373,12 +473,7 @@ function Productivity({ user }) {
         <button className={`prod-tab ${activeTab === 'week' ? 'active' : ''}`} onClick={() => setActiveTab('week')}>📆 Week</button>
       </div>
 
-      {/* Drag indicator */}
-      {isDragging && (
-        <div className="drag-hint">
-          🎯 Drop on Day or Week calendar to schedule "{draggedTask?.title}"
-        </div>
-      )}
+      {isDragging && <div className="drag-hint">🎯 Drop on Day or Week calendar to schedule "{draggedTask?.title}"</div>}
 
       <div className="prod-content">
         {/* BACKLOG */}
@@ -387,22 +482,24 @@ function Productivity({ user }) {
             <div className="bl-head"><h3>📥 Backlog</h3><span>{backlog.length}</span></div>
             <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
               {backlog.map(t => (
-                <div 
-                  key={t.id} 
-                  className="bl-item" 
-                  style={{ borderLeftColor: t.category_color || '#6B7280' }} 
-                  draggable 
-                  onDragStart={(e) => handleDragStart(e, t)}
-                  onDragEnd={handleDragEnd}
-                >
+                <div key={t.id} className={`bl-item ${t.is_active ? 'active' : ''}`} style={{ borderLeftColor: t.category_color || '#6B7280' }} draggable onDragStart={(e) => handleDragStart(e, t)} onDragEnd={handleDragEnd}>
                   <div className="bl-main" onClick={() => setShowEditTask(t)}>
                     <span className="bl-icon">{t.category_icon || '📋'}</span>
                     <div className="bl-info">
-                      <span className="bl-title">{t.title}</span>
-                      <div className="bl-meta"><span className={`pri ${t.priority}`}>{t.priority}</span><span>{formatDuration(t.estimated_minutes)}</span></div>
+                      <span className="bl-title">{t.title} {t.is_recurring && <span className="recurring-badge">🔄</span>}</span>
+                      <div className="bl-meta">
+                        <span className={`pri ${t.priority}`}>{t.priority}</span>
+                        <span>{formatDuration(t.estimated_minutes)}</span>
+                        {t.actual_minutes > 0 && <span className="actual-time">({formatDuration(t.actual_minutes)})</span>}
+                      </div>
                     </div>
                   </div>
                   <div className="bl-btns">
+                    {t.is_active ? (
+                      <button className="stop-btn" onClick={() => handleStopTimer(t.id)}>⏹️</button>
+                    ) : (
+                      <button onClick={() => handleStartTimer(t.id)} title="Start timer">▶️</button>
+                    )}
                     <button onClick={() => handleScheduleTask(t.id, selectedDate, '09:00')}>📅</button>
                     <button onClick={() => setConfirmDelete({ type: 'task', id: t.id, name: t.title })}>🗑️</button>
                   </div>
@@ -410,16 +507,10 @@ function Productivity({ user }) {
               ))}
               {backlog.length === 0 && <div className="empty">🎉 Empty!</div>}
             </div>
-            
-            {/* Quick drop zones when dragging from backlog */}
             {isDragging && (
               <div className="quick-drop-zones">
-                <button className="quick-drop" onClick={() => { setActiveTab('day'); }}>
-                  📅 Go to Day View to drop
-                </button>
-                <button className="quick-drop" onClick={() => { setActiveTab('week'); }}>
-                  📆 Go to Week View to drop
-                </button>
+                <button className="quick-drop" onClick={() => setActiveTab('day')}>📅 Go to Day View to drop</button>
+                <button className="quick-drop" onClick={() => setActiveTab('week')}>📆 Go to Week View to drop</button>
               </div>
             )}
           </div>
@@ -440,35 +531,20 @@ function Productivity({ user }) {
                   <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>
                 ))}
               </div>
-              <div className="slots-column" ref={dayColumnRef}>
+              <div className="slots-column">
                 {timeSlots.map(time => (
-                  <div 
-                    key={time} 
-                    className={`slot ${isDragging ? 'drop-target' : ''}`}
-                    style={{ height: DAY_SLOT_HEIGHT }}
+                  <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}
                     onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)}
                     onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDropOnSlot(e, selectedDate, time)}
                   />
                 ))}
-                
-                {/* Selection overlay */}
                 {(() => {
                   const range = getSelectionRange(selectedDate)
                   if (!range) return null
-                  return (
-                    <div 
-                      className="selection-overlay"
-                      style={{
-                        top: range.startIdx * DAY_SLOT_HEIGHT,
-                        height: range.slots * DAY_SLOT_HEIGHT
-                      }}
-                    />
-                  )
+                  return <div className="selection-overlay" style={{ top: range.startIdx * DAY_SLOT_HEIGHT, height: range.slots * DAY_SLOT_HEIGHT }} />
                 })()}
-                
-                {/* Tasks */}
                 {(() => {
                   const positions = getTaskPositions(dayTasks)
                   return dayTasks.map(task => {
@@ -479,26 +555,20 @@ function Productivity({ user }) {
                     const width = `calc(${100 / pos.total}% - 4px)`
                     const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`
                     return (
-                      <div 
-                        key={task.id}
-                        className={`cal-task ${task.status}`}
-                        style={{ 
-                          top: slotIdx * DAY_SLOT_HEIGHT, 
-                          height: height,
-                          width,
-                          left,
-                          backgroundColor: task.category_color || '#3B82F6'
-                        }}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, task)}
-                        onDragEnd={handleDragEnd}
-                        onClick={() => setShowEditTask(task)}
-                        title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
+                      <div key={task.id} className={`cal-task ${task.status} ${task.is_active ? 'running' : ''}`}
+                        style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }}
+                        draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}
+                        onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
                       >
                         <span className="ct-icon">{task.category_icon || '📋'}</span>
-                        <span className="ct-title">{task.title}</span>
+                        <span className="ct-title">{task.title} {task.is_recurring && '🔄'}</span>
                         <span className="ct-dur">{formatDuration(task.estimated_minutes)}</span>
                         <div className="ct-btns">
+                          {task.is_active ? (
+                            <button onClick={(e) => { e.stopPropagation(); handleStopTimer(task.id) }}>⏹️</button>
+                          ) : task.status !== 'completed' && (
+                            <button onClick={(e) => { e.stopPropagation(); handleStartTimer(task.id) }}>▶️</button>
+                          )}
                           {task.status !== 'completed' && <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button>}
                           <button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button>
                         </div>
@@ -538,31 +608,16 @@ function Productivity({ user }) {
                   const tasksForDay = getTasksForDate(weekTasks, day)
                   const selectionRange = getSelectionRange(day)
                   return (
-                    <div key={day} className={`day-column ${isToday(day) ? 'today' : ''}`} ref={el => weekColumnsRef.current[day] = el}>
+                    <div key={day} className={`day-column ${isToday(day) ? 'today' : ''}`}>
                       {timeSlots.map(time => (
-                        <div 
-                          key={time} 
-                          className={`slot ${isDragging ? 'drop-target' : ''}`}
-                          style={{ height: WEEK_SLOT_HEIGHT }}
+                        <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: WEEK_SLOT_HEIGHT }}
                           onMouseDown={(e) => handleSlotMouseDown(e, day, time)}
                           onMouseEnter={() => handleSlotMouseEnter(day, time)}
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDropOnSlot(e, day, time)}
                         />
                       ))}
-                      
-                      {/* Selection overlay */}
-                      {selectionRange && (
-                        <div 
-                          className="selection-overlay"
-                          style={{
-                            top: selectionRange.startIdx * WEEK_SLOT_HEIGHT,
-                            height: selectionRange.slots * WEEK_SLOT_HEIGHT
-                          }}
-                        />
-                      )}
-                      
-                      {/* Tasks */}
+                      {selectionRange && <div className="selection-overlay" style={{ top: selectionRange.startIdx * WEEK_SLOT_HEIGHT, height: selectionRange.slots * WEEK_SLOT_HEIGHT }} />}
                       {(() => {
                         const positions = getTaskPositions(tasksForDay)
                         return tasksForDay.map(task => {
@@ -573,21 +628,10 @@ function Productivity({ user }) {
                           const width = `calc(${100 / pos.total}% - 2px)`
                           const left = `calc(${(pos.col * 100) / pos.total}% + 1px)`
                           return (
-                            <div 
-                              key={task.id}
-                              className={`cal-task week-task ${task.status}`}
-                              style={{ 
-                                top: slotIdx * WEEK_SLOT_HEIGHT, 
-                                height: height,
-                                width,
-                                left,
-                                backgroundColor: task.category_color || '#3B82F6'
-                              }}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, task)}
-                              onDragEnd={handleDragEnd}
-                              onClick={() => setShowEditTask(task)}
-                              title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
+                            <div key={task.id} className={`cal-task week-task ${task.status} ${task.is_active ? 'running' : ''}`}
+                              style={{ top: slotIdx * WEEK_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }}
+                              draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}
+                              onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
                             >
                               {task.title.slice(0, 8)}
                             </div>
@@ -621,6 +665,21 @@ function Productivity({ user }) {
                 <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={newTask.endDate} onChange={e => setNewTask({...newTask, endDate: e.target.value})} disabled={!newTask.startDate} /></div><div className="fg"><label>End Time</label><input type="time" value={newTask.endTime} onChange={e => handleEndTimeChange(e.target.value, true)} disabled={!newTask.startDate} /></div></div>
                 {newTask.startTime && newTask.endTime && <div className="dur-badge">Duration: {formatDuration(newTask.estimatedMinutes)}</div>}
               </div>
+              <div className="recur-box">
+                <label className="recur-toggle">
+                  <input type="checkbox" checked={newTask.isRecurring} onChange={e => setNewTask({...newTask, isRecurring: e.target.checked})} />
+                  <span>🔄 Recurring task</span>
+                </label>
+                {newTask.isRecurring && (
+                  <div className="recur-opts">
+                    <select value={newTask.recurrenceRule} onChange={e => setNewTask({...newTask, recurrenceRule: e.target.value})}>
+                      <option value="">Select frequency</option>
+                      {recurrenceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <input type="date" placeholder="End date (optional)" value={newTask.recurrenceEndDate} onChange={e => setNewTask({...newTask, recurrenceEndDate: e.target.value})} />
+                  </div>
+                )}
+              </div>
               <div className="modal-btns"><button type="button" className="btn btn-secondary" onClick={() => setShowAddTask(false)}>Cancel</button><button type="submit" className="btn btn-primary">{newTask.startDate ? 'Schedule' : 'Add'}</button></div>
             </form>
           </div>
@@ -639,14 +698,57 @@ function Productivity({ user }) {
                 <div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
                 <div className="fg"><label>Priority</label><select value={showEditTask.priority || 'medium'} onChange={e => setShowEditTask({...showEditTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div>
               </div>
+              {showEditTask.actual_minutes > 0 && <div className="time-tracked">⏱️ Time tracked: {formatDuration(showEditTask.actual_minutes)}</div>}
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={showEditTask.scheduled_date?.split('T')[0] || ''} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={showEditTask.scheduled_end_date?.split('T')[0] || ''} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 {showEditTask.scheduled_time && showEditTask.scheduled_end_time && <div className="dur-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>}
               </div>
+              <div className="recur-box">
+                <label className="recur-toggle">
+                  <input type="checkbox" checked={showEditTask.is_recurring || false} onChange={e => setShowEditTask({...showEditTask, is_recurring: e.target.checked})} />
+                  <span>🔄 Recurring task</span>
+                </label>
+                {showEditTask.is_recurring && (
+                  <div className="recur-opts">
+                    <select value={showEditTask.recurrence_rule || ''} onChange={e => setShowEditTask({...showEditTask, recurrence_rule: e.target.value})}>
+                      <option value="">Select frequency</option>
+                      {recurrenceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <input type="date" value={showEditTask.recurrence_end_date?.split('T')[0] || ''} onChange={e => setShowEditTask({...showEditTask, recurrence_end_date: e.target.value})} />
+                  </div>
+                )}
+              </div>
               <div className="modal-btns"><button type="button" className="btn btn-danger" onClick={() => setConfirmDelete({ type: 'task', id: showEditTask.id, name: showEditTask.title })}>🗑️</button><button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* STATS MODAL */}
+      {showStats && (
+        <div className="modal-bg" onClick={() => setShowStats(false)}>
+          <div className="modal stats-modal" onClick={e => e.stopPropagation()}>
+            <button className="close-x" onClick={() => setShowStats(false)}>×</button>
+            <h3>📊 Statistics</h3>
+            <div className="stats-grid">
+              <div className="stat-card"><span className="sc-icon">⏱️</span><span className="sc-value">{formatDuration(stats.todayMinutes)}</span><span className="sc-label">Today</span></div>
+              <div className="stat-card"><span className="sc-icon">📅</span><span className="sc-value">{formatDuration(stats.weekMinutes)}</span><span className="sc-label">This Week</span></div>
+              <div className="stat-card"><span className="sc-icon">✅</span><span className="sc-value">{stats.tasksCompleted}</span><span className="sc-label">Completed Today</span></div>
+            </div>
+            {stats.categories.length > 0 && (
+              <div className="cat-breakdown">
+                <h4>Today by Category</h4>
+                {stats.categories.map(c => (
+                  <div key={c.name || 'uncategorized'} className="cat-stat">
+                    <span className="cat-info"><span>{c.icon || '📋'}</span> {c.name || 'Uncategorized'}</span>
+                    <span className="cat-time">{formatDuration(c.minutes)}</span>
+                    <div className="cat-bar" style={{ width: `${Math.min(100, (c.minutes / (stats.todayMinutes || 1)) * 100)}%`, backgroundColor: c.color || '#6B7280' }} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -700,3 +802,4 @@ function Productivity({ user }) {
 }
 
 export default Productivity
+
