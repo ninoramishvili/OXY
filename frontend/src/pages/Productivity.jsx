@@ -61,18 +61,38 @@ function Productivity({ user }) {
   // Helper to safely format date for input (avoid timezone issues)
   function formatDateForInput(dateStr) {
     if (!dateStr) return ''
+    
+    // Convert to string if it's not already
+    const str = String(dateStr)
+    
     // If already in YYYY-MM-DD format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
-    // If ISO format with T, just take the date part
-    if (dateStr.includes('T')) return dateStr.split('T')[0]
-    // Otherwise try to parse - add T12:00:00 to avoid timezone issues
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+    
+    // If ISO format with T or timestamp, just take the date part
+    if (str.includes('T')) {
+      return str.split('T')[0]
+    }
+    
+    // If it's just a date string like "2025-12-05", return as-is
+    const dateOnlyMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (dateOnlyMatch) {
+      return dateOnlyMatch[0]
+    }
+    
+    // Last resort: try to parse it
     try {
-      const d = new Date(dateStr + 'T12:00:00')
-      const year = d.getFullYear()
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    } catch { return '' }
+      // Create date at noon to avoid timezone issues
+      const parts = str.split(/[-/]/)
+      if (parts.length === 3) {
+        const year = parts[0]
+        const month = parts[1].padStart(2, '0')
+        const day = parts[2].padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+      return ''
+    } catch { 
+      return '' 
+    }
   }
 
   function getMonday(date) {
@@ -617,7 +637,7 @@ function Productivity({ user }) {
                   </div>
 
                 <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
-                  {backlog.map(t => (
+                  {backlog.filter(t => t.estimated_minutes > 2).map(t => (
                     <div key={t.id} className="bl-item" style={{ borderLeftColor: t.category_color || '#6B7280' }} draggable onDragStart={(e) => handleDragStart(e, t)} onDragEnd={handleDragEnd}>
                       <div className="bl-main" onClick={() => setShowEditTask(t)}>
                         <span className="bl-icon">{t.category_icon || '📋'}</span>
@@ -853,7 +873,7 @@ function Productivity({ user }) {
               <div className="slots-column">
                 {timeSlots.map(time => <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: DAY_SLOT_HEIGHT }} onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)} onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)} onDragOver={handleDragOver} onDrop={(e) => handleDropOnSlot(e, selectedDate, time)} />)}
                 {(() => { const range = getSelectionRange(selectedDate); if (!range) return null; return <div className="selection-overlay" style={{ top: range.startIdx * DAY_SLOT_HEIGHT, height: range.slots * DAY_SLOT_HEIGHT }} /> })()}
-                {(() => { const positions = getTaskPositions(dayTasks); return dayTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; const quadrant = `q${(task.is_urgent ? 1 : 0) + (task.is_important ? 2 : 0)}`; return <div key={task.id} className={`cal-task ${task.status} ${task.is_frog ? 'is-frog' : ''} ${task.is_highlight ? 'is-highlight' : ''} ${quadrant !== 'q0' ? quadrant : ''}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><div className="ct-badges">{task.is_frog && <span className="ct-badge frog">🐸</span>}{task.is_highlight && <span className="ct-badge highlight">⭐</span>}</div><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <><button onClick={(e) => { e.stopPropagation(); handleSetFrog(task.id) }} className={task.is_frog ? 'active' : ''} title="Set as frog">🐸</button><button onClick={(e) => { e.stopPropagation(); handleSetHighlight(task.id) }} className={task.is_highlight ? 'active' : ''} title="Set as highlight">⭐</button><button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button></>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
+                {(() => { const regularTasks = dayTasks.filter(t => t.estimated_minutes > 2); const positions = getTaskPositions(regularTasks); return regularTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; const quadrant = `q${(task.is_urgent ? 1 : 0) + (task.is_important ? 2 : 0)}`; return <div key={task.id} className={`cal-task ${task.status} ${task.is_frog ? 'is-frog' : ''} ${task.is_highlight ? 'is-highlight' : ''} ${quadrant !== 'q0' ? quadrant : ''}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><div className="ct-badges">{task.is_frog && <span className="ct-badge frog">🐸</span>}{task.is_highlight && <span className="ct-badge highlight">⭐</span>}</div><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <><button onClick={(e) => { e.stopPropagation(); handleSetFrog(task.id) }} className={task.is_frog ? 'active' : ''} title="Set as frog">🐸</button><button onClick={(e) => { e.stopPropagation(); handleSetHighlight(task.id) }} className={task.is_highlight ? 'active' : ''} title="Set as highlight">⭐</button><button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button></>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
               </div>
             </div>
           </div>
@@ -1343,7 +1363,22 @@ function Productivity({ user }) {
               
               <div className="quick-task-box">
                 <label className="quick-task-toggle">
-                  <input type="checkbox" checked={showEditTask.estimated_minutes <= 2} onChange={e => setShowEditTask({...showEditTask, estimated_minutes: e.target.checked ? 2 : 30})} />
+                  <input type="checkbox" checked={showEditTask.estimated_minutes <= 2} onChange={e => {
+                    if (e.target.checked) {
+                      // Converting to quick task - clear schedule and move to backlog
+                      setShowEditTask({
+                        ...showEditTask, 
+                        estimated_minutes: 2,
+                        scheduled_date: null,
+                        scheduled_time: null,
+                        scheduled_end_date: null,
+                        scheduled_end_time: null
+                      })
+                    } else {
+                      // Converting from quick task to regular task
+                      setShowEditTask({...showEditTask, estimated_minutes: 30})
+                    }
+                  }} />
                   <span>⚡ Quick Task (2-Minute Rule)</span>
                 </label>
                 <p className="quick-task-hint">Small tasks that take less than 2 minutes should be done immediately!</p>
@@ -1384,13 +1419,15 @@ function Productivity({ user }) {
                 </div>
               )}
               
-              {/* Always show Schedule section in edit mode */}
-              <div className="sched-box">
-                <label className="sched-title">📅 Schedule</label>
-                <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
-                <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_end_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
-                {showEditTask.scheduled_time && showEditTask.scheduled_end_time && <div className="dur-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>}
-              </div>
+              {/* Only show Schedule section for non-quick tasks */}
+              {showEditTask.estimated_minutes > 2 && (
+                <div className="sched-box">
+                  <label className="sched-title">📅 Schedule</label>
+                  <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
+                  <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_end_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
+                  {showEditTask.scheduled_time && showEditTask.scheduled_end_time && <div className="dur-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>}
+                </div>
+              )}
               
               <div className="modal-btns"><button type="button" className="btn btn-danger" onClick={() => handleDeleteClick(showEditTask)}>🗑️</button><button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
             </form>
