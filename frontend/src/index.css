@@ -8418,10 +8418,13 @@ body {
 .two-min-list { display: flex; flex-direction: column; gap: 6px; }
 .two-min-item { display: flex; align-items: center; gap: 8px; background: white; padding: 10px; border-radius: 6px; transition: all 0.2s; }
 .two-min-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-.two-min-item-check { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 0.7rem; }
+.two-min-item.completed { opacity: 0.7; background: #F3F4F6; }
+.two-min-item-check { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 0.7rem; color: #10B981; font-weight: 700; }
 .two-min-item-check:hover { border-color: #10B981; background: rgba(16,185,129,0.1); }
-.two-min-item-info { flex: 1; min-width: 0; }
+.two-min-item.completed .two-min-item-check { background: #10B981; color: white; border-color: #10B981; cursor: default; }
+.two-min-item-info { flex: 1; min-width: 0; cursor: pointer; }
 .two-min-item-title { font-size: 0.85rem; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.two-min-item-title.done { text-decoration: line-through; color: var(--text-muted); }
 .two-min-item-time { font-size: 0.7rem; color: var(--text-muted); }
 .two-min-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem; }
 

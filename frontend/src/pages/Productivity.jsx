@@ -580,8 +580,7 @@ function Productivity({ user }) {
             {backlogView === 'list' && (
               <>
                 {/* 2-Minute Queue */}
-                {backlog.filter(t => t.estimated_minutes <= 2).length > 0 && (
-                  <div className="two-min-queue">
+                <div className="two-min-queue">
                     <div className="two-min-queue-header">
                       <div className="two-min-queue-title">
                         <span>⚡</span>
@@ -598,18 +597,21 @@ function Productivity({ user }) {
                       </button>
                     </div>
                     <div className="two-min-list">
-                      {backlog.filter(t => t.estimated_minutes <= 2).map(t => (
-                        <div key={t.id} className="two-min-item">
-                          <div className="two-min-item-check" onClick={() => handleCompleteTask(t.id)}>✓</div>
-                          <div className="two-min-item-info" onClick={() => setShowEditTask(t)}>
-                            <div className="two-min-item-title">{t.category_icon || '📋'} {t.title}</div>
-                            <div className="two-min-item-time">⏱️ {t.estimated_minutes} min{t.estimated_minutes > 1 ? 's' : ''}</div>
+                      {backlog.filter(t => t.estimated_minutes <= 2).length > 0 ? (
+                        backlog.filter(t => t.estimated_minutes <= 2).map(t => (
+                          <div key={t.id} className="two-min-item">
+                            <div className="two-min-item-check" onClick={() => handleCompleteTask(t.id)}>✓</div>
+                            <div className="two-min-item-info" onClick={() => setShowEditTask(t)}>
+                              <div className="two-min-item-title">{t.category_icon || '📋'} {t.title}</div>
+                              <div className="two-min-item-time">⏱️ {t.estimated_minutes} min{t.estimated_minutes > 1 ? 's' : ''}</div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <div className="two-min-empty">No quick tasks yet. Create a quick task to get started!</div>
+                      )}
                     </div>
                   </div>
-                )}
 
                 <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
                   {backlog.map(t => (
@@ -809,6 +811,36 @@ function Productivity({ user }) {
                   </div>
                 ) : (
                   <div className="focus-empty">Click ⭐ on a task below</div>
+                )}
+              </div>
+            </div>
+            
+            {/* 2-Minute Queue for Day */}
+            <div className="two-min-queue" style={{marginTop: '12px'}}>
+              <div className="two-min-queue-header">
+                <div className="two-min-queue-title">
+                  <span>⚡</span>
+                  <span>2-Min Quick Tasks</span>
+                  <span className="two-min-badge">{dayTasks.filter(t => t.estimated_minutes <= 2).length}</span>
+                </div>
+              </div>
+              <div className="two-min-list">
+                {dayTasks.filter(t => t.estimated_minutes <= 2).length > 0 ? (
+                  dayTasks.filter(t => t.estimated_minutes <= 2).map(t => (
+                    <div key={t.id} className={`two-min-item ${t.status === 'completed' ? 'completed' : ''}`}>
+                      <div className="two-min-item-check" onClick={() => t.status !== 'completed' && handleCompleteTask(t.id)}>
+                        {t.status === 'completed' ? '✓' : '○'}
+                      </div>
+                      <div className="two-min-item-info" onClick={() => setShowEditTask(t)}>
+                        <div className={`two-min-item-title ${t.status === 'completed' ? 'done' : ''}`}>
+                          {t.category_icon || '📋'} {t.title}
+                        </div>
+                        <div className="two-min-item-time">⏱️ {t.estimated_minutes} min{t.estimated_minutes > 1 ? 's' : ''}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="two-min-empty">No quick tasks scheduled for this day</div>
                 )}
               </div>
             </div>
@@ -1305,7 +1337,16 @@ function Productivity({ user }) {
             <form onSubmit={handleEditTask}>
               <div className="fg"><label>Title *</label><input type="text" value={showEditTask.title || ''} onChange={e => setShowEditTask({...showEditTask, title: e.target.value})} /></div>
               <div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-              <div className="eisenhower-box">
+              
+              <div className="quick-task-box">
+                <label className="quick-task-toggle">
+                  <input type="checkbox" checked={showEditTask.estimated_minutes <= 2} onChange={e => setShowEditTask({...showEditTask, estimated_minutes: e.target.checked ? 2 : 30})} />
+                  <span>⚡ Quick Task (2-Minute Rule)</span>
+                </label>
+                <p className="quick-task-hint">Small tasks that take less than 2 minutes should be done immediately!</p>
+              </div>
+              
+              {showEditTask.estimated_minutes > 2 && <div className="eisenhower-box">
                 <label className="eisenhower-title">
                   🎯 Eisenhower Matrix
                   <span className="eis-help-tooltip">
@@ -1335,13 +1376,15 @@ function Productivity({ user }) {
                   {showEditTask.is_urgent && !showEditTask.is_important && '🟡 DELEGATE'}
                   {!showEditTask.is_urgent && !showEditTask.is_important && '⚪ ELIMINATE'}
                 </div>
-              </div>
-              <div className="sched-box">
+              </div>}
+              
+              {showEditTask.estimated_minutes > 2 && <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_end_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 {showEditTask.scheduled_time && showEditTask.scheduled_end_time && <div className="dur-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>}
-              </div>
+              </div>}
+              
               <div className="modal-btns"><button type="button" className="btn btn-danger" onClick={() => handleDeleteClick(showEditTask)}>🗑️</button><button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
             </form>
           </div>
