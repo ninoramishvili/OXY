@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const API_BASE = 'http://localhost:5000/api'
@@ -15,6 +15,7 @@ function Productivity({ user }) {
   const [message, setMessage] = useState({ text: '', type: '', icon: '' })
   
   const [draggedTask, setDraggedTask] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [isSelecting, setIsSelecting] = useState(false)
   const [selectionStart, setSelectionStart] = useState(null)
   const [selectionEnd, setSelectionEnd] = useState(null)
@@ -30,6 +31,9 @@ function Productivity({ user }) {
     startDate: '', startTime: '', endDate: '', endTime: ''
   })
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
+
+  const dayColumnRef = useRef(null)
+  const weekColumnsRef = useRef({})
 
   function getMonday(date) {
     const d = new Date(date)
@@ -75,19 +79,16 @@ function Productivity({ user }) {
     return `${hours}h${mins}m`
   }
 
-  // Get slot index for positioning
   function getSlotIndex(time) {
     const [h, m] = time.split(':').map(Number)
     return h * 2 + (m >= 30 ? 1 : 0)
   }
 
-  // Calculate height in pixels based on duration
   function getTaskHeight(minutes, slotHeight = 24) {
     const slots = Math.ceil((minutes || 30) / 30)
     return slots * slotHeight
   }
 
-  // Calculate positions for overlapping tasks (Google Calendar style)
   function getTaskPositions(taskList) {
     const positions = {}
     const sortedTasks = [...taskList].sort((a, b) => {
@@ -101,27 +102,20 @@ function Productivity({ user }) {
       const startIdx = getSlotIndex(task.scheduled_time?.slice(0, 5) || '00:00')
       const slots = Math.ceil((task.estimated_minutes || 30) / 30)
       const endIdx = startIdx + slots
-
-      // Find overlapping tasks
       const overlapping = sortedTasks.filter((t, j) => {
         if (j >= i) return false
         const tStart = getSlotIndex(t.scheduled_time?.slice(0, 5) || '00:00')
         const tSlots = Math.ceil((t.estimated_minutes || 30) / 30)
         const tEnd = tStart + tSlots
-        return !(endIdx <= tStart || startIdx >= tEnd) // Overlaps
+        return !(endIdx <= tStart || startIdx >= tEnd)
       })
-
-      // Find available column
       const usedCols = overlapping.map(t => positions[t.id]?.col || 0)
       let col = 0
       while (usedCols.includes(col)) col++
       const maxCols = Math.max(col + 1, ...overlapping.map(t => positions[t.id]?.total || 1))
-
       positions[task.id] = { col, total: maxCols }
-      // Update overlapping tasks with new total
       overlapping.forEach(t => { if (positions[t.id]) positions[t.id].total = maxCols })
     }
-
     return positions
   }
 
@@ -164,13 +158,8 @@ function Productivity({ user }) {
   }
 
   // Selection handlers
-  const handleSlotClick = (date, time) => {
-    if (draggedTask || isSelecting) return
-    openAddTaskWithTime(date, time)
-  }
-
-  const handleSlotMouseDown = (e, date, time, hasTask) => {
-    if (hasTask || draggedTask) return
+  const handleSlotMouseDown = (e, date, time) => {
+    if (e.button !== 0 || draggedTask) return
     e.preventDefault()
     setIsSelecting(true)
     setSelectionStart({ date, time })
@@ -178,28 +167,34 @@ function Productivity({ user }) {
   }
 
   const handleSlotMouseEnter = (date, time) => {
-    if (!isSelecting || !selectionStart || date !== selectionStart.date) return
-    setSelectionEnd({ date, time })
+    if (!isSelecting || !selectionStart) return
+    // Only allow selection within same date
+    if (date === selectionStart.date) {
+      setSelectionEnd({ date, time })
+    }
   }
 
   const handleMouseUp = () => {
-    if (!isSelecting || !selectionStart || !selectionEnd) {
-      setIsSelecting(false)
-      setSelectionStart(null)
-      setSelectionEnd(null)
-      return
+    if (!isSelecting) return
+    
+    if (selectionStart && selectionEnd && selectionStart.date === selectionEnd.date) {
+      const times = [selectionStart.time, selectionEnd.time].sort()
+      openAddTaskWithTime(selectionStart.date, times[0], calculateEndTime(times[1], 30))
     }
-    const times = [selectionStart.time, selectionEnd.time].sort()
-    openAddTaskWithTime(selectionStart.date, times[0], calculateEndTime(times[1], 30))
+    
     setIsSelecting(false)
     setSelectionStart(null)
     setSelectionEnd(null)
   }
 
-  const isSlotInSelection = (date, time) => {
-    if (!isSelecting || !selectionStart || !selectionEnd || date !== selectionStart.date) return false
-    const times = [selectionStart.time, selectionEnd.time].sort()
-    return time >= times[0] && time <= times[1]
+  // Get selection range for overlay
+  const getSelectionRange = (date) => {
+    if (!isSelecting || !selectionStart || !selectionEnd || selectionStart.date !== date) return null
+    const startIdx = getSlotIndex(selectionStart.time)
+    const endIdx = getSlotIndex(selectionEnd.time)
+    const minIdx = Math.min(startIdx, endIdx)
+    const maxIdx = Math.max(startIdx, endIdx)
+    return { startIdx: minIdx, endIdx: maxIdx, slots: maxIdx - minIdx + 1 }
   }
 
   // Task handlers
@@ -264,6 +259,7 @@ function Productivity({ user }) {
       })
       showToast('Scheduled', 'success', '📅')
       setDraggedTask(null)
+      setIsDragging(false)
       fetchData()
     } catch { showToast('Failed', 'error', '✕') }
   }
@@ -273,7 +269,7 @@ function Productivity({ user }) {
   }
 
   const handleUnschedule = async (taskId) => {
-    try { await fetch(`${API_BASE}/tasks/${taskId}/unschedule`, { method: 'PUT' }); showToast('Moved', 'success', '↩'); setDraggedTask(null); fetchData() } catch {}
+    try { await fetch(`${API_BASE}/tasks/${taskId}/unschedule`, { method: 'PUT' }); showToast('Moved', 'success', '↩'); setDraggedTask(null); setIsDragging(false); fetchData() } catch {}
   }
 
   const handleDeleteTask = async (taskId) => {
@@ -294,11 +290,40 @@ function Productivity({ user }) {
     try { await fetch(`${API_BASE}/categories/${catId}`, { method: 'DELETE' }); setConfirmDelete(null); fetchData() } catch {}
   }
 
-  // Drag & Drop - works across tabs
-  const handleDragStart = (task) => setDraggedTask(task)
-  const handleDragOver = (e) => e.preventDefault()
-  const handleDropOnSlot = (date, time) => { if (draggedTask) handleScheduleTask(draggedTask.id, date, time) }
-  const handleDropOnBacklog = () => { if (draggedTask && draggedTask.status !== 'backlog') handleUnschedule(draggedTask.id); else setDraggedTask(null) }
+  // Drag & Drop
+  const handleDragStart = (e, task) => {
+    setDraggedTask(task)
+    setIsDragging(true)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', task.id)
+  }
+  
+  const handleDragEnd = () => {
+    setDraggedTask(null)
+    setIsDragging(false)
+  }
+  
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+  
+  const handleDropOnSlot = (e, date, time) => {
+    e.preventDefault()
+    if (draggedTask) {
+      handleScheduleTask(draggedTask.id, date, time)
+    }
+  }
+  
+  const handleDropOnBacklog = (e) => {
+    e.preventDefault()
+    if (draggedTask && draggedTask.status !== 'backlog') {
+      handleUnschedule(draggedTask.id)
+    } else {
+      setDraggedTask(null)
+      setIsDragging(false)
+    }
+  }
 
   // Navigation
   const changeDate = (d) => { const dt = new Date(selectedDate); dt.setDate(dt.getDate() + d); setSelectedDate(dt.toISOString().split('T')[0]) }
@@ -326,12 +351,14 @@ function Productivity({ user }) {
 
   if (!user) return null
   const weekDays = getWeekDays(weekStart)
-
-  // Get tasks for a date
   const getTasksForDate = (taskList, date) => taskList.filter(t => t.scheduled_date?.split('T')[0] === date)
 
+  // Slot height constants
+  const DAY_SLOT_HEIGHT = 24
+  const WEEK_SLOT_HEIGHT = 20
+
   return (
-    <div className="productivity-page" onMouseUp={handleMouseUp} onMouseLeave={() => { setIsSelecting(false); setSelectionStart(null); setSelectionEnd(null) }}>
+    <div className="productivity-page" onMouseUp={handleMouseUp} onMouseLeave={() => { if (isSelecting) { setIsSelecting(false); setSelectionStart(null); setSelectionEnd(null) } }}>
       <div className="prod-header">
         <h1>📋 Productivity</h1>
         <div className="prod-actions">
@@ -346,14 +373,28 @@ function Productivity({ user }) {
         <button className={`prod-tab ${activeTab === 'week' ? 'active' : ''}`} onClick={() => setActiveTab('week')}>📆 Week</button>
       </div>
 
+      {/* Drag indicator */}
+      {isDragging && (
+        <div className="drag-hint">
+          🎯 Drop on Day or Week calendar to schedule "{draggedTask?.title}"
+        </div>
+      )}
+
       <div className="prod-content">
         {/* BACKLOG */}
         {activeTab === 'backlog' && (
           <div className="backlog-view">
             <div className="bl-head"><h3>📥 Backlog</h3><span>{backlog.length}</span></div>
-            <div className={`bl-list ${draggedTask ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
+            <div className={`bl-list ${isDragging ? 'drop-active' : ''}`} onDragOver={handleDragOver} onDrop={handleDropOnBacklog}>
               {backlog.map(t => (
-                <div key={t.id} className="bl-item" style={{ borderLeftColor: t.category_color || '#6B7280' }} draggable onDragStart={() => handleDragStart(t)}>
+                <div 
+                  key={t.id} 
+                  className="bl-item" 
+                  style={{ borderLeftColor: t.category_color || '#6B7280' }} 
+                  draggable 
+                  onDragStart={(e) => handleDragStart(e, t)}
+                  onDragEnd={handleDragEnd}
+                >
                   <div className="bl-main" onClick={() => setShowEditTask(t)}>
                     <span className="bl-icon">{t.category_icon || '📋'}</span>
                     <div className="bl-info">
@@ -369,6 +410,18 @@ function Productivity({ user }) {
               ))}
               {backlog.length === 0 && <div className="empty">🎉 Empty!</div>}
             </div>
+            
+            {/* Quick drop zones when dragging from backlog */}
+            {isDragging && (
+              <div className="quick-drop-zones">
+                <button className="quick-drop" onClick={() => { setActiveTab('day'); }}>
+                  📅 Go to Day View to drop
+                </button>
+                <button className="quick-drop" onClick={() => { setActiveTab('week'); }}>
+                  📆 Go to Week View to drop
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -381,50 +434,64 @@ function Productivity({ user }) {
               <span className="nav-date">{formatDate(selectedDate)} {isToday(selectedDate) && <span className="today-tag">Today</span>}</span>
               <button onClick={() => changeDate(1)}>→</button>
             </div>
-            <div className="calendar-grid day-calendar" onDragOver={handleDragOver} onDrop={() => draggedTask && handleDropOnSlot(selectedDate, '09:00')}>
+            <div className={`calendar-grid day-calendar ${isDragging ? 'drag-active' : ''}`}>
               <div className="time-column">
-                {timeSlots.map((time, i) => (
-                  <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`}>{time.endsWith(':00') ? time : ''}</div>
+                {timeSlots.map((time) => (
+                  <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>
                 ))}
               </div>
-              <div className="slots-column">
-                {timeSlots.map(time => {
-                  const selected = isSlotInSelection(selectedDate, time)
+              <div className="slots-column" ref={dayColumnRef}>
+                {timeSlots.map(time => (
+                  <div 
+                    key={time} 
+                    className={`slot ${isDragging ? 'drop-target' : ''}`}
+                    style={{ height: DAY_SLOT_HEIGHT }}
+                    onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)}
+                    onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDropOnSlot(e, selectedDate, time)}
+                  />
+                ))}
+                
+                {/* Selection overlay */}
+                {(() => {
+                  const range = getSelectionRange(selectedDate)
+                  if (!range) return null
                   return (
                     <div 
-                      key={time} 
-                      className={`slot ${selected ? 'selecting' : ''} ${draggedTask ? 'drop-target' : ''}`}
-                      onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time, false)}
-                      onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
-                      onClick={() => !isSelecting && handleSlotClick(selectedDate, time)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDropOnSlot(selectedDate, time)}
+                      className="selection-overlay"
+                      style={{
+                        top: range.startIdx * DAY_SLOT_HEIGHT,
+                        height: range.slots * DAY_SLOT_HEIGHT
+                      }}
                     />
                   )
-                })}
-                {/* Tasks positioned absolutely */}
+                })()}
+                
+                {/* Tasks */}
                 {(() => {
                   const positions = getTaskPositions(dayTasks)
                   return dayTasks.map(task => {
                     const startTime = task.scheduled_time?.slice(0, 5) || '00:00'
                     const slotIdx = getSlotIndex(startTime)
-                    const height = getTaskHeight(task.estimated_minutes, 24)
+                    const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT)
                     const pos = positions[task.id] || { col: 0, total: 1 }
-                    const width = `calc(${100 / pos.total}% - 3px)`
-                    const left = `calc(${(pos.col * 100) / pos.total}% + 1px)`
+                    const width = `calc(${100 / pos.total}% - 4px)`
+                    const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`
                     return (
                       <div 
                         key={task.id}
                         className={`cal-task ${task.status}`}
                         style={{ 
-                          top: `${slotIdx * 24}px`, 
-                          height: `${height}px`,
+                          top: slotIdx * DAY_SLOT_HEIGHT, 
+                          height: height,
                           width,
                           left,
                           backgroundColor: task.category_color || '#3B82F6'
                         }}
                         draggable
-                        onDragStart={() => handleDragStart(task)}
+                        onDragStart={(e) => handleDragStart(e, task)}
+                        onDragEnd={handleDragEnd}
                         onClick={() => setShowEditTask(task)}
                         title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
                       >
@@ -453,8 +520,7 @@ function Productivity({ user }) {
               <span className="nav-date">{formatDate(weekDays[0])} - {formatDate(weekDays[6])}</span>
               <button onClick={() => changeWeek(1)}>→</button>
             </div>
-            <div className="calendar-grid week-calendar">
-              {/* Header */}
+            <div className={`calendar-grid week-calendar ${isDragging ? 'drag-active' : ''}`}>
               <div className="week-header">
                 <div className="time-header"></div>
                 {weekDays.map(d => {
@@ -462,41 +528,47 @@ function Productivity({ user }) {
                   return <div key={d} className={`day-header ${isToday(d) ? 'today' : ''}`}><span>{day}</span><span className="day-num">{num}</span></div>
                 })}
               </div>
-              {/* Body */}
               <div className="week-body">
-                {/* Time column */}
                 <div className="time-column">
                   {timeSlots.map(time => (
-                    <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`}>{time.endsWith(':00') ? time : ''}</div>
+                    <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: WEEK_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>
                   ))}
                 </div>
-                {/* Day columns */}
                 {weekDays.map(day => {
                   const tasksForDay = getTasksForDate(weekTasks, day)
+                  const selectionRange = getSelectionRange(day)
                   return (
-                    <div key={day} className={`day-column ${isToday(day) ? 'today' : ''}`}>
-                      {/* Slot grid */}
-                      {timeSlots.map(time => {
-                        const selected = isSlotInSelection(day, time)
-                        return (
-                          <div 
-                            key={time} 
-                            className={`slot ${selected ? 'selecting' : ''} ${draggedTask ? 'drop-target' : ''}`}
-                            onMouseDown={(e) => handleSlotMouseDown(e, day, time, false)}
-                            onMouseEnter={() => handleSlotMouseEnter(day, time)}
-                            onClick={() => !isSelecting && handleSlotClick(day, time)}
-                            onDragOver={handleDragOver}
-                            onDrop={() => handleDropOnSlot(day, time)}
-                          />
-                        )
-                      })}
+                    <div key={day} className={`day-column ${isToday(day) ? 'today' : ''}`} ref={el => weekColumnsRef.current[day] = el}>
+                      {timeSlots.map(time => (
+                        <div 
+                          key={time} 
+                          className={`slot ${isDragging ? 'drop-target' : ''}`}
+                          style={{ height: WEEK_SLOT_HEIGHT }}
+                          onMouseDown={(e) => handleSlotMouseDown(e, day, time)}
+                          onMouseEnter={() => handleSlotMouseEnter(day, time)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDropOnSlot(e, day, time)}
+                        />
+                      ))}
+                      
+                      {/* Selection overlay */}
+                      {selectionRange && (
+                        <div 
+                          className="selection-overlay"
+                          style={{
+                            top: selectionRange.startIdx * WEEK_SLOT_HEIGHT,
+                            height: selectionRange.slots * WEEK_SLOT_HEIGHT
+                          }}
+                        />
+                      )}
+                      
                       {/* Tasks */}
                       {(() => {
                         const positions = getTaskPositions(tasksForDay)
                         return tasksForDay.map(task => {
                           const startTime = task.scheduled_time?.slice(0, 5) || '00:00'
                           const slotIdx = getSlotIndex(startTime)
-                          const height = getTaskHeight(task.estimated_minutes, 20)
+                          const height = getTaskHeight(task.estimated_minutes, WEEK_SLOT_HEIGHT)
                           const pos = positions[task.id] || { col: 0, total: 1 }
                           const width = `calc(${100 / pos.total}% - 2px)`
                           const left = `calc(${(pos.col * 100) / pos.total}% + 1px)`
@@ -505,18 +577,19 @@ function Productivity({ user }) {
                               key={task.id}
                               className={`cal-task week-task ${task.status}`}
                               style={{ 
-                                top: `${slotIdx * 20}px`, 
-                                height: `${height}px`,
+                                top: slotIdx * WEEK_SLOT_HEIGHT, 
+                                height: height,
                                 width,
                                 left,
                                 backgroundColor: task.category_color || '#3B82F6'
                               }}
                               draggable
-                              onDragStart={() => handleDragStart(task)}
+                              onDragStart={(e) => handleDragStart(e, task)}
+                              onDragEnd={handleDragEnd}
                               onClick={() => setShowEditTask(task)}
                               title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
                             >
-                              {task.title.slice(0, 6)}
+                              {task.title.slice(0, 8)}
                             </div>
                           )
                         })
