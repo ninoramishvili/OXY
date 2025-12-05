@@ -8080,27 +8080,9 @@ body {
 /* ============ PRODUCTIVITY ============ */
 .productivity-page { max-width: 1200px; margin: 0 auto; padding: var(--space-sm); }
 
-/* Timer Banner */
-.timer-banner { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, var(--primary), var(--teal)); color: white; padding: 10px 14px; border-radius: 8px; margin-bottom: var(--space-xs); animation: timerPulse 2s infinite; }
-@keyframes timerPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(20,184,166,0.4); } 50% { box-shadow: 0 0 0 8px rgba(20,184,166,0); } }
-.timer-info { display: flex; align-items: center; gap: 10px; }
-.timer-icon { font-size: 1.2rem; }
-.timer-title { font-weight: 600; font-size: 0.9rem; }
-.timer-display { font-family: 'Courier New', monospace; font-size: 1.4rem; font-weight: 700; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 6px; }
-.timer-stop { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
-.timer-stop:hover { background: rgba(255,255,255,0.3); }
-
-/* Quick Stats */
-.quick-stats { display: flex; gap: 8px; margin-bottom: var(--space-xs); }
-.stat-item { flex: 1; display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; }
-.stat-icon { font-size: 1rem; }
-.stat-value { font-weight: 700; font-size: 0.9rem; }
-.stat-label { font-size: 0.7rem; color: var(--text-muted); }
-
 .prod-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xs); }
 .prod-header h1 { font-size: 1.3rem; font-weight: 700; }
 .prod-actions { display: flex; gap: 6px; }
-.btn-stats { background: var(--teal) !important; color: white !important; }
 .prod-tabs { display: flex; gap: 4px; margin-bottom: var(--space-xs); border-bottom: 2px solid var(--border); padding-bottom: 4px; }
 .prod-tab { padding: 5px 10px; border: none; background: none; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 4px; }
 .prod-tab:hover { color: var(--text-dark); background: var(--surface); }
@@ -8134,10 +8116,7 @@ body {
 .bl-btns { display: flex; gap: 2px; }
 .bl-btns button { border: none; background: none; cursor: pointer; font-size: 0.85rem; padding: 2px; opacity: 0.6; }
 .bl-btns button:hover { opacity: 1; }
-.bl-item.active { background: rgba(20,184,166,0.1); border-color: var(--teal); }
-.stop-btn { background: var(--error) !important; color: white !important; border-radius: 4px !important; }
 .recurring-badge { font-size: 0.7rem; opacity: 0.7; }
-.actual-time { color: var(--teal); font-weight: 600; }
 .empty { text-align: center; padding: 30px; color: var(--text-muted); }
 
 /* CALENDAR GRID */
@@ -8163,8 +8142,6 @@ body {
 .ct-btns { display: flex; gap: 1px; flex-shrink: 0; }
 .ct-btns button { border: none; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 0.6rem; padding: 1px 3px; border-radius: 2px; }
 .ct-btns button:hover { background: rgba(255,255,255,0.4); }
-.cal-task.running { animation: runningTask 1.5s infinite; box-shadow: 0 0 0 2px white, 0 0 0 4px var(--teal); }
-@keyframes runningTask { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
 
 /* WEEK VIEW */
 .week-calendar { flex: 1; display: flex; flex-direction: column; }
@@ -8219,28 +8196,22 @@ body {
 .recur-box { background: var(--background); border-radius: 4px; padding: 6px; margin: 6px 0; }
 .recur-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
 .recur-toggle input { margin: 0; }
-.recur-opts { display: flex; gap: 6px; margin-top: 6px; }
-.recur-opts select, .recur-opts input { flex: 1; padding: 5px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem; }
-
-/* Time Tracked Display */
-.time-tracked { background: var(--teal); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-align: center; margin: 6px 0; }
+.recur-opts { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.recur-opts .fg { margin-bottom: 0; }
+.recur-opts select, .recur-opts input { width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem; }
 
 .modal-btns { display: flex; gap: 4px; justify-content: flex-end; margin-top: var(--space-xs); padding-top: 6px; border-top: 1px solid var(--border); }
 .modal-btns .btn { padding: 4px 8px; font-size: 0.75rem; }
 
-/* Stats Modal */
-.stats-modal { max-width: 400px; }
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: var(--space-sm); }
-.stat-card { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--background); border-radius: 8px; text-align: center; }
-.sc-icon { font-size: 1.4rem; margin-bottom: 4px; }
-.sc-value { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
-.sc-label { font-size: 0.65rem; color: var(--text-muted); }
-.cat-breakdown { margin-top: var(--space-sm); }
-.cat-breakdown h4 { font-size: 0.85rem; margin-bottom: 8px; }
-.cat-stat { display: flex; align-items: center; gap: 8px; padding: 6px 0; position: relative; }
-.cat-info { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; flex: 1; z-index: 1; }
-.cat-time { font-size: 0.75rem; font-weight: 700; color: var(--text-dark); z-index: 1; }
-.cat-bar { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 24px; border-radius: 4px; opacity: 0.2; }
+/* Recurring Delete Modal */
+.recur-delete { max-width: 340px; text-align: center; }
+.recur-delete h4 { margin-bottom: 8px; font-size: 1rem; }
+.recur-delete p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px; }
+.recur-delete-btns { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.recur-delete-btns .btn { width: 100%; justify-content: center; }
+.btn-warning { background: #F59E0B !important; color: white !important; }
+.btn-text { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; }
+.btn-text:hover { color: var(--text-dark); }
 
 /* Categories */
 .cat-modal { max-width: 380px; }

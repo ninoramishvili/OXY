@@ -1745,23 +1745,74 @@ app.get('/api/tasks/:userId/backlog', async (req, res) => {
   }
 });
 
-// POST /api/tasks - Create task
+// POST /api/tasks - Create task (with recurring support)
 app.post('/api/tasks', async (req, res) => {
   try {
     const { userId, title, description, categoryId, priority, estimatedMinutes, 
-            scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime } = req.body;
+            scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime,
+            isRecurring, recurrenceRule, recurrenceEndDate } = req.body;
     
     // Determine status based on whether it's scheduled
     const status = scheduledDate ? 'planned' : 'backlog';
     
+    // Create the main task
     const result = await pool.query(
       `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
-        scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
+        is_recurring, recurrence_rule, recurrence_end_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
-       scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status]
+       scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status,
+       isRecurring || false, recurrenceRule || null, recurrenceEndDate || null]
     );
-    res.status(201).json({ success: true, task: result.rows[0] });
+    
+    const mainTask = result.rows[0];
+    
+    // If recurring, generate child tasks
+    if (isRecurring && recurrenceRule && scheduledDate) {
+      const startDate = new Date(scheduledDate);
+      const endDate = recurrenceEndDate ? new Date(recurrenceEndDate) : new Date(startDate);
+      if (!recurrenceEndDate) {
+        endDate.setMonth(endDate.getMonth() + 3); // Default 3 months ahead
+      }
+      
+      let currentDate = new Date(startDate);
+      currentDate.setDate(currentDate.getDate() + 1); // Start from next day
+      
+      while (currentDate <= endDate) {
+        let shouldCreate = false;
+        
+        switch (recurrenceRule) {
+          case 'daily':
+            shouldCreate = true;
+            break;
+          case 'weekly':
+            shouldCreate = currentDate.getDay() === startDate.getDay();
+            break;
+          case 'weekdays':
+            shouldCreate = currentDate.getDay() >= 1 && currentDate.getDay() <= 5;
+            break;
+          case 'monthly':
+            shouldCreate = currentDate.getDate() === startDate.getDate();
+            break;
+        }
+        
+        if (shouldCreate) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          await pool.query(
+            `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes,
+             scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status, parent_task_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planned', $11)`,
+            [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+             dateStr, scheduledTime, dateStr, scheduledEndTime, mainTask.id]
+          );
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+    
+    res.status(201).json({ success: true, task: mainTask });
   } catch (error) {
     console.error('Error creating task:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -1851,6 +1902,67 @@ app.delete('/api/tasks/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/tasks/:id/delete-recurring - Delete recurring task with options
+app.delete('/api/tasks/:id/delete-recurring', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const { mode, taskDate } = req.body; // mode: 'single', 'following', 'all'
+    
+    // Get the task to find parent or check if it's a parent
+    const taskResult = await pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]);
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+    
+    const task = taskResult.rows[0];
+    const parentId = task.parent_task_id || task.id; // If this is a child, get parent; if parent, use own id
+    const isParent = !task.parent_task_id;
+    
+    switch (mode) {
+      case 'single':
+        // Delete just this task
+        await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+        break;
+        
+      case 'following':
+        // Delete this task and all following (by date)
+        if (isParent) {
+          // Delete parent and all children from this date onwards
+          await pool.query(
+            `DELETE FROM tasks WHERE id = $1 OR (parent_task_id = $1 AND scheduled_date >= $2)`,
+            [taskId, taskDate || task.scheduled_date]
+          );
+        } else {
+          // Delete this child and all siblings from this date onwards
+          await pool.query(
+            `DELETE FROM tasks WHERE id = $1 OR (parent_task_id = $2 AND scheduled_date >= $3)`,
+            [taskId, parentId, taskDate || task.scheduled_date]
+          );
+        }
+        break;
+        
+      case 'all':
+        // Delete the parent and all children in the series
+        if (isParent) {
+          // Delete this parent and all its children
+          await pool.query('DELETE FROM tasks WHERE id = $1 OR parent_task_id = $1', [taskId]);
+        } else {
+          // Delete the parent and all siblings
+          await pool.query('DELETE FROM tasks WHERE id = $1 OR parent_task_id = $1', [parentId]);
+        }
+        break;
+        
+      default:
+        return res.status(400).json({ success: false, message: 'Invalid mode' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting recurring task:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
