@@ -51,7 +51,7 @@ function Productivity({ user }) {
   const [newTask, setNewTask] = useState({ 
     title: '', description: '', categoryId: '', isUrgent: false, isImportant: false, estimatedMinutes: 30,
     startDate: '', startTime: '', endDate: '', endTime: '',
-    isRecurring: false, recurrenceRule: '', recurrenceEndDate: ''
+    isRecurring: false, recurrenceRule: '', recurrenceEndDate: '', isQuickTask: false
   })
   const [backlogView, setBacklogView] = useState('list') // 'list' or 'matrix'
   const [show2MinPrompt, setShow2MinPrompt] = useState(false)
@@ -260,7 +260,7 @@ function Productivity({ user }) {
   }
 
   const resetNewTask = () => {
-    setNewTask({ title: '', description: '', categoryId: '', isUrgent: false, isImportant: false, estimatedMinutes: 30, startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '' })
+    setNewTask({ title: '', description: '', categoryId: '', isUrgent: false, isImportant: false, estimatedMinutes: 30, startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '', isQuickTask: false })
   }
 
   const openAddTaskWithTime = (date, startTime, endTime = null) => {
@@ -1238,7 +1238,16 @@ function Productivity({ user }) {
             <form onSubmit={handleAddTask}>
               <div className="fg"><label>Title *</label><input type="text" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} autoFocus /></div>
               <div className="fg"><label>Category</label><select value={newTask.categoryId} onChange={e => setNewTask({...newTask, categoryId: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-              <div className="eisenhower-box">
+              
+              <div className="quick-task-box">
+                <label className="quick-task-toggle">
+                  <input type="checkbox" checked={newTask.isQuickTask} onChange={e => setNewTask({...newTask, isQuickTask: e.target.checked, estimatedMinutes: e.target.checked ? 2 : 30})} />
+                  <span>⚡ Quick Task (2-Minute Rule)</span>
+                </label>
+                <p className="quick-task-hint">Small tasks that take less than 2 minutes should be done immediately!</p>
+              </div>
+              
+              {!newTask.isQuickTask && <div className="eisenhower-box">
                 <label className="eisenhower-title">
                   🎯 Eisenhower Matrix
                   <span className="eis-help-tooltip">
@@ -1268,17 +1277,20 @@ function Productivity({ user }) {
                   {newTask.isUrgent && !newTask.isImportant && '🟡 DELEGATE'}
                   {!newTask.isUrgent && !newTask.isImportant && '⚪ ELIMINATE'}
                 </div>
-              </div>
-              <div className="sched-box">
+              </div>}
+              
+              {!newTask.isQuickTask && <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={newTask.startDate} onChange={e => setNewTask({...newTask, startDate: e.target.value, endDate: e.target.value || newTask.endDate})} /></div><div className="fg"><label>Start Time</label><input type="time" value={newTask.startTime} onChange={e => handleStartTimeChange(e.target.value, true)} disabled={!newTask.startDate} /></div></div>
                 <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={newTask.endDate} onChange={e => setNewTask({...newTask, endDate: e.target.value})} disabled={!newTask.startDate} /></div><div className="fg"><label>End Time</label><input type="time" value={newTask.endTime} onChange={e => handleEndTimeChange(e.target.value, true)} disabled={!newTask.startDate} /></div></div>
                 {newTask.startTime && newTask.endTime && <div className="dur-badge">Duration: {formatDuration(newTask.estimatedMinutes)}</div>}
-              </div>
-              <div className="recur-box">
+              </div>}
+              
+              {!newTask.isQuickTask && <div className="recur-box">
                 <label className="recur-toggle"><input type="checkbox" checked={newTask.isRecurring} onChange={e => setNewTask({...newTask, isRecurring: e.target.checked})} /><span>🔄 Recurring task</span></label>
                 {newTask.isRecurring && (<div className="recur-opts"><div className="fg"><label>Frequency *</label><select value={newTask.recurrenceRule} onChange={e => setNewTask({...newTask, recurrenceRule: e.target.value})}><option value="">Select frequency</option>{recurrenceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="fg"><label>End Date (optional)</label><input type="date" value={newTask.recurrenceEndDate} onChange={e => setNewTask({...newTask, recurrenceEndDate: e.target.value})} min={newTask.startDate} /></div></div>)}
-              </div>
+              </div>}
+              
               <div className="modal-btns"><button type="button" className="btn btn-secondary" onClick={() => setShowAddTask(false)}>Cancel</button><button type="submit" className="btn btn-primary">{newTask.startDate ? 'Schedule' : 'Add'}</button></div>
             </form>
           </div>

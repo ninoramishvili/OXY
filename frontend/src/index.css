@@ -8389,6 +8389,12 @@ body {
 .view-toggle-btn:hover { border-color: var(--primary); }
 
 /* ============ 2-MINUTE RULE ============ */
+.quick-task-box { background: linear-gradient(135deg, rgba(252,211,77,0.1), rgba(245,158,11,0.05)); border: 2px solid #FCD34D; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.quick-task-toggle { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-dark); cursor: pointer; }
+.quick-task-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+.quick-task-toggle span { font-size: 0.9rem; }
+.quick-task-hint { font-size: 0.75rem; color: var(--text-muted); margin: 6px 0 0 26px; line-height: 1.4; }
+
 .two-min-prompt { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1001; max-width: 400px; width: 90%; }
 .two-min-icon { font-size: 3rem; text-align: center; margin-bottom: 12px; }
 .two-min-title { font-size: 1.3rem; font-weight: 700; color: var(--text-dark); text-align: center; margin-bottom: 8px; }
