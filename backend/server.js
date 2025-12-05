@@ -1748,11 +1748,18 @@ app.get('/api/tasks/:userId/backlog', async (req, res) => {
 // POST /api/tasks - Create task
 app.post('/api/tasks', async (req, res) => {
   try {
-    const { userId, title, description, categoryId, priority, estimatedMinutes } = req.body;
+    const { userId, title, description, categoryId, priority, estimatedMinutes, 
+            scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime } = req.body;
+    
+    // Determine status based on whether it's scheduled
+    const status = scheduledDate ? 'planned' : 'backlog';
+    
     const result = await pool.query(
-      `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30]
+      `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
+        scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+       scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status]
     );
     res.status(201).json({ success: true, task: result.rows[0] });
   } catch (error) {
@@ -1764,11 +1771,14 @@ app.post('/api/tasks', async (req, res) => {
 // PUT /api/tasks/:id - Update task
 app.put('/api/tasks/:id', async (req, res) => {
   try {
-    const { title, description, categoryId, priority, estimatedMinutes, status, scheduledDate, scheduledTime } = req.body;
+    const { title, description, categoryId, priority, estimatedMinutes, status, 
+            scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime } = req.body;
     await pool.query(
       `UPDATE tasks SET title = $1, description = $2, category_id = $3, priority = $4, 
-       estimated_minutes = $5, status = $6, scheduled_date = $7, scheduled_time = $8 WHERE id = $9`,
-      [title, description, categoryId, priority, estimatedMinutes, status, scheduledDate, scheduledTime, req.params.id]
+       estimated_minutes = $5, status = $6, scheduled_date = $7, scheduled_time = $8,
+       scheduled_end_date = $9, scheduled_end_time = $10 WHERE id = $11`,
+      [title, description, categoryId, priority, estimatedMinutes, status, 
+       scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime, req.params.id]
     );
     res.json({ success: true });
   } catch (error) {
@@ -1780,11 +1790,25 @@ app.put('/api/tasks/:id', async (req, res) => {
 // PUT /api/tasks/:id/schedule - Schedule task to a date/time
 app.put('/api/tasks/:id/schedule', async (req, res) => {
   try {
-    const { date, time } = req.body;
-    await pool.query(
-      `UPDATE tasks SET scheduled_date = $1, scheduled_time = $2, status = 'planned' WHERE id = $3`,
-      [date, time, req.params.id]
-    );
+    const { date, time, endDate, endTime } = req.body;
+    
+    if (endDate && endTime) {
+      // If end date/time provided, use them
+      await pool.query(
+        `UPDATE tasks SET scheduled_date = $1, scheduled_time = $2, 
+         scheduled_end_date = $3, scheduled_end_time = $4, status = 'planned' WHERE id = $5`,
+        [date, time, endDate, endTime, req.params.id]
+      );
+    } else {
+      // Calculate end time based on estimated_minutes
+      await pool.query(
+        `UPDATE tasks SET scheduled_date = $1, scheduled_time = $2, 
+         scheduled_end_date = $1, 
+         scheduled_end_time = ($2::TIME + (COALESCE(estimated_minutes, 30) * INTERVAL '1 minute'))::TIME,
+         status = 'planned' WHERE id = $3`,
+        [date, time, req.params.id]
+      );
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error scheduling task:', error);
