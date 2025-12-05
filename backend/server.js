@@ -1735,7 +1735,12 @@ app.get('/api/tasks/:userId/backlog', async (req, res) => {
       LEFT JOIN task_categories c ON t.category_id = c.id
       WHERE t.user_id = $1 AND t.status = 'backlog'
       ORDER BY 
-        CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+        CASE 
+          WHEN t.is_urgent AND t.is_important THEN 1  -- DO FIRST
+          WHEN NOT t.is_urgent AND t.is_important THEN 2  -- SCHEDULE
+          WHEN t.is_urgent AND NOT t.is_important THEN 3  -- DELEGATE
+          ELSE 4  -- ELIMINATE
+        END,
         t.created_at DESC
     `, [req.params.userId]);
     res.json(result.rows);

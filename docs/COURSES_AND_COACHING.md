@@ -375,3 +375,4 @@ CREATE TABLE bookings (
 | cancelled | gray | Cancelled by user |
 | declined | red | Declined by coach |
 
+

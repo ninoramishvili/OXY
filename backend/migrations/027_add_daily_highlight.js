@@ -37,3 +37,4 @@ exports.down = async (pool) => {
   console.log('✅ Migration 027 rolled back');
 };
 
+
