@@ -2827,32 +2827,41 @@ app.delete('/api/goals/weekly/:id', async (req, res) => {
   }
 });
 
-// ============ EAT THE FROG ============
+// ============ EAT THE FROG & DAILY HIGHLIGHT ============
 
-// PUT /api/tasks/:id/frog - Set task as today's frog
-app.put('/api/tasks/:id/frog', async (req, res) => {
+// PUT /api/tasks/:id/frog/:date - Set task as frog for specific date
+app.put('/api/tasks/:id/frog/:date', async (req, res) => {
   try {
-    const taskId = req.params.id;
-    const today = new Date().toISOString().split('T')[0];
+    const { id: taskId, date } = req.params;
     
-    // Get task to find user_id
-    const taskResult = await pool.query('SELECT user_id FROM tasks WHERE id = $1', [taskId]);
+    // Get task to verify it's scheduled for this date
+    const taskResult = await pool.query(
+      'SELECT user_id, scheduled_date FROM tasks WHERE id = $1',
+      [taskId]
+    );
     if (taskResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
-    const userId = taskResult.rows[0].user_id;
     
-    // Clear any existing frog for this user today
+    const task = taskResult.rows[0];
+    const taskDate = task.scheduled_date?.toISOString?.().split('T')[0] || task.scheduled_date;
+    
+    // Verify task is scheduled for this date
+    if (taskDate !== date) {
+      return res.status(400).json({ success: false, message: 'Task must be scheduled for this date' });
+    }
+    
+    const userId = task.user_id;
+    
+    // Clear any existing frog for this user on this date
     await pool.query(
-      `UPDATE tasks SET is_frog = FALSE WHERE user_id = $1 AND is_frog = TRUE`,
-      [userId]
+      `UPDATE tasks SET is_frog = FALSE 
+       WHERE user_id = $1 AND scheduled_date = $2 AND is_frog = TRUE`,
+      [userId, date]
     );
     
     // Set this task as the frog
-    await pool.query(
-      `UPDATE tasks SET is_frog = TRUE WHERE id = $1`,
-      [taskId]
-    );
+    await pool.query('UPDATE tasks SET is_frog = TRUE WHERE id = $1', [taskId]);
     
     // Upsert frog_history
     await pool.query(`
@@ -2860,9 +2869,9 @@ app.put('/api/tasks/:id/frog', async (req, res) => {
       VALUES ($1, $2, $3)
       ON CONFLICT (user_id, frog_date)
       DO UPDATE SET task_id = $2
-    `, [userId, taskId, today]);
+    `, [userId, taskId, date]);
     
-    res.json({ success: true, message: 'Task set as today\'s frog! 🐸' });
+    res.json({ success: true, message: 'Task set as frog! 🐸' });
   } catch (error) {
     console.error('Error setting frog:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -2872,6 +2881,12 @@ app.put('/api/tasks/:id/frog', async (req, res) => {
 // DELETE /api/tasks/:id/frog - Remove frog designation
 app.delete('/api/tasks/:id/frog', async (req, res) => {
   try {
+    const taskResult = await pool.query('SELECT user_id, scheduled_date FROM tasks WHERE id = $1', [req.params.id]);
+    if (taskResult.rows.length > 0) {
+      const task = taskResult.rows[0];
+      const date = task.scheduled_date?.toISOString?.().split('T')[0] || task.scheduled_date;
+      await pool.query('DELETE FROM frog_history WHERE user_id = $1 AND frog_date = $2', [task.user_id, date]);
+    }
     await pool.query('UPDATE tasks SET is_frog = FALSE WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (error) {
@@ -2880,19 +2895,19 @@ app.delete('/api/tasks/:id/frog', async (req, res) => {
   }
 });
 
-// GET /api/frog/:userId/today - Get today's frog task
-app.get('/api/frog/:userId/today', async (req, res) => {
+// GET /api/frog/:userId/date/:date - Get frog task for specific date
+app.get('/api/frog/:userId/date/:date', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const { userId, date } = req.params;
     const result = await pool.query(`
       SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color,
              fh.completed as frog_completed
       FROM tasks t
       LEFT JOIN task_categories c ON t.category_id = c.id
       LEFT JOIN frog_history fh ON fh.task_id = t.id AND fh.frog_date = $2
-      WHERE t.user_id = $1 AND t.is_frog = TRUE
+      WHERE t.user_id = $1 AND t.scheduled_date = $2 AND t.is_frog = TRUE
       LIMIT 1
-    `, [req.params.userId, today]);
+    `, [userId, date]);
     res.json(result.rows[0] || null);
   } catch (error) {
     console.error('Error fetching frog:', error);
@@ -2900,20 +2915,19 @@ app.get('/api/frog/:userId/today', async (req, res) => {
   }
 });
 
-// PUT /api/frog/:userId/complete - Complete today's frog
-app.put('/api/frog/:userId/complete', async (req, res) => {
+// PUT /api/frog/:userId/complete/:date - Complete frog for specific date
+app.put('/api/frog/:userId/complete/:date', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const userId = req.params.userId;
+    const { userId, date } = req.params;
     
-    // Get today's frog task
+    // Get frog task for this date
     const frogResult = await pool.query(
-      `SELECT id FROM tasks WHERE user_id = $1 AND is_frog = TRUE`,
-      [userId]
+      `SELECT id FROM tasks WHERE user_id = $1 AND scheduled_date = $2 AND is_frog = TRUE`,
+      [userId, date]
     );
     
     if (frogResult.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'No frog task found' });
+      return res.status(404).json({ success: false, message: 'No frog task found for this date' });
     }
     
     const taskId = frogResult.rows[0].id;
@@ -2929,7 +2943,7 @@ app.put('/api/frog/:userId/complete', async (req, res) => {
       UPDATE frog_history 
       SET completed = TRUE, completed_at = NOW()
       WHERE user_id = $1 AND frog_date = $2
-    `, [userId, today]);
+    `, [userId, date]);
     
     res.json({ success: true, message: 'Frog eaten! 🎉🐸' });
   } catch (error) {
@@ -2944,13 +2958,11 @@ app.get('/api/frog/:userId/stats', async (req, res) => {
     const userId = req.params.userId;
     const today = new Date().toISOString().split('T')[0];
     
-    // Get frog stats
     const totalResult = await pool.query(
       `SELECT COUNT(*) as total FROM frog_history WHERE user_id = $1 AND completed = TRUE`,
       [userId]
     );
     
-    // This month's frogs
     const monthStart = new Date();
     monthStart.setDate(1);
     const monthResult = await pool.query(
@@ -2958,10 +2970,9 @@ app.get('/api/frog/:userId/stats', async (req, res) => {
       [userId, monthStart.toISOString().split('T')[0]]
     );
     
-    // Current streak (consecutive days)
     const streakResult = await pool.query(`
       WITH dates AS (
-        SELECT frog_date, completed,
+        SELECT frog_date,
           frog_date - (ROW_NUMBER() OVER (ORDER BY frog_date DESC))::int AS streak_group
         FROM frog_history
         WHERE user_id = $1 AND completed = TRUE
@@ -2972,20 +2983,175 @@ app.get('/api/frog/:userId/stats', async (req, res) => {
       WHERE streak_group = (SELECT streak_group FROM dates LIMIT 1)
     `, [userId]);
     
-    // Today's frog status
-    const todayResult = await pool.query(
-      `SELECT completed FROM frog_history WHERE user_id = $1 AND frog_date = $2`,
-      [userId, today]
-    );
-    
     res.json({
       totalFrogsEaten: parseInt(totalResult.rows[0].total),
       frogsThisMonth: parseInt(monthResult.rows[0].total),
-      currentStreak: parseInt(streakResult.rows[0]?.streak) || 0,
-      todayCompleted: todayResult.rows[0]?.completed || false
+      currentStreak: parseInt(streakResult.rows[0]?.streak) || 0
     });
   } catch (error) {
     console.error('Error fetching frog stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============ DAILY HIGHLIGHT ============
+
+// PUT /api/tasks/:id/highlight/:date - Set task as highlight for specific date
+app.put('/api/tasks/:id/highlight/:date', async (req, res) => {
+  try {
+    const { id: taskId, date } = req.params;
+    
+    // Get task to verify it's scheduled for this date
+    const taskResult = await pool.query(
+      'SELECT user_id, scheduled_date FROM tasks WHERE id = $1',
+      [taskId]
+    );
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+    
+    const task = taskResult.rows[0];
+    const taskDate = task.scheduled_date?.toISOString?.().split('T')[0] || task.scheduled_date;
+    
+    if (taskDate !== date) {
+      return res.status(400).json({ success: false, message: 'Task must be scheduled for this date' });
+    }
+    
+    const userId = task.user_id;
+    
+    // Clear any existing highlight for this user on this date
+    await pool.query(
+      `UPDATE tasks SET is_highlight = FALSE 
+       WHERE user_id = $1 AND scheduled_date = $2 AND is_highlight = TRUE`,
+      [userId, date]
+    );
+    
+    // Set this task as the highlight
+    await pool.query('UPDATE tasks SET is_highlight = TRUE WHERE id = $1', [taskId]);
+    
+    // Upsert highlight_history
+    await pool.query(`
+      INSERT INTO highlight_history (user_id, task_id, highlight_date)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, highlight_date)
+      DO UPDATE SET task_id = $2
+    `, [userId, taskId, date]);
+    
+    res.json({ success: true, message: 'Task set as highlight! ⭐' });
+  } catch (error) {
+    console.error('Error setting highlight:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/tasks/:id/highlight - Remove highlight designation
+app.delete('/api/tasks/:id/highlight', async (req, res) => {
+  try {
+    const taskResult = await pool.query('SELECT user_id, scheduled_date FROM tasks WHERE id = $1', [req.params.id]);
+    if (taskResult.rows.length > 0) {
+      const task = taskResult.rows[0];
+      const date = task.scheduled_date?.toISOString?.().split('T')[0] || task.scheduled_date;
+      await pool.query('DELETE FROM highlight_history WHERE user_id = $1 AND highlight_date = $2', [task.user_id, date]);
+    }
+    await pool.query('UPDATE tasks SET is_highlight = FALSE WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing highlight:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/highlight/:userId/date/:date - Get highlight task for specific date
+app.get('/api/highlight/:userId/date/:date', async (req, res) => {
+  try {
+    const { userId, date } = req.params;
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color,
+             hh.completed as highlight_completed
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      LEFT JOIN highlight_history hh ON hh.task_id = t.id AND hh.highlight_date = $2
+      WHERE t.user_id = $1 AND t.scheduled_date = $2 AND t.is_highlight = TRUE
+      LIMIT 1
+    `, [userId, date]);
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error fetching highlight:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/highlight/:userId/complete/:date - Complete highlight for specific date
+app.put('/api/highlight/:userId/complete/:date', async (req, res) => {
+  try {
+    const { userId, date } = req.params;
+    
+    const highlightResult = await pool.query(
+      `SELECT id FROM tasks WHERE user_id = $1 AND scheduled_date = $2 AND is_highlight = TRUE`,
+      [userId, date]
+    );
+    
+    if (highlightResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'No highlight task found for this date' });
+    }
+    
+    const taskId = highlightResult.rows[0].id;
+    
+    await pool.query(
+      `UPDATE tasks SET status = 'completed', completed_at = NOW(), highlight_completed_at = NOW() WHERE id = $1`,
+      [taskId]
+    );
+    
+    await pool.query(`
+      UPDATE highlight_history 
+      SET completed = TRUE, completed_at = NOW()
+      WHERE user_id = $1 AND highlight_date = $2
+    `, [userId, date]);
+    
+    res.json({ success: true, message: 'Highlight completed! 🌟' });
+  } catch (error) {
+    console.error('Error completing highlight:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/highlight/:userId/stats - Get highlight statistics
+app.get('/api/highlight/:userId/stats', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    const totalResult = await pool.query(
+      `SELECT COUNT(*) as total FROM highlight_history WHERE user_id = $1 AND completed = TRUE`,
+      [userId]
+    );
+    
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    const monthResult = await pool.query(
+      `SELECT COUNT(*) as total FROM highlight_history WHERE user_id = $1 AND completed = TRUE AND highlight_date >= $2`,
+      [userId, monthStart.toISOString().split('T')[0]]
+    );
+    
+    const streakResult = await pool.query(`
+      WITH dates AS (
+        SELECT highlight_date,
+          highlight_date - (ROW_NUMBER() OVER (ORDER BY highlight_date DESC))::int AS streak_group
+        FROM highlight_history
+        WHERE user_id = $1 AND completed = TRUE
+        ORDER BY highlight_date DESC
+      )
+      SELECT COUNT(*) as streak
+      FROM dates
+      WHERE streak_group = (SELECT streak_group FROM dates LIMIT 1)
+    `, [userId]);
+    
+    res.json({
+      totalHighlightsCompleted: parseInt(totalResult.rows[0].total),
+      highlightsThisMonth: parseInt(monthResult.rows[0].total),
+      currentStreak: parseInt(streakResult.rows[0]?.streak) || 0
+    });
+  } catch (error) {
+    console.error('Error fetching highlight stats:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

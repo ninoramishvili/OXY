@@ -27,10 +27,13 @@ function Productivity({ user }) {
   const [weeklyReview, setWeeklyReview] = useState({ review: null, goals: [] })
   const [newGoal, setNewGoal] = useState('')
   
-  // Eat The Frog state
-  const [todaysFrog, setTodaysFrog] = useState(null)
+  // Eat The Frog & Daily Highlight state
+  const [dayFrog, setDayFrog] = useState(null)
+  const [dayHighlight, setDayHighlight] = useState(null)
   const [frogStats, setFrogStats] = useState(null)
+  const [highlightStats, setHighlightStats] = useState(null)
   const [showFrogCelebration, setShowFrogCelebration] = useState(false)
+  const [showHighlightCelebration, setShowHighlightCelebration] = useState(false)
   
   const [draggedTask, setDraggedTask] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -157,10 +160,10 @@ function Productivity({ user }) {
   useEffect(() => {
     if (activeTab === 'analytics' || activeTab === 'daily-review') fetchDailyAnalytics()
     if (activeTab === 'analytics' || activeTab === 'weekly-review') fetchWeeklyAnalytics()
-    if (activeTab === 'analytics') { fetchMonthlyAnalytics(); fetchAllTimeAnalytics(); fetchFrogStats() }
+    if (activeTab === 'analytics') { fetchMonthlyAnalytics(); fetchAllTimeAnalytics(); fetchFrogStats(); fetchHighlightStats() }
     if (activeTab === 'daily-review') fetchDailyReview()
     if (activeTab === 'weekly-review') fetchWeeklyReview()
-    if (activeTab === 'day' || activeTab === 'backlog') { fetchTodaysFrog(); fetchFrogStats() }
+    if (activeTab === 'day') { fetchDayFrog(); fetchDayHighlight(); fetchFrogStats(); fetchHighlightStats() }
   }, [activeTab, selectedDate, weekStart, selectedMonth])
 
   const fetchData = async () => {
@@ -206,10 +209,17 @@ function Productivity({ user }) {
     } catch (error) { console.error('Error:', error) }
   }
 
-  const fetchTodaysFrog = async () => {
+  const fetchDayFrog = async () => {
     try {
-      const res = await fetch(`${API_BASE}/frog/${user.id}/today`)
-      setTodaysFrog(await res.json())
+      const res = await fetch(`${API_BASE}/frog/${user.id}/date/${selectedDate}`)
+      setDayFrog(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchDayHighlight = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/highlight/${user.id}/date/${selectedDate}`)
+      setDayHighlight(await res.json())
     } catch (error) { console.error('Error:', error) }
   }
 
@@ -217,6 +227,13 @@ function Productivity({ user }) {
     try {
       const res = await fetch(`${API_BASE}/frog/${user.id}/stats`)
       setFrogStats(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchHighlightStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/highlight/${user.id}/stats`)
+      setHighlightStats(await res.json())
     } catch (error) { console.error('Error:', error) }
   }
 
@@ -331,10 +348,10 @@ function Productivity({ user }) {
   // Eat The Frog handlers
   const handleSetFrog = async (taskId) => {
     try {
-      const res = await fetch(`${API_BASE}/tasks/${taskId}/frog`, { method: 'PUT' })
+      const res = await fetch(`${API_BASE}/tasks/${taskId}/frog/${selectedDate}`, { method: 'PUT' })
       if ((await res.json()).success) {
         showToast('Frog set! 🐸', 'success', '🐸')
-        fetchTodaysFrog()
+        fetchDayFrog()
         fetchData()
       }
     } catch { showToast('Failed', 'error', '✕') }
@@ -344,19 +361,53 @@ function Productivity({ user }) {
     try {
       await fetch(`${API_BASE}/tasks/${taskId}/frog`, { method: 'DELETE' })
       showToast('Frog removed', 'success', '✓')
-      setTodaysFrog(null)
+      setDayFrog(null)
       fetchData()
     } catch { showToast('Failed', 'error', '✕') }
   }
 
   const handleCompleteFrog = async () => {
     try {
-      const res = await fetch(`${API_BASE}/frog/${user.id}/complete`, { method: 'PUT' })
+      const res = await fetch(`${API_BASE}/frog/${user.id}/complete/${selectedDate}`, { method: 'PUT' })
       if ((await res.json()).success) {
         setShowFrogCelebration(true)
         setTimeout(() => setShowFrogCelebration(false), 3000)
-        fetchTodaysFrog()
+        fetchDayFrog()
         fetchFrogStats()
+        fetchData()
+      }
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  // Daily Highlight handlers
+  const handleSetHighlight = async (taskId) => {
+    try {
+      const res = await fetch(`${API_BASE}/tasks/${taskId}/highlight/${selectedDate}`, { method: 'PUT' })
+      if ((await res.json()).success) {
+        showToast('Highlight set! ⭐', 'success', '⭐')
+        fetchDayHighlight()
+        fetchData()
+      }
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleRemoveHighlight = async (taskId) => {
+    try {
+      await fetch(`${API_BASE}/tasks/${taskId}/highlight`, { method: 'DELETE' })
+      showToast('Highlight removed', 'success', '✓')
+      setDayHighlight(null)
+      fetchData()
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const handleCompleteHighlight = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/highlight/${user.id}/complete/${selectedDate}`, { method: 'PUT' })
+      if ((await res.json()).success) {
+        setShowHighlightCelebration(true)
+        setTimeout(() => setShowHighlightCelebration(false), 3000)
+        fetchDayHighlight()
+        fetchHighlightStats()
         fetchData()
       }
     } catch { showToast('Failed', 'error', '✕') }
@@ -480,7 +531,6 @@ function Productivity({ user }) {
                     </div>
                   </div>
                   <div className="bl-btns">
-                    <button onClick={() => handleSetFrog(t.id)} title="Set as today's frog" className={t.is_frog ? 'active-frog' : ''}>🐸</button>
                     <button onClick={() => handleScheduleTask(t.id, selectedDate, '09:00')}>📅</button>
                     <button onClick={() => handleDeleteClick(t)}>🗑️</button>
                   </div>
@@ -502,49 +552,75 @@ function Productivity({ user }) {
               <button onClick={() => changeDate(1)}>→</button>
             </div>
             
-            {/* Eat The Frog Banner */}
-            {isToday(selectedDate) && (
-              <div className={`frog-banner ${todaysFrog ? (todaysFrog.status === 'completed' ? 'completed' : 'active') : 'empty'}`}>
-                <div className="frog-header">
-                  <span className="frog-icon">🐸</span>
-                  <span className="frog-title">Eat The Frog</span>
-                  {frogStats && <span className="frog-streak">🔥 {frogStats.currentStreak} day streak</span>}
+            {/* Eat The Frog & Daily Highlight Banners */}
+            <div className="day-focus-cards">
+              {/* Frog Banner */}
+              <div className={`focus-card frog-card ${dayFrog ? (dayFrog.status === 'completed' ? 'completed' : 'active') : 'empty'}`}>
+                <div className="focus-header">
+                  <span className="focus-icon">🐸</span>
+                  <span className="focus-title">Eat The Frog</span>
+                  {frogStats && frogStats.currentStreak > 0 && <span className="focus-streak">🔥 {frogStats.currentStreak}</span>}
                 </div>
-                {todaysFrog ? (
-                  <div className="frog-task">
-                    <div className="frog-task-info">
-                      <span className="frog-task-icon">{todaysFrog.category_icon || '📋'}</span>
-                      <div className="frog-task-details">
-                        <span className="frog-task-title">{todaysFrog.title}</span>
-                        <span className="frog-task-meta">{formatDuration(todaysFrog.estimated_minutes)} • {todaysFrog.category_name || 'No category'}</span>
-                      </div>
+                <p className="focus-desc">Do the hardest task first</p>
+                {dayFrog ? (
+                  <div className="focus-task">
+                    <div className="focus-task-info">
+                      <span className="focus-task-icon">{dayFrog.category_icon || '📋'}</span>
+                      <span className="focus-task-title">{dayFrog.title}</span>
                     </div>
-                    <div className="frog-task-actions">
-                      {todaysFrog.status === 'completed' ? (
-                        <span className="frog-eaten">✓ Eaten!</span>
+                    <div className="focus-task-actions">
+                      {dayFrog.status === 'completed' ? (
+                        <span className="focus-done">✓ Done!</span>
                       ) : (
                         <>
-                          <button className="frog-complete-btn" onClick={handleCompleteFrog}>🍽️ Eat it!</button>
-                          <button className="frog-remove-btn" onClick={() => handleRemoveFrog(todaysFrog.id)}>×</button>
+                          <button className="focus-complete-btn frog" onClick={handleCompleteFrog}>Eat it!</button>
+                          <button className="focus-remove-btn" onClick={() => handleRemoveFrog(dayFrog.id)}>×</button>
                         </>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="frog-empty">
-                    <p>No frog set for today! Pick your hardest task and mark it as today's frog 🐸</p>
-                    <small>Tip: Click the 🐸 button on any task to set it as your frog</small>
-                  </div>
+                  <div className="focus-empty">Click 🐸 on a task below</div>
                 )}
               </div>
-            )}
+
+              {/* Highlight Banner */}
+              <div className={`focus-card highlight-card ${dayHighlight ? (dayHighlight.status === 'completed' ? 'completed' : 'active') : 'empty'}`}>
+                <div className="focus-header">
+                  <span className="focus-icon">⭐</span>
+                  <span className="focus-title">Daily Highlight</span>
+                  {highlightStats && highlightStats.currentStreak > 0 && <span className="focus-streak">🔥 {highlightStats.currentStreak}</span>}
+                </div>
+                <p className="focus-desc">If I do only this, day is a success</p>
+                {dayHighlight ? (
+                  <div className="focus-task">
+                    <div className="focus-task-info">
+                      <span className="focus-task-icon">{dayHighlight.category_icon || '📋'}</span>
+                      <span className="focus-task-title">{dayHighlight.title}</span>
+                    </div>
+                    <div className="focus-task-actions">
+                      {dayHighlight.status === 'completed' ? (
+                        <span className="focus-done">✓ Done!</span>
+                      ) : (
+                        <>
+                          <button className="focus-complete-btn highlight" onClick={handleCompleteHighlight}>Complete!</button>
+                          <button className="focus-remove-btn" onClick={() => handleRemoveHighlight(dayHighlight.id)}>×</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="focus-empty">Click ⭐ on a task below</div>
+                )}
+              </div>
+            </div>
             
             <div className={`calendar-grid day-calendar ${isDragging ? 'drag-active' : ''}`}>
               <div className="time-column">{timeSlots.map(time => <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>)}</div>
               <div className="slots-column">
                 {timeSlots.map(time => <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: DAY_SLOT_HEIGHT }} onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)} onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)} onDragOver={handleDragOver} onDrop={(e) => handleDropOnSlot(e, selectedDate, time)} />)}
                 {(() => { const range = getSelectionRange(selectedDate); if (!range) return null; return <div className="selection-overlay" style={{ top: range.startIdx * DAY_SLOT_HEIGHT, height: range.slots * DAY_SLOT_HEIGHT }} /> })()}
-                {(() => { const positions = getTaskPositions(dayTasks); return dayTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; return <div key={task.id} className={`cal-task ${task.status}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
+                {(() => { const positions = getTaskPositions(dayTasks); return dayTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; return <div key={task.id} className={`cal-task ${task.status} ${task.is_frog ? 'is-frog' : ''} ${task.is_highlight ? 'is-highlight' : ''}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><div className="ct-badges">{task.is_frog && <span className="ct-badge frog">🐸</span>}{task.is_highlight && <span className="ct-badge highlight">⭐</span>}</div><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <><button onClick={(e) => { e.stopPropagation(); handleSetFrog(task.id) }} className={task.is_frog ? 'active' : ''} title="Set as frog">🐸</button><button onClick={(e) => { e.stopPropagation(); handleSetHighlight(task.id) }} className={task.is_highlight ? 'active' : ''} title="Set as highlight">⭐</button><button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button></>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
               </div>
             </div>
           </div>
@@ -1037,16 +1113,34 @@ function Productivity({ user }) {
 
       {/* Frog Celebration */}
       {showFrogCelebration && (
-        <div className="frog-celebration">
-          <div className="frog-celebration-content">
-            <div className="frog-fireworks">🎉</div>
-            <div className="frog-big">🐸</div>
+        <div className="celebration-overlay" onClick={() => setShowFrogCelebration(false)}>
+          <div className="celebration-content frog">
+            <div className="celebration-emoji">🎉</div>
+            <div className="celebration-icon">🐸</div>
             <h2>Frog Eaten!</h2>
-            <p>You completed your hardest task first!</p>
+            <p>You tackled your hardest task!</p>
             {frogStats && (
-              <div className="frog-celebration-stats">
+              <div className="celebration-stats">
                 <span>🔥 {frogStats.currentStreak} day streak</span>
-                <span>🏆 {frogStats.frogsThisMonth} frogs this month</span>
+                <span>🏆 {frogStats.frogsThisMonth} this month</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Highlight Celebration */}
+      {showHighlightCelebration && (
+        <div className="celebration-overlay" onClick={() => setShowHighlightCelebration(false)}>
+          <div className="celebration-content highlight">
+            <div className="celebration-emoji">🌟</div>
+            <div className="celebration-icon">⭐</div>
+            <h2>Day Made!</h2>
+            <p>You completed your daily highlight!</p>
+            {highlightStats && (
+              <div className="celebration-stats">
+                <span>🔥 {highlightStats.currentStreak} day streak</span>
+                <span>⭐ {highlightStats.highlightsThisMonth} this month</span>
               </div>
             )}
           </div>

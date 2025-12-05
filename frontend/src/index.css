@@ -8272,47 +8272,60 @@ body {
 .month-bar-label { font-size: 0.6rem; font-weight: 600; color: var(--text-dark); }
 .month-bar-tasks { font-size: 0.55rem; color: var(--text-muted); }
 
-/* ============ EAT THE FROG ============ */
-.frog-banner { background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: var(--space-sm); margin-bottom: var(--space-sm); }
-.frog-banner.active { border-color: #22C55E; background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(20,184,166,0.05)); }
-.frog-banner.completed { border-color: #10B981; background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(34,197,94,0.1)); }
-.frog-banner.empty { border-style: dashed; opacity: 0.8; }
+/* ============ EAT THE FROG & DAILY HIGHLIGHT ============ */
+.day-focus-cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 
-.frog-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.frog-icon { font-size: 1.5rem; }
-.frog-title { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
-.frog-streak { margin-left: auto; font-size: 0.8rem; font-weight: 600; color: #F59E0B; background: rgba(245,158,11,0.1); padding: 4px 10px; border-radius: 12px; }
+.focus-card { background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 12px; }
+.focus-card.frog-card { border-left: 4px solid #22C55E; }
+.focus-card.highlight-card { border-left: 4px solid #F59E0B; }
+.focus-card.active.frog-card { background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02)); border-color: #22C55E; }
+.focus-card.active.highlight-card { background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02)); border-color: #F59E0B; }
+.focus-card.completed { opacity: 0.8; }
+.focus-card.empty { border-style: dashed; opacity: 0.7; }
 
-.frog-task { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: var(--background); border-radius: 8px; }
-.frog-task-info { display: flex; align-items: center; gap: 10px; flex: 1; }
-.frog-task-icon { font-size: 1.5rem; }
-.frog-task-details { display: flex; flex-direction: column; }
-.frog-task-title { font-size: 1rem; font-weight: 600; color: var(--text-dark); }
-.frog-task-meta { font-size: 0.8rem; color: var(--text-muted); }
-.frog-task-actions { display: flex; align-items: center; gap: 8px; }
+.focus-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.focus-icon { font-size: 1.2rem; }
+.focus-title { font-size: 0.85rem; font-weight: 700; color: var(--text-dark); }
+.focus-streak { margin-left: auto; font-size: 0.7rem; font-weight: 600; color: #F59E0B; background: rgba(245,158,11,0.15); padding: 2px 8px; border-radius: 10px; }
 
-.frog-complete-btn { background: linear-gradient(135deg, #22C55E, #10B981); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.frog-complete-btn:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
-.frog-remove-btn { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px 8px; }
-.frog-remove-btn:hover { color: var(--error); }
-.frog-eaten { font-size: 1rem; font-weight: 700; color: #10B981; }
+.focus-desc { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 8px; }
 
-.frog-empty { text-align: center; padding: 10px; }
-.frog-empty p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 4px; }
-.frog-empty small { font-size: 0.75rem; color: var(--text-muted); opacity: 0.8; }
+.focus-task { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; background: var(--background); border-radius: 6px; }
+.focus-task-info { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.focus-task-icon { font-size: 1rem; flex-shrink: 0; }
+.focus-task-title { font-size: 0.8rem; font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.focus-task-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
-/* Frog button in task list */
-.bl-btns button.active-frog { background: rgba(34,197,94,0.2); border-radius: 4px; }
+.focus-complete-btn { border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; color: white; }
+.focus-complete-btn.frog { background: linear-gradient(135deg, #22C55E, #16A34A); }
+.focus-complete-btn.highlight { background: linear-gradient(135deg, #F59E0B, #D97706); }
+.focus-complete-btn:hover { transform: scale(1.05); }
+.focus-remove-btn { background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; padding: 2px 4px; }
+.focus-remove-btn:hover { color: var(--error); }
+.focus-done { font-size: 0.8rem; font-weight: 700; color: #10B981; }
+.focus-empty { font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 8px; }
 
-/* Frog Celebration */
-.frog-celebration { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.3s ease; }
-.frog-celebration-content { background: white; border-radius: 20px; padding: 40px 60px; text-align: center; animation: bounceIn 0.5s ease; }
-.frog-fireworks { font-size: 3rem; animation: firework 1s ease infinite; }
-.frog-big { font-size: 5rem; margin: 10px 0; animation: bounce 0.5s ease infinite; }
-.frog-celebration h2 { font-size: 2rem; color: var(--text-dark); margin: 10px 0; }
-.frog-celebration p { font-size: 1rem; color: var(--text-muted); margin-bottom: 20px; }
-.frog-celebration-stats { display: flex; gap: 20px; justify-content: center; }
-.frog-celebration-stats span { font-size: 1rem; font-weight: 600; padding: 8px 16px; background: var(--background); border-radius: 8px; }
+/* Task badges for frog/highlight */
+.ct-badges { position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; }
+.ct-badge { font-size: 0.6rem; background: rgba(255,255,255,0.9); border-radius: 4px; padding: 1px 3px; }
+.cal-task.is-frog { box-shadow: 0 0 0 2px #22C55E; }
+.cal-task.is-highlight { box-shadow: 0 0 0 2px #F59E0B; }
+.cal-task.is-frog.is-highlight { box-shadow: 0 0 0 2px #22C55E, 0 0 0 4px #F59E0B; }
+
+/* Frog/Highlight buttons in task */
+.ct-btns button.active { background: rgba(255,255,255,0.3) !important; border-radius: 3px; }
+
+/* Celebration Modal */
+.celebration-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.3s ease; cursor: pointer; }
+.celebration-content { background: white; border-radius: 20px; padding: 30px 50px; text-align: center; animation: bounceIn 0.5s ease; cursor: default; }
+.celebration-content.frog { border-top: 4px solid #22C55E; }
+.celebration-content.highlight { border-top: 4px solid #F59E0B; }
+.celebration-emoji { font-size: 2.5rem; animation: firework 1s ease infinite; }
+.celebration-icon { font-size: 4rem; margin: 10px 0; animation: bounce 0.5s ease infinite; }
+.celebration-content h2 { font-size: 1.5rem; color: var(--text-dark); margin: 10px 0 5px; }
+.celebration-content p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px; }
+.celebration-stats { display: flex; gap: 15px; justify-content: center; }
+.celebration-stats span { font-size: 0.85rem; font-weight: 600; padding: 6px 12px; background: var(--background); border-radius: 8px; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
@@ -8320,11 +8333,10 @@ body {
 @keyframes firework { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 
 @media (max-width: 768px) {
-  .frog-banner { padding: var(--space-xs); }
-  .frog-task { flex-direction: column; align-items: flex-start; }
-  .frog-task-actions { width: 100%; justify-content: flex-end; }
-  .frog-celebration-content { padding: 20px 30px; margin: 20px; }
-  .frog-big { font-size: 3rem; }
+  .day-focus-cards { grid-template-columns: 1fr; }
+  .focus-card { padding: 10px; }
+  .celebration-content { padding: 20px 30px; margin: 20px; }
+  .celebration-icon { font-size: 3rem; }
 }
 
 @media (max-width: 768px) {
