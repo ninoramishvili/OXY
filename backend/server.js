@@ -1755,21 +1755,21 @@ app.post('/api/tasks', async (req, res) => {
     // Determine status based on whether it's scheduled
     const status = scheduledDate ? 'planned' : 'backlog';
     
-    // Create the main task
-    const result = await pool.query(
-      `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
-        scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
-        is_recurring, recurrence_rule, recurrence_end_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-      [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
-       scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status,
-       isRecurring || false, recurrenceRule || null, recurrenceEndDate || null]
-    );
-    
-    const mainTask = result.rows[0];
-    
-    // If recurring, generate child tasks
+    // If recurring, create a template task (no schedule) and generate all instances
     if (isRecurring && recurrenceRule && scheduledDate) {
+      // Create the parent template task (stores recurrence info but not scheduled itself)
+      const result = await pool.query(
+        `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
+          scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
+          is_recurring, recurrence_rule, recurrence_end_date)
+         VALUES ($1, $2, $3, $4, $5, $6, NULL, NULL, NULL, NULL, 'backlog', $7, $8, $9) RETURNING *`,
+        [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+         true, recurrenceRule, recurrenceEndDate || null]
+      );
+      
+      const parentTask = result.rows[0];
+      
+      // Generate all recurring instances including the first day
       const startDate = new Date(scheduledDate);
       const endDate = recurrenceEndDate ? new Date(recurrenceEndDate) : new Date(startDate);
       if (!recurrenceEndDate) {
@@ -1777,7 +1777,6 @@ app.post('/api/tasks', async (req, res) => {
       }
       
       let currentDate = new Date(startDate);
-      currentDate.setDate(currentDate.getDate() + 1); // Start from next day
       
       while (currentDate <= endDate) {
         let shouldCreate = false;
@@ -1804,15 +1803,28 @@ app.post('/api/tasks', async (req, res) => {
              scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status, parent_task_id)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planned', $11)`,
             [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
-             dateStr, scheduledTime, dateStr, scheduledEndTime, mainTask.id]
+             dateStr, scheduledTime, dateStr, scheduledEndTime, parentTask.id]
           );
         }
         
         currentDate.setDate(currentDate.getDate() + 1);
       }
+      
+      res.status(201).json({ success: true, task: parentTask });
+    } else {
+      // Non-recurring task - create normally
+      const result = await pool.query(
+        `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes, 
+          scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
+          is_recurring, recurrence_rule, recurrence_end_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+        [userId, title, description, categoryId, priority || 'medium', estimatedMinutes || 30,
+         scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status,
+         false, null, null]
+      );
+      
+      res.status(201).json({ success: true, task: result.rows[0] });
     }
-    
-    res.status(201).json({ success: true, task: mainTask });
   } catch (error) {
     console.error('Error creating task:', error);
     res.status(500).json({ success: false, message: 'Server error' });
