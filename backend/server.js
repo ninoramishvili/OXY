@@ -1902,6 +1902,349 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
+// ============ TIME TRACKING ============
+
+// PUT /api/tasks/:id/start - Start tracking time on a task
+app.put('/api/tasks/:id/start', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    
+    // First, stop any other active tasks for this user
+    const task = await pool.query('SELECT user_id FROM tasks WHERE id = $1', [taskId]);
+    if (task.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+    const userId = task.rows[0].user_id;
+    
+    // Stop other active tasks
+    await pool.query(
+      `UPDATE tasks SET is_active = FALSE WHERE user_id = $1 AND is_active = TRUE`,
+      [userId]
+    );
+    
+    // Start this task
+    await pool.query(
+      `UPDATE tasks SET is_active = TRUE, started_at = NOW(), status = 'in_progress' WHERE id = $1`,
+      [taskId]
+    );
+    
+    // Create a time entry
+    await pool.query(
+      `INSERT INTO time_entries (task_id, user_id, start_time, entry_date)
+       VALUES ($1, $2, NOW(), CURRENT_DATE)`,
+      [taskId, userId]
+    );
+    
+    res.json({ success: true, message: 'Timer started' });
+  } catch (error) {
+    console.error('Error starting task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/tasks/:id/stop - Stop tracking time on a task
+app.put('/api/tasks/:id/stop', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    
+    // Get the active time entry
+    const entryResult = await pool.query(
+      `SELECT id, start_time FROM time_entries 
+       WHERE task_id = $1 AND end_time IS NULL 
+       ORDER BY start_time DESC LIMIT 1`,
+      [taskId]
+    );
+    
+    if (entryResult.rows.length > 0) {
+      const entry = entryResult.rows[0];
+      const durationMinutes = Math.round((Date.now() - new Date(entry.start_time).getTime()) / 60000);
+      
+      // Update the time entry
+      await pool.query(
+        `UPDATE time_entries SET end_time = NOW(), duration_minutes = $1 WHERE id = $2`,
+        [durationMinutes, entry.id]
+      );
+      
+      // Update the task's actual_minutes
+      await pool.query(
+        `UPDATE tasks SET 
+         actual_minutes = COALESCE(actual_minutes, 0) + $1,
+         is_active = FALSE,
+         started_at = NULL
+         WHERE id = $2`,
+        [durationMinutes, taskId]
+      );
+    } else {
+      // Just stop the task if no entry found
+      await pool.query(
+        `UPDATE tasks SET is_active = FALSE, started_at = NULL WHERE id = $1`,
+        [taskId]
+      );
+    }
+    
+    res.json({ success: true, message: 'Timer stopped' });
+  } catch (error) {
+    console.error('Error stopping task:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/tasks/:userId/active - Get the currently active task
+app.get('/api/tasks/:userId/active', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.is_active = TRUE
+      LIMIT 1
+    `, [req.params.userId]);
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error fetching active task:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/time-entries/:userId - Get time entries for a user
+app.get('/api/time-entries/:userId', async (req, res) => {
+  try {
+    const { date, startDate, endDate } = req.query;
+    let query = `
+      SELECT te.*, t.title as task_title, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM time_entries te
+      JOIN tasks t ON te.task_id = t.id
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE te.user_id = $1
+    `;
+    const params = [req.params.userId];
+    
+    if (date) {
+      query += ` AND te.entry_date = $2`;
+      params.push(date);
+    } else if (startDate && endDate) {
+      query += ` AND te.entry_date BETWEEN $2 AND $3`;
+      params.push(startDate, endDate);
+    }
+    
+    query += ` ORDER BY te.start_time DESC`;
+    
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching time entries:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/time-entries/:userId/stats - Get time tracking stats
+app.get('/api/time-entries/:userId/stats', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const today = new Date().toISOString().split('T')[0];
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    
+    // Today's total
+    const todayResult = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as total 
+       FROM time_entries WHERE user_id = $1 AND entry_date = $2`,
+      [userId, today]
+    );
+    
+    // This week's total
+    const weekResult = await pool.query(
+      `SELECT COALESCE(SUM(duration_minutes), 0) as total 
+       FROM time_entries WHERE user_id = $1 AND entry_date >= $2`,
+      [userId, weekStartStr]
+    );
+    
+    // Category breakdown for today
+    const categoryResult = await pool.query(`
+      SELECT c.name, c.icon, c.color, COALESCE(SUM(te.duration_minutes), 0) as minutes
+      FROM time_entries te
+      JOIN tasks t ON te.task_id = t.id
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE te.user_id = $1 AND te.entry_date = $2
+      GROUP BY c.id, c.name, c.icon, c.color
+      ORDER BY minutes DESC
+    `, [userId, today]);
+    
+    // Tasks completed today
+    const completedResult = await pool.query(
+      `SELECT COUNT(*) as count FROM tasks 
+       WHERE user_id = $1 AND status = 'completed' AND DATE(completed_at) = $2`,
+      [userId, today]
+    );
+    
+    res.json({
+      todayMinutes: parseInt(todayResult.rows[0].total),
+      weekMinutes: parseInt(weekResult.rows[0].total),
+      categories: categoryResult.rows,
+      tasksCompleted: parseInt(completedResult.rows[0].count)
+    });
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/time-entries - Manual time entry
+app.post('/api/time-entries', async (req, res) => {
+  try {
+    const { taskId, userId, startTime, endTime, durationMinutes, date, notes } = req.body;
+    
+    const result = await pool.query(
+      `INSERT INTO time_entries (task_id, user_id, start_time, end_time, duration_minutes, entry_date, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [taskId, userId, startTime, endTime, durationMinutes, date, notes]
+    );
+    
+    // Update task's actual_minutes
+    await pool.query(
+      `UPDATE tasks SET actual_minutes = COALESCE(actual_minutes, 0) + $1 WHERE id = $2`,
+      [durationMinutes, taskId]
+    );
+    
+    res.status(201).json({ success: true, entry: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating time entry:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/time-entries/:id - Delete time entry
+app.delete('/api/time-entries/:id', async (req, res) => {
+  try {
+    // Get the entry to update task actual_minutes
+    const entry = await pool.query('SELECT task_id, duration_minutes FROM time_entries WHERE id = $1', [req.params.id]);
+    
+    if (entry.rows.length > 0) {
+      // Subtract from task's actual_minutes
+      await pool.query(
+        `UPDATE tasks SET actual_minutes = GREATEST(0, COALESCE(actual_minutes, 0) - $1) WHERE id = $2`,
+        [entry.rows[0].duration_minutes || 0, entry.rows[0].task_id]
+      );
+    }
+    
+    await pool.query('DELETE FROM time_entries WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting time entry:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ RECURRING TASKS ============
+
+// POST /api/tasks/:id/recurring - Set task as recurring
+app.put('/api/tasks/:id/recurring', async (req, res) => {
+  try {
+    const { isRecurring, recurrenceRule, recurrenceEndDate } = req.body;
+    
+    await pool.query(
+      `UPDATE tasks SET is_recurring = $1, recurrence_rule = $2, recurrence_end_date = $3 WHERE id = $4`,
+      [isRecurring, recurrenceRule, recurrenceEndDate, req.params.id]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating recurring:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/tasks/:id/generate-recurring - Generate recurring task instances
+app.post('/api/tasks/:id/generate-recurring', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const { days } = req.body; // How many days ahead to generate
+    
+    // Get the parent task
+    const taskResult = await pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]);
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+    
+    const task = taskResult.rows[0];
+    if (!task.is_recurring || !task.recurrence_rule) {
+      return res.status(400).json({ success: false, message: 'Task is not recurring' });
+    }
+    
+    const createdTasks = [];
+    const startDate = task.scheduled_date ? new Date(task.scheduled_date) : new Date();
+    const endDate = task.recurrence_end_date ? new Date(task.recurrence_end_date) : new Date();
+    endDate.setDate(endDate.getDate() + (days || 30));
+    
+    let currentDate = new Date(startDate);
+    currentDate.setDate(currentDate.getDate() + 1); // Start from next occurrence
+    
+    while (currentDate <= endDate) {
+      let shouldCreate = false;
+      
+      switch (task.recurrence_rule) {
+        case 'daily':
+          shouldCreate = true;
+          break;
+        case 'weekly':
+          shouldCreate = currentDate.getDay() === startDate.getDay();
+          break;
+        case 'weekdays':
+          shouldCreate = currentDate.getDay() >= 1 && currentDate.getDay() <= 5;
+          break;
+        case 'monthly':
+          shouldCreate = currentDate.getDate() === startDate.getDate();
+          break;
+      }
+      
+      if (shouldCreate) {
+        // Check if instance already exists
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const existing = await pool.query(
+          `SELECT id FROM tasks WHERE parent_task_id = $1 AND scheduled_date = $2`,
+          [taskId, dateStr]
+        );
+        
+        if (existing.rows.length === 0) {
+          const result = await pool.query(
+            `INSERT INTO tasks (user_id, title, description, category_id, priority, estimated_minutes,
+             scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status, parent_task_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'planned', $11) RETURNING *`,
+            [task.user_id, task.title, task.description, task.category_id, task.priority, 
+             task.estimated_minutes, dateStr, task.scheduled_time, dateStr, task.scheduled_end_time, taskId]
+          );
+          createdTasks.push(result.rows[0]);
+        }
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    res.json({ success: true, created: createdTasks.length, tasks: createdTasks });
+  } catch (error) {
+    console.error('Error generating recurring tasks:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/tasks/:userId/recurring - Get all recurring task templates
+app.get('/api/tasks/:userId/recurring', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.is_recurring = TRUE AND t.parent_task_id IS NULL
+      ORDER BY t.title
+    `, [req.params.userId]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching recurring tasks:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);
