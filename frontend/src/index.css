@@ -8388,6 +8388,37 @@ body {
 .view-toggle-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
 .view-toggle-btn:hover { border-color: var(--primary); }
 
+/* ============ POMODORO TIMER ============ */
+.pomodoro-timer { position: fixed; bottom: 20px; right: 20px; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 1000; min-width: 280px; }
+.pomo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.pomo-title { font-size: 0.9rem; font-weight: 700; color: var(--text-dark); }
+.pomo-close { background: none; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; padding: 0; }
+.pomo-close:hover { color: var(--error); }
+.pomo-sessions { display: flex; gap: 4px; margin-bottom: 16px; justify-content: center; }
+.pomo-tomato { font-size: 1.5rem; opacity: 0.3; }
+.pomo-tomato.active { opacity: 1; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+.pomo-display { text-align: center; margin-bottom: 16px; }
+.pomo-time { font-size: 3rem; font-weight: 700; color: var(--primary); font-family: monospace; letter-spacing: 2px; }
+.pomo-task-link { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; padding: 6px 10px; background: var(--surface); border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.pomo-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+.pomo-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.pomo-btn-start { background: linear-gradient(135deg, #10B981, #059669); color: white; }
+.pomo-btn-pause { background: linear-gradient(135deg, #F59E0B, #D97706); color: white; }
+.pomo-btn-stop { background: linear-gradient(135deg, #EF4444, #DC2626); color: white; }
+.pomo-btn:hover { transform: scale(1.02); }
+.pomo-quick-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pomo-quick-btn { padding: 8px; border: 2px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.pomo-quick-btn:hover { border-color: var(--primary); background: rgba(20,184,166,0.1); }
+.pomo-stats { display: flex; justify-content: space-around; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.75rem; }
+.pomo-stat { text-align: center; }
+.pomo-stat-value { display: block; font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+.pomo-stat-label { color: var(--text-muted); margin-top: 2px; }
+.pomo-fab { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #EF4444, #DC2626); color: white; border: none; font-size: 1.8rem; cursor: pointer; box-shadow: 0 4px 20px rgba(239,68,68,0.4); transition: all 0.3s; z-index: 999; }
+.pomo-fab:hover { transform: scale(1.1); box-shadow: 0 6px 30px rgba(239,68,68,0.6); }
+.task-pomo-btn { background: none; border: 2px solid #EF4444; color: #EF4444; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.task-pomo-btn:hover { background: #EF4444; color: white; }
+
 /* ============ 2-MINUTE RULE ============ */
 .quick-task-box { background: linear-gradient(135deg, rgba(252,211,77,0.1), rgba(245,158,11,0.05)); border: 2px solid #FCD34D; border-radius: 8px; padding: 12px; margin: 12px 0; }
 .quick-task-toggle { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-dark); cursor: pointer; }

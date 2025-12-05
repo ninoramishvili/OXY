@@ -56,6 +56,13 @@ function Productivity({ user }) {
   const [backlogView, setBacklogView] = useState('list') // 'list' or 'matrix'
   const [show2MinPrompt, setShow2MinPrompt] = useState(false)
   const [twoMinTask, setTwoMinTask] = useState(null)
+  
+  // Pomodoro Timer
+  const [pomodoroActive, setPomodoroActive] = useState(null)
+  const [pomodoroTime, setPomodoroTime] = useState(0) // seconds remaining
+  const [pomodoroSession, setPomodoroSession] = useState(0) // 1-4 for tracking long break
+  const [pomodoroStats, setPomodoroStats] = useState(null)
+  const [showPomodoroTimer, setShowPomodoroTimer] = useState(false)
   const [newCategory, setNewCategory] = useState({ name: '', icon: '📋', color: '#6B7280' })
 
   // Helper to safely format date for input (avoid timezone issues)
@@ -343,6 +350,120 @@ function Productivity({ user }) {
       }
     } catch { showToast('Failed', 'error', '✕') }
   }
+
+  // ============ POMODORO FUNCTIONS ============
+  
+  const fetchActivePomodoro = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/pomodoro/${user.id}/active`)
+      const session = await res.json()
+      if (session) {
+        setPomodoroActive(session)
+        // Calculate remaining time
+        const startedAt = new Date(session.started_at)
+        const elapsedSeconds = Math.floor((Date.now() - startedAt.getTime()) / 1000)
+        const totalSeconds = session.duration_minutes * 60
+        const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds)
+        setPomodoroTime(remainingSeconds)
+        setShowPomodoroTimer(true)
+      }
+    } catch (error) {
+      console.error('Error fetching active pomodoro:', error)
+    }
+  }
+
+  const fetchPomodoroStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/pomodoro/${user.id}/stats`)
+      const stats = await res.json()
+      setPomodoroStats(stats)
+    } catch (error) {
+      console.error('Error fetching pomodoro stats:', error)
+    }
+  }
+
+  const startPomodoro = async (taskId = null, sessionType = 'work', duration = 25) => {
+    try {
+      const res = await fetch(`${API_BASE}/pomodoro/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, taskId, sessionType, durationMinutes: duration })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPomodoroActive(data.session)
+        setPomodoroTime(duration * 60)
+        setShowPomodoroTimer(true)
+        showToast('🍅 Pomodoro started!', 'success', '✓')
+      }
+    } catch { showToast('Failed to start', 'error', '✕') }
+  }
+
+  const completePomodoro = async () => {
+    if (!pomodoroActive) return
+    try {
+      await fetch(`${API_BASE}/pomodoro/${pomodoroActive.id}/complete`, { method: 'PUT' })
+      
+      // Auto-increment session counter
+      const newSession = pomodoroSession + 1
+      setPomodoroSession(newSession)
+      
+      // Check if it's time for long break (after 4 pomodoros)
+      if (newSession >= 4 && pomodoroActive.session_type === 'work') {
+        showToast('🎉 4 Pomodoros done! Take a long break!', 'success', '✓')
+        setPomodoroSession(0)
+      } else if (pomodoroActive.session_type === 'work') {
+        showToast('🍅 Pomodoro complete! Take a break!', 'success', '✓')
+      } else {
+        showToast('Break done! Ready for next pomodoro', 'success', '✓')
+      }
+      
+      setPomodoroActive(null)
+      setPomodoroTime(0)
+      fetchPomodoroStats()
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  const interruptPomodoro = async () => {
+    if (!pomodoroActive) return
+    try {
+      await fetch(`${API_BASE}/pomodoro/${pomodoroActive.id}/interrupt`, { method: 'PUT' })
+      setPomodoroActive(null)
+      setPomodoroTime(0)
+      setShowPomodoroTimer(false)
+      showToast('Pomodoro stopped', 'info', 'ℹ')
+    } catch { showToast('Failed', 'error', '✕') }
+  }
+
+  // Timer countdown effect
+  React.useEffect(() => {
+    if (!pomodoroActive || pomodoroTime <= 0) return
+    
+    const interval = setInterval(() => {
+      setPomodoroTime(prev => {
+        if (prev <= 1) {
+          completePomodoro()
+          // Browser notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('🍅 Pomodoro Complete!', {
+              body: pomodoroActive.session_type === 'work' ? 'Take a break!' : 'Time to focus!',
+              icon: '/favicon.ico'
+            })
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    
+    return () => clearInterval(interval)
+  }, [pomodoroActive, pomodoroTime])
+
+  // Load pomodoro on mount
+  React.useEffect(() => {
+    fetchActivePomodoro()
+    fetchPomodoroStats()
+  }, [])
 
   const handleEditTask = async (e) => {
     e.preventDefault()
@@ -645,6 +766,7 @@ function Productivity({ user }) {
                         </div>
                       </div>
                       <div className="bl-btns">
+                        <button onClick={(e) => { e.stopPropagation(); startPomodoro(t.id, 'work', 25) }} title="Start Pomodoro" className="task-pomo-btn">🍅</button>
                         <button onClick={() => handleScheduleTask(t.id, selectedDate, '09:00')}>📅</button>
                         <button onClick={() => handleDeleteClick(t)}>🗑️</button>
                       </div>
@@ -1418,7 +1540,12 @@ function Productivity({ user }) {
                 </div>
               )}
               
-              <div className="modal-btns"><button type="button" className="btn btn-danger" onClick={() => handleDeleteClick(showEditTask)}>🗑️</button><button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
+              <div className="modal-btns">
+                <button type="button" className="btn btn-danger" onClick={() => handleDeleteClick(showEditTask)}>🗑️</button>
+                <button type="button" className="task-pomo-btn" onClick={(e) => { e.preventDefault(); startPomodoro(showEditTask.id, 'work', 25); setShowEditTask(null) }}>🍅 Start Pomodoro</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save</button>
+              </div>
             </form>
           </div>
         </div>
@@ -1518,6 +1645,70 @@ function Productivity({ user }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pomodoro Timer */}
+      {showPomodoroTimer && pomodoroActive ? (
+        <div className="pomodoro-timer">
+          <div className="pomo-header">
+            <span className="pomo-title">🍅 Pomodoro Timer</span>
+            <button className="pomo-close" onClick={() => setShowPomodoroTimer(false)}>−</button>
+          </div>
+          
+          <div className="pomo-sessions">
+            {[1,2,3,4].map(i => (
+              <span key={i} className={`pomo-tomato ${i <= pomodoroSession ? 'active' : ''}`}>🍅</span>
+            ))}
+          </div>
+          
+          <div className="pomo-display">
+            <div className="pomo-time">
+              {Math.floor(pomodoroTime / 60).toString().padStart(2, '0')}:{(pomodoroTime % 60).toString().padStart(2, '0')}
+            </div>
+            {pomodoroActive.task_title && (
+              <div className="pomo-task-link">
+                <span>{pomodoroActive.task_icon || '📋'}</span>
+                <span>{pomodoroActive.task_title}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="pomo-controls">
+            <button className="pomo-btn pomo-btn-stop" onClick={interruptPomodoro}>⏹ Stop</button>
+          </div>
+          
+          <div className="pomo-quick-btns">
+            <button className="pomo-quick-btn" onClick={() => startPomodoro(pomodoroActive.task_id, 'short_break', 5)}>
+              ☕ Break (5min)
+            </button>
+            <button className="pomo-quick-btn" onClick={() => startPomodoro(pomodoroActive.task_id, 'long_break', 15)}>
+              🏖️ Long (15min)
+            </button>
+          </div>
+          
+          {pomodoroStats && (
+            <div className="pomo-stats">
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{pomodoroStats.todayCount}</span>
+                <span className="pomo-stat-label">Today</span>
+              </div>
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{pomodoroStats.todayMinutes}m</span>
+                <span className="pomo-stat-label">Focus Time</span>
+              </div>
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{pomodoroStats.bestStreak}</span>
+                <span className="pomo-stat-label">Best Streak</span>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        !pomodoroActive && (
+          <button className="pomo-fab" onClick={() => startPomodoro(null, 'work', 25)} title="Start Pomodoro">
+            🍅
+          </button>
+        )
       )}
 
       {message.text && <div className={`toast ${message.type}`}><span>{message.icon}</span> {message.text}</div>}

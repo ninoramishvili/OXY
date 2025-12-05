@@ -3177,6 +3177,127 @@ app.get('/api/highlight/:userId/stats', async (req, res) => {
   }
 });
 
+// ============ POMODORO TIMER ============
+
+// POST /api/pomodoro/start - Start a new pomodoro session
+app.post('/api/pomodoro/start', async (req, res) => {
+  try {
+    const { userId, taskId, sessionType, durationMinutes } = req.body;
+    
+    // End any existing active session for this user
+    await pool.query(
+      `UPDATE pomodoro_sessions SET was_interrupted = TRUE, completed_at = NOW() 
+       WHERE user_id = $1 AND completed_at IS NULL`,
+      [userId]
+    );
+    
+    // Create new session
+    const result = await pool.query(
+      `INSERT INTO pomodoro_sessions (user_id, task_id, session_type, duration_minutes, started_at)
+       VALUES ($1, $2, $3, $4, NOW()) RETURNING *`,
+      [userId, taskId || null, sessionType || 'work', durationMinutes || 25]
+    );
+    
+    res.json({ success: true, session: result.rows[0] });
+  } catch (error) {
+    console.error('Error starting pomodoro:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/pomodoro/:id/complete - Complete a pomodoro session
+app.put('/api/pomodoro/:id/complete', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE pomodoro_sessions SET completed_at = NOW(), was_interrupted = FALSE 
+       WHERE id = $1`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error completing pomodoro:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/pomodoro/:id/interrupt - Mark pomodoro as interrupted
+app.put('/api/pomodoro/:id/interrupt', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE pomodoro_sessions SET completed_at = NOW(), was_interrupted = TRUE 
+       WHERE id = $1`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error interrupting pomodoro:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/pomodoro/:userId/active - Get active pomodoro session
+app.get('/api/pomodoro/:userId/active', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, t.title as task_title, t.category_id, c.icon as task_icon, c.color as task_color
+      FROM pomodoro_sessions p
+      LEFT JOIN tasks t ON p.task_id = t.id
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE p.user_id = $1 AND p.completed_at IS NULL
+      ORDER BY p.started_at DESC
+      LIMIT 1
+    `, [req.params.userId]);
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error fetching active pomodoro:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/pomodoro/:userId/stats - Get pomodoro statistics
+app.get('/api/pomodoro/:userId/stats', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Today's pomodoros
+    const todayResult = await pool.query(`
+      SELECT COUNT(*) as count, SUM(duration_minutes) as total_minutes
+      FROM pomodoro_sessions
+      WHERE user_id = $1 AND DATE(started_at) = $2 AND completed_at IS NOT NULL AND was_interrupted = FALSE
+    `, [req.params.userId, today]);
+    
+    // Best streak (consecutive days with at least 1 pomodoro)
+    const streakResult = await pool.query(`
+      WITH daily_pomodoros AS (
+        SELECT DISTINCT DATE(started_at) as session_date
+        FROM pomodoro_sessions
+        WHERE user_id = $1 AND completed_at IS NOT NULL AND was_interrupted = FALSE
+        ORDER BY DATE(started_at) DESC
+      ),
+      streaks AS (
+        SELECT session_date,
+               session_date - ROW_NUMBER() OVER (ORDER BY session_date) * INTERVAL '1 day' as grp
+        FROM daily_pomodoros
+      )
+      SELECT COUNT(*) as streak_length
+      FROM streaks
+      WHERE grp = (SELECT grp FROM streaks WHERE session_date = (SELECT MAX(session_date) FROM daily_pomodoros))
+      GROUP BY grp
+    `, [req.params.userId]);
+    
+    const stats = {
+      todayCount: parseInt(todayResult.rows[0].count) || 0,
+      todayMinutes: parseInt(todayResult.rows[0].total_minutes) || 0,
+      bestStreak: parseInt(streakResult.rows[0]?.streak_length) || 0
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching pomodoro stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);
