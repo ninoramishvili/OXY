@@ -1755,10 +1755,10 @@ app.post('/api/tasks', async (req, res) => {
   try {
     const { userId, title, description, categoryId, isUrgent, isImportant, estimatedMinutes, 
             scheduledDate, scheduledTime, scheduledEndDate, scheduledEndTime,
-            isRecurring, recurrenceRule, recurrenceEndDate } = req.body;
+            isRecurring, recurrenceRule, recurrenceEndDate, status: providedStatus } = req.body;
     
-    // Determine status based on whether it's scheduled
-    const status = scheduledDate ? 'planned' : 'backlog';
+    // Determine status: use provided status (for 2-min rule) or infer from schedule
+    const status = providedStatus || (scheduledDate ? 'planned' : 'backlog');
     
     // If recurring, create a template task (no schedule) and generate all instances
     if (isRecurring && recurrenceRule && scheduledDate) {
@@ -1818,14 +1818,15 @@ app.post('/api/tasks', async (req, res) => {
       res.status(201).json({ success: true, task: parentTask });
     } else {
       // Non-recurring task - create normally
+      const completedAt = status === 'completed' ? new Date() : null;
       const result = await pool.query(
         `INSERT INTO tasks (user_id, title, description, category_id, is_urgent, is_important, estimated_minutes, 
           scheduled_date, scheduled_time, scheduled_end_date, scheduled_end_time, status,
-          is_recurring, recurrence_rule, recurrence_end_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+          is_recurring, recurrence_rule, recurrence_end_date, completed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
         [userId, title, description, categoryId, isUrgent || false, isImportant || false, estimatedMinutes || 30,
          scheduledDate || null, scheduledTime || null, scheduledEndDate || null, scheduledEndTime || null, status,
-         false, null, null]
+         false, null, null, completedAt]
       );
       
       res.status(201).json({ success: true, task: result.rows[0] });
