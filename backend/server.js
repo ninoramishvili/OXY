@@ -2553,6 +2553,111 @@ app.get('/api/analytics/:userId/monthly/:year/:month', async (req, res) => {
   }
 });
 
+// GET /api/analytics/:userId/alltime - Get all-time analytics
+app.get('/api/analytics/:userId/alltime', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Overall stats (all time)
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as total_planned_minutes,
+        MIN(scheduled_date) as first_task_date,
+        MAX(scheduled_date) as last_task_date
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date IS NOT NULL
+    `, [userId]);
+    
+    // Category breakdown (all time)
+    const categoryResult = await pool.query(`
+      SELECT c.id, c.name, c.icon, c.color,
+             COUNT(t.id) as task_count,
+             SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+             SUM(t.estimated_minutes) as planned_minutes
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date IS NOT NULL
+      GROUP BY c.id, c.name, c.icon, c.color
+      ORDER BY planned_minutes DESC
+    `, [userId]);
+    
+    // Monthly breakdown (last 12 months)
+    const monthlyResult = await pool.query(`
+      SELECT 
+        DATE_TRUNC('month', scheduled_date)::date as month_start,
+        TO_CHAR(scheduled_date, 'Mon YYYY') as month_label,
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as planned_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date IS NOT NULL
+        AND scheduled_date >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', scheduled_date), TO_CHAR(scheduled_date, 'Mon YYYY')
+      ORDER BY month_start DESC
+      LIMIT 12
+    `, [userId]);
+    
+    // Daily average
+    const avgResult = await pool.query(`
+      SELECT 
+        AVG(daily_tasks) as avg_tasks_per_day,
+        AVG(daily_minutes) as avg_minutes_per_day
+      FROM (
+        SELECT 
+          scheduled_date,
+          COUNT(*) as daily_tasks,
+          SUM(estimated_minutes) as daily_minutes
+        FROM tasks
+        WHERE user_id = $1 AND scheduled_date IS NOT NULL
+        GROUP BY scheduled_date
+      ) daily
+    `, [userId]);
+    
+    // Streak calculation (consecutive days with completed tasks)
+    const streakResult = await pool.query(`
+      WITH completed_days AS (
+        SELECT DISTINCT DATE(completed_at) as day
+        FROM tasks
+        WHERE user_id = $1 AND status = 'completed' AND completed_at IS NOT NULL
+        ORDER BY day DESC
+      ),
+      streaks AS (
+        SELECT day,
+          day - (ROW_NUMBER() OVER (ORDER BY day))::int AS streak_group
+        FROM completed_days
+      )
+      SELECT COUNT(*) as current_streak
+      FROM streaks
+      WHERE streak_group = (SELECT streak_group FROM streaks WHERE day = CURRENT_DATE)
+    `, [userId]);
+    
+    const stats = statsResult.rows[0];
+    const avg = avgResult.rows[0];
+    
+    res.json({
+      summary: {
+        totalTasks: parseInt(stats.total_tasks) || 0,
+        completedTasks: parseInt(stats.completed_tasks) || 0,
+        completionRate: stats.total_tasks > 0 ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0,
+        totalPlannedMinutes: parseInt(stats.total_planned_minutes) || 0,
+        totalPlannedHours: ((stats.total_planned_minutes || 0) / 60).toFixed(1),
+        firstTaskDate: stats.first_task_date,
+        lastTaskDate: stats.last_task_date,
+        avgTasksPerDay: parseFloat(avg.avg_tasks_per_day || 0).toFixed(1),
+        avgHoursPerDay: ((avg.avg_minutes_per_day || 0) / 60).toFixed(1),
+        currentStreak: parseInt(streakResult.rows[0]?.current_streak) || 0
+      },
+      categories: categoryResult.rows,
+      monthly: monthlyResult.rows.reverse()
+    });
+  } catch (error) {
+    console.error('Error fetching all-time analytics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ DAILY REVIEWS ============
 
 // GET /api/reviews/daily/:userId/:date - Get daily review

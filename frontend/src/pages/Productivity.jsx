@@ -17,6 +17,12 @@ function Productivity({ user }) {
   // Analytics state
   const [dailyAnalytics, setDailyAnalytics] = useState(null)
   const [weeklyAnalytics, setWeeklyAnalytics] = useState(null)
+  const [monthlyAnalytics, setMonthlyAnalytics] = useState(null)
+  const [allTimeAnalytics, setAllTimeAnalytics] = useState(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() + 1 }
+  })
   const [dailyReview, setDailyReview] = useState(null)
   const [weeklyReview, setWeeklyReview] = useState({ review: null, goals: [] })
   const [newGoal, setNewGoal] = useState('')
@@ -146,9 +152,10 @@ function Productivity({ user }) {
   useEffect(() => {
     if (activeTab === 'analytics' || activeTab === 'daily-review') fetchDailyAnalytics()
     if (activeTab === 'analytics' || activeTab === 'weekly-review') fetchWeeklyAnalytics()
+    if (activeTab === 'analytics') { fetchMonthlyAnalytics(); fetchAllTimeAnalytics() }
     if (activeTab === 'daily-review') fetchDailyReview()
     if (activeTab === 'weekly-review') fetchWeeklyReview()
-  }, [activeTab, selectedDate, weekStart])
+  }, [activeTab, selectedDate, weekStart, selectedMonth])
 
   const fetchData = async () => {
     try {
@@ -176,6 +183,20 @@ function Productivity({ user }) {
     try {
       const res = await fetch(`${API_BASE}/analytics/${user.id}/weekly/${weekStart}`)
       setWeeklyAnalytics(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchMonthlyAnalytics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analytics/${user.id}/monthly/${selectedMonth.year}/${selectedMonth.month}`)
+      setMonthlyAnalytics(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchAllTimeAnalytics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analytics/${user.id}/alltime`)
+      setAllTimeAnalytics(await res.json())
     } catch (error) { console.error('Error:', error) }
   }
 
@@ -468,13 +489,13 @@ function Productivity({ user }) {
             <div className="analytics-grid">
               {/* Daily Stats */}
               <div className="analytics-card">
-                <h3>📅 Daily Summary</h3>
+                <h3>📅 Daily</h3>
                 <div className="card-date">{formatFullDate(selectedDate)}</div>
                 {dailyAnalytics && (
                   <div className="stats-content">
                     <div className="stat-row"><span>Tasks</span><strong>{dailyAnalytics.summary.completedTasks}/{dailyAnalytics.summary.totalTasks}</strong></div>
                     <div className="stat-row"><span>Completion</span><strong>{dailyAnalytics.summary.completionRate}%</strong></div>
-                    <div className="stat-row"><span>Planned</span><strong>{dailyAnalytics.summary.totalPlannedHours}h</strong></div>
+                    <div className="stat-row"><span>Hours</span><strong>{dailyAnalytics.summary.totalPlannedHours}h</strong></div>
                     <div className="progress-bar"><div className="progress-fill" style={{ width: `${dailyAnalytics.summary.completionRate}%` }} /></div>
                   </div>
                 )}
@@ -482,26 +503,111 @@ function Productivity({ user }) {
 
               {/* Weekly Stats */}
               <div className="analytics-card">
-                <h3>📆 Weekly Summary</h3>
+                <h3>📆 Weekly</h3>
                 <div className="card-date">{formatDate(weekDays[0])} - {formatDate(weekDays[6])}</div>
                 {weeklyAnalytics && (
                   <div className="stats-content">
                     <div className="stat-row"><span>Tasks</span><strong>{weeklyAnalytics.summary.completedTasks}/{weeklyAnalytics.summary.totalTasks}</strong></div>
                     <div className="stat-row"><span>Completion</span><strong>{weeklyAnalytics.summary.completionRate}%</strong></div>
-                    <div className="stat-row"><span>Planned</span><strong>{weeklyAnalytics.summary.totalPlannedHours}h</strong></div>
+                    <div className="stat-row"><span>Hours</span><strong>{weeklyAnalytics.summary.totalPlannedHours}h</strong></div>
                     <div className="progress-bar"><div className="progress-fill" style={{ width: `${weeklyAnalytics.summary.completionRate}%` }} /></div>
                   </div>
                 )}
               </div>
 
-              {/* Category Breakdown */}
-              <div className="analytics-card full-width">
-                <h3>🏷️ Time by Category</h3>
-                <div className="card-date">For {formatFullDate(selectedDate)}</div>
-                {dailyAnalytics?.categories?.length > 0 ? (
+              {/* Monthly Stats */}
+              <div className="analytics-card">
+                <h3>📅 Monthly</h3>
+                <div className="month-nav">
+                  <button onClick={() => setSelectedMonth(m => ({ year: m.month === 1 ? m.year - 1 : m.year, month: m.month === 1 ? 12 : m.month - 1 }))}>←</button>
+                  <span>{new Date(selectedMonth.year, selectedMonth.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                  <button onClick={() => setSelectedMonth(m => ({ year: m.month === 12 ? m.year + 1 : m.year, month: m.month === 12 ? 1 : m.month + 1 }))}>→</button>
+                </div>
+                {monthlyAnalytics && (
+                  <div className="stats-content">
+                    <div className="stat-row"><span>Tasks</span><strong>{monthlyAnalytics.summary.completedTasks}/{monthlyAnalytics.summary.totalTasks}</strong></div>
+                    <div className="stat-row"><span>Completion</span><strong>{monthlyAnalytics.summary.completionRate}%</strong></div>
+                    <div className="stat-row"><span>Hours</span><strong>{monthlyAnalytics.summary.totalPlannedHours}h</strong></div>
+                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${monthlyAnalytics.summary.completionRate}%` }} /></div>
+                  </div>
+                )}
+              </div>
+
+              {/* All Time Stats */}
+              <div className="analytics-card highlight">
+                <h3>🏆 All Time</h3>
+                <div className="card-date">Since you started</div>
+                {allTimeAnalytics && (
+                  <div className="stats-content">
+                    <div className="stat-row"><span>Total Tasks</span><strong>{allTimeAnalytics.summary.totalTasks}</strong></div>
+                    <div className="stat-row"><span>Completed</span><strong>{allTimeAnalytics.summary.completedTasks}</strong></div>
+                    <div className="stat-row"><span>Total Hours</span><strong>{allTimeAnalytics.summary.totalPlannedHours}h</strong></div>
+                    <div className="stat-row"><span>Completion</span><strong>{allTimeAnalytics.summary.completionRate}%</strong></div>
+                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${allTimeAnalytics.summary.completionRate}%` }} /></div>
+                  </div>
+                )}
+              </div>
+
+              {/* All Time Additional Stats */}
+              {allTimeAnalytics && (
+                <div className="analytics-card full-width">
+                  <h3>📊 Productivity Insights</h3>
+                  <div className="insights-grid">
+                    <div className="insight-item">
+                      <span className="insight-icon">🔥</span>
+                      <span className="insight-value">{allTimeAnalytics.summary.currentStreak}</span>
+                      <span className="insight-label">Day Streak</span>
+                    </div>
+                    <div className="insight-item">
+                      <span className="insight-icon">📋</span>
+                      <span className="insight-value">{allTimeAnalytics.summary.avgTasksPerDay}</span>
+                      <span className="insight-label">Avg Tasks/Day</span>
+                    </div>
+                    <div className="insight-item">
+                      <span className="insight-icon">⏱️</span>
+                      <span className="insight-value">{allTimeAnalytics.summary.avgHoursPerDay}h</span>
+                      <span className="insight-label">Avg Hours/Day</span>
+                    </div>
+                    <div className="insight-item">
+                      <span className="insight-icon">✅</span>
+                      <span className="insight-value">{allTimeAnalytics.summary.completionRate}%</span>
+                      <span className="insight-label">Success Rate</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Monthly Trend Chart */}
+              {allTimeAnalytics?.monthly?.length > 0 && (
+                <div className="analytics-card full-width">
+                  <h3>📈 Monthly Trend (Last 12 Months)</h3>
+                  <div className="month-chart">
+                    {allTimeAnalytics.monthly.map(m => {
+                      const maxMinutes = Math.max(...allTimeAnalytics.monthly.map(x => x.planned_minutes || 0), 60)
+                      const height = ((m.planned_minutes || 0) / maxMinutes) * 100
+                      return (
+                        <div key={m.month_label} className="month-bar">
+                          <div className="month-bar-container">
+                            <div className="month-bar-fill" style={{ height: `${height}%` }}>
+                              {m.planned_minutes > 0 && <span className="month-bar-value">{formatDuration(m.planned_minutes)}</span>}
+                            </div>
+                          </div>
+                          <div className="month-bar-label">{m.month_label?.split(' ')[0]}</div>
+                          <div className="month-bar-tasks">{m.completed_tasks}/{m.total_tasks}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* All Time Category Breakdown */}
+              {allTimeAnalytics?.categories?.length > 0 && (
+                <div className="analytics-card full-width">
+                  <h3>🏷️ All Time by Category</h3>
                   <div className="category-chart">
-                    {dailyAnalytics.categories.map(cat => {
-                      const total = dailyAnalytics.summary.totalPlannedMinutes || 1
+                    {allTimeAnalytics.categories.map(cat => {
+                      const total = allTimeAnalytics.summary.totalPlannedMinutes || 1
                       const pct = Math.round((cat.planned_minutes / total) * 100)
                       return (
                         <div key={cat.id || 'uncategorized'} className="cat-bar-item">
@@ -517,12 +623,13 @@ function Productivity({ user }) {
                       )
                     })}
                   </div>
-                ) : <p className="no-data">No tasks scheduled for this day</p>}
-              </div>
+                </div>
+              )}
 
               {/* Tasks for the day - with complete button */}
               <div className="analytics-card full-width">
-                <h3>📋 Tasks for {formatDate(selectedDate)}</h3>
+                <h3>📋 Today's Tasks</h3>
+                <div className="card-date">{formatFullDate(selectedDate)}</div>
                 {dailyAnalytics?.tasks?.length > 0 ? (
                   <div className="analytics-tasks">
                     {dailyAnalytics.tasks.map(t => (
@@ -545,7 +652,7 @@ function Productivity({ user }) {
 
               {/* Weekly by Day */}
               <div className="analytics-card full-width">
-                <h3>📈 Week Overview</h3>
+                <h3>📈 This Week</h3>
                 <div className="card-date">{formatDate(weekDays[0])} - {formatDate(weekDays[6])}</div>
                 {weeklyAnalytics?.daily?.length > 0 ? (
                   <div className="week-chart">
