@@ -2836,7 +2836,7 @@ app.put('/api/tasks/:id/frog/:date', async (req, res) => {
     
     // Get task to verify it's scheduled for this date
     const taskResult = await pool.query(
-      'SELECT user_id, scheduled_date FROM tasks WHERE id = $1',
+      'SELECT user_id, scheduled_date::text FROM tasks WHERE id = $1',
       [taskId]
     );
     if (taskResult.rows.length === 0) {
@@ -2844,7 +2844,7 @@ app.put('/api/tasks/:id/frog/:date', async (req, res) => {
     }
     
     const task = taskResult.rows[0];
-    const taskDate = task.scheduled_date?.toISOString?.().split('T')[0] || task.scheduled_date;
+    const taskDate = task.scheduled_date;
     
     // Verify task is scheduled for this date
     if (taskDate !== date) {
@@ -2856,7 +2856,7 @@ app.put('/api/tasks/:id/frog/:date', async (req, res) => {
     // Clear any existing frog for this user on this date
     await pool.query(
       `UPDATE tasks SET is_frog = FALSE 
-       WHERE user_id = $1 AND scheduled_date = $2 AND is_frog = TRUE`,
+       WHERE user_id = $1 AND scheduled_date::text = $2 AND is_frog = TRUE`,
       [userId, date]
     );
     
@@ -2904,8 +2904,8 @@ app.get('/api/frog/:userId/date/:date', async (req, res) => {
              fh.completed as frog_completed
       FROM tasks t
       LEFT JOIN task_categories c ON t.category_id = c.id
-      LEFT JOIN frog_history fh ON fh.task_id = t.id AND fh.frog_date = $2
-      WHERE t.user_id = $1 AND t.scheduled_date = $2 AND t.is_frog = TRUE
+      LEFT JOIN frog_history fh ON fh.task_id = t.id AND fh.frog_date::text = $2
+      WHERE t.user_id = $1 AND t.scheduled_date::text = $2 AND t.is_frog = TRUE
       LIMIT 1
     `, [userId, date]);
     res.json(result.rows[0] || null);
@@ -2922,7 +2922,7 @@ app.put('/api/frog/:userId/complete/:date', async (req, res) => {
     
     // Get frog task for this date
     const frogResult = await pool.query(
-      `SELECT id FROM tasks WHERE user_id = $1 AND scheduled_date = $2 AND is_frog = TRUE`,
+      `SELECT id FROM tasks WHERE user_id = $1 AND scheduled_date::text = $2 AND is_frog = TRUE`,
       [userId, date]
     );
     
@@ -3003,7 +3003,7 @@ app.put('/api/tasks/:id/highlight/:date', async (req, res) => {
     
     // Get task to verify it's scheduled for this date
     const taskResult = await pool.query(
-      'SELECT user_id, scheduled_date FROM tasks WHERE id = $1',
+      'SELECT user_id, scheduled_date::text FROM tasks WHERE id = $1',
       [taskId]
     );
     if (taskResult.rows.length === 0) {
@@ -3011,7 +3011,7 @@ app.put('/api/tasks/:id/highlight/:date', async (req, res) => {
     }
     
     const task = taskResult.rows[0];
-    const taskDate = task.scheduled_date?.toISOString?.().split('T')[0] || task.scheduled_date;
+    const taskDate = task.scheduled_date;
     
     if (taskDate !== date) {
       return res.status(400).json({ success: false, message: 'Task must be scheduled for this date' });
@@ -3022,7 +3022,7 @@ app.put('/api/tasks/:id/highlight/:date', async (req, res) => {
     // Clear any existing highlight for this user on this date
     await pool.query(
       `UPDATE tasks SET is_highlight = FALSE 
-       WHERE user_id = $1 AND scheduled_date = $2 AND is_highlight = TRUE`,
+       WHERE user_id = $1 AND scheduled_date::text = $2 AND is_highlight = TRUE`,
       [userId, date]
     );
     
@@ -3070,8 +3070,8 @@ app.get('/api/highlight/:userId/date/:date', async (req, res) => {
              hh.completed as highlight_completed
       FROM tasks t
       LEFT JOIN task_categories c ON t.category_id = c.id
-      LEFT JOIN highlight_history hh ON hh.task_id = t.id AND hh.highlight_date = $2
-      WHERE t.user_id = $1 AND t.scheduled_date = $2 AND t.is_highlight = TRUE
+      LEFT JOIN highlight_history hh ON hh.task_id = t.id AND hh.highlight_date::text = $2
+      WHERE t.user_id = $1 AND t.scheduled_date::text = $2 AND t.is_highlight = TRUE
       LIMIT 1
     `, [userId, date]);
     res.json(result.rows[0] || null);
@@ -3087,7 +3087,7 @@ app.put('/api/highlight/:userId/complete/:date', async (req, res) => {
     const { userId, date } = req.params;
     
     const highlightResult = await pool.query(
-      `SELECT id FROM tasks WHERE user_id = $1 AND scheduled_date = $2 AND is_highlight = TRUE`,
+      `SELECT id FROM tasks WHERE user_id = $1 AND scheduled_date::text = $2 AND is_highlight = TRUE`,
       [userId, date]
     );
     
