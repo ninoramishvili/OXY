@@ -2369,6 +2369,359 @@ app.get('/api/tasks/:userId/recurring', async (req, res) => {
   }
 });
 
+// ============ ANALYTICS & REVIEWS ============
+
+// GET /api/analytics/:userId/daily/:date - Get daily analytics
+app.get('/api/analytics/:userId/daily/:date', async (req, res) => {
+  try {
+    const { userId, date } = req.params;
+    
+    // Tasks for the day
+    const tasksResult = await pool.query(`
+      SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date = $2
+      ORDER BY t.scheduled_time
+    `, [userId, date]);
+    
+    // Category breakdown
+    const categoryResult = await pool.query(`
+      SELECT c.id, c.name, c.icon, c.color,
+             COUNT(t.id) as task_count,
+             SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+             SUM(t.estimated_minutes) as planned_minutes
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date = $2
+      GROUP BY c.id, c.name, c.icon, c.color
+      ORDER BY planned_minutes DESC
+    `, [userId, date]);
+    
+    // Summary stats
+    const tasks = tasksResult.rows;
+    const totalPlanned = tasks.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+    const completedTasks = tasks.filter(t => t.status === 'completed');
+    const totalCompleted = completedTasks.length;
+    
+    res.json({
+      date,
+      tasks,
+      categories: categoryResult.rows,
+      summary: {
+        totalTasks: tasks.length,
+        completedTasks: totalCompleted,
+        completionRate: tasks.length > 0 ? Math.round((totalCompleted / tasks.length) * 100) : 0,
+        totalPlannedMinutes: totalPlanned,
+        totalPlannedHours: (totalPlanned / 60).toFixed(1)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching daily analytics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/analytics/:userId/weekly/:weekStart - Get weekly analytics
+app.get('/api/analytics/:userId/weekly/:weekStart', async (req, res) => {
+  try {
+    const { userId, weekStart } = req.params;
+    const endDate = new Date(weekStart);
+    endDate.setDate(endDate.getDate() + 6);
+    const weekEnd = endDate.toISOString().split('T')[0];
+    
+    // Daily breakdown
+    const dailyResult = await pool.query(`
+      SELECT 
+        scheduled_date::date as date,
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as planned_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date >= $2 AND scheduled_date <= $3
+      GROUP BY scheduled_date::date
+      ORDER BY scheduled_date::date
+    `, [userId, weekStart, weekEnd]);
+    
+    // Category breakdown for week
+    const categoryResult = await pool.query(`
+      SELECT c.id, c.name, c.icon, c.color,
+             COUNT(t.id) as task_count,
+             SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+             SUM(t.estimated_minutes) as planned_minutes
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date >= $2 AND t.scheduled_date <= $3
+      GROUP BY c.id, c.name, c.icon, c.color
+      ORDER BY planned_minutes DESC
+    `, [userId, weekStart, weekEnd]);
+    
+    // Overall stats
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as total_planned_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date >= $2 AND scheduled_date <= $3
+    `, [userId, weekStart, weekEnd]);
+    
+    const stats = statsResult.rows[0];
+    
+    res.json({
+      weekStart,
+      weekEnd,
+      daily: dailyResult.rows,
+      categories: categoryResult.rows,
+      summary: {
+        totalTasks: parseInt(stats.total_tasks) || 0,
+        completedTasks: parseInt(stats.completed_tasks) || 0,
+        completionRate: stats.total_tasks > 0 ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0,
+        totalPlannedMinutes: parseInt(stats.total_planned_minutes) || 0,
+        totalPlannedHours: ((stats.total_planned_minutes || 0) / 60).toFixed(1)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching weekly analytics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/analytics/:userId/monthly/:year/:month - Get monthly analytics
+app.get('/api/analytics/:userId/monthly/:year/:month', async (req, res) => {
+  try {
+    const { userId, year, month } = req.params;
+    const startDate = `${year}-${month.padStart(2, '0')}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
+    
+    // Weekly breakdown
+    const weeklyResult = await pool.query(`
+      SELECT 
+        DATE_TRUNC('week', scheduled_date)::date as week_start,
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as planned_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date >= $2 AND scheduled_date <= $3
+      GROUP BY DATE_TRUNC('week', scheduled_date)
+      ORDER BY week_start
+    `, [userId, startDate, endDate]);
+    
+    // Category breakdown
+    const categoryResult = await pool.query(`
+      SELECT c.id, c.name, c.icon, c.color,
+             COUNT(t.id) as task_count,
+             SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+             SUM(t.estimated_minutes) as planned_minutes
+      FROM tasks t
+      LEFT JOIN task_categories c ON t.category_id = c.id
+      WHERE t.user_id = $1 AND t.scheduled_date >= $2 AND t.scheduled_date <= $3
+      GROUP BY c.id, c.name, c.icon, c.color
+      ORDER BY planned_minutes DESC
+    `, [userId, startDate, endDate]);
+    
+    // Overall stats
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as total_planned_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date >= $2 AND scheduled_date <= $3
+    `, [userId, startDate, endDate]);
+    
+    const stats = statsResult.rows[0];
+    
+    res.json({
+      year,
+      month,
+      startDate,
+      endDate,
+      weekly: weeklyResult.rows,
+      categories: categoryResult.rows,
+      summary: {
+        totalTasks: parseInt(stats.total_tasks) || 0,
+        completedTasks: parseInt(stats.completed_tasks) || 0,
+        completionRate: stats.total_tasks > 0 ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0,
+        totalPlannedMinutes: parseInt(stats.total_planned_minutes) || 0,
+        totalPlannedHours: ((stats.total_planned_minutes || 0) / 60).toFixed(1)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching monthly analytics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============ DAILY REVIEWS ============
+
+// GET /api/reviews/daily/:userId/:date - Get daily review
+app.get('/api/reviews/daily/:userId/:date', async (req, res) => {
+  try {
+    const { userId, date } = req.params;
+    const result = await pool.query(
+      'SELECT * FROM daily_reviews WHERE user_id = $1 AND review_date = $2',
+      [userId, date]
+    );
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error('Error fetching daily review:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/reviews/daily - Create/update daily review
+app.post('/api/reviews/daily', async (req, res) => {
+  try {
+    const { userId, date, productivityRating, notes, isFinalized } = req.body;
+    
+    // Get task stats for the day
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
+        SUM(estimated_minutes) as planned_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date = $2
+    `, [userId, date]);
+    
+    const stats = statsResult.rows[0];
+    
+    // Upsert review
+    const result = await pool.query(`
+      INSERT INTO daily_reviews (user_id, review_date, productivity_rating, notes, 
+        total_planned_minutes, tasks_completed, tasks_planned, is_finalized)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (user_id, review_date) 
+      DO UPDATE SET 
+        productivity_rating = $3, notes = $4, total_planned_minutes = $5,
+        tasks_completed = $6, tasks_planned = $7, is_finalized = $8,
+        updated_at = NOW()
+      RETURNING *
+    `, [userId, date, productivityRating, notes, 
+        stats.planned_minutes || 0, stats.completed_tasks || 0, stats.total_tasks || 0, isFinalized || false]);
+    
+    res.json({ success: true, review: result.rows[0] });
+  } catch (error) {
+    console.error('Error saving daily review:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ WEEKLY REVIEWS ============
+
+// GET /api/reviews/weekly/:userId/:weekStart - Get weekly review
+app.get('/api/reviews/weekly/:userId/:weekStart', async (req, res) => {
+  try {
+    const { userId, weekStart } = req.params;
+    
+    // Get review
+    const reviewResult = await pool.query(
+      'SELECT * FROM weekly_reviews WHERE user_id = $1 AND week_start = $2',
+      [userId, weekStart]
+    );
+    
+    // Get goals for the week
+    const goalsResult = await pool.query(
+      'SELECT * FROM weekly_goals WHERE user_id = $1 AND week_start = $2 ORDER BY created_at',
+      [userId, weekStart]
+    );
+    
+    res.json({
+      review: reviewResult.rows[0] || null,
+      goals: goalsResult.rows
+    });
+  } catch (error) {
+    console.error('Error fetching weekly review:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/reviews/weekly - Create/update weekly review
+app.post('/api/reviews/weekly', async (req, res) => {
+  try {
+    const { userId, weekStart, productivityScore, notes, isFinalized } = req.body;
+    
+    // Calculate stats for the week
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    
+    const statsResult = await pool.query(`
+      SELECT SUM(estimated_minutes) as total_minutes
+      FROM tasks
+      WHERE user_id = $1 AND scheduled_date >= $2 AND scheduled_date <= $3
+    `, [userId, weekStart, weekEnd.toISOString().split('T')[0]]);
+    
+    // Get goals stats
+    const goalsResult = await pool.query(`
+      SELECT COUNT(*) as total, SUM(CASE WHEN is_achieved THEN 1 ELSE 0 END) as achieved
+      FROM weekly_goals WHERE user_id = $1 AND week_start = $2
+    `, [userId, weekStart]);
+    
+    const totalHours = ((statsResult.rows[0].total_minutes || 0) / 60).toFixed(1);
+    const goals = goalsResult.rows[0];
+    
+    // Upsert review
+    const result = await pool.query(`
+      INSERT INTO weekly_reviews (user_id, week_start, productivity_score, total_hours, 
+        goals_achieved, goals_total, notes, is_finalized)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (user_id, week_start)
+      DO UPDATE SET 
+        productivity_score = $3, total_hours = $4, goals_achieved = $5,
+        goals_total = $6, notes = $7, is_finalized = $8,
+        updated_at = NOW()
+      RETURNING *
+    `, [userId, weekStart, productivityScore, totalHours, 
+        goals.achieved || 0, goals.total || 0, notes, isFinalized || false]);
+    
+    res.json({ success: true, review: result.rows[0] });
+  } catch (error) {
+    console.error('Error saving weekly review:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ============ WEEKLY GOALS ============
+
+// POST /api/goals/weekly - Add weekly goal
+app.post('/api/goals/weekly', async (req, res) => {
+  try {
+    const { userId, weekStart, goalText } = req.body;
+    const result = await pool.query(
+      'INSERT INTO weekly_goals (user_id, week_start, goal_text) VALUES ($1, $2, $3) RETURNING *',
+      [userId, weekStart, goalText]
+    );
+    res.status(201).json({ success: true, goal: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating goal:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// PUT /api/goals/weekly/:id - Update goal (toggle achieved)
+app.put('/api/goals/weekly/:id', async (req, res) => {
+  try {
+    const { isAchieved } = req.body;
+    await pool.query('UPDATE weekly_goals SET is_achieved = $1 WHERE id = $2', [isAchieved, req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating goal:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE /api/goals/weekly/:id - Delete goal
+app.delete('/api/goals/weekly/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM weekly_goals WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting goal:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`✨ OXY Backend running on http://localhost:${PORT}`);

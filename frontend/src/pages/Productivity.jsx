@@ -14,6 +14,13 @@ function Productivity({ user }) {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()))
   const [message, setMessage] = useState({ text: '', type: '', icon: '' })
   
+  // Analytics state
+  const [dailyAnalytics, setDailyAnalytics] = useState(null)
+  const [weeklyAnalytics, setWeeklyAnalytics] = useState(null)
+  const [dailyReview, setDailyReview] = useState(null)
+  const [weeklyReview, setWeeklyReview] = useState({ review: null, goals: [] })
+  const [newGoal, setNewGoal] = useState('')
+  
   const [draggedTask, setDraggedTask] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isSelecting, setIsSelecting] = useState(false)
@@ -95,7 +102,6 @@ function Productivity({ user }) {
       const bTime = b.scheduled_time?.slice(0, 5) || '00:00'
       return aTime.localeCompare(bTime)
     })
-
     for (let i = 0; i < sortedTasks.length; i++) {
       const task = sortedTasks[i]
       const startIdx = getSlotIndex(task.scheduled_time?.slice(0, 5) || '00:00')
@@ -123,6 +129,13 @@ function Productivity({ user }) {
     fetchData()
   }, [user, selectedDate, weekStart])
 
+  useEffect(() => {
+    if (activeTab === 'analytics' || activeTab === 'daily-review') fetchDailyAnalytics()
+    if (activeTab === 'analytics' || activeTab === 'weekly-review') fetchWeeklyAnalytics()
+    if (activeTab === 'daily-review') fetchDailyReview()
+    if (activeTab === 'weekly-review') fetchWeeklyReview()
+  }, [activeTab, selectedDate, weekStart])
+
   const fetchData = async () => {
     try {
       const [catRes, backlogRes, dayRes, weekRes] = await Promise.all([
@@ -135,9 +148,35 @@ function Productivity({ user }) {
       setBacklog(await backlogRes.json().then(d => Array.isArray(d) ? d : []))
       setDayTasks(await dayRes.json().then(d => Array.isArray(d) ? d : []))
       setWeekTasks(await weekRes.json().then(d => Array.isArray(d) ? d : []))
-    } catch (error) {
-      console.error('Error:', error)
-    }
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchDailyAnalytics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analytics/${user.id}/daily/${selectedDate}`)
+      setDailyAnalytics(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchWeeklyAnalytics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analytics/${user.id}/weekly/${weekStart}`)
+      setWeeklyAnalytics(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchDailyReview = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/reviews/daily/${user.id}/${selectedDate}`)
+      setDailyReview(await res.json())
+    } catch (error) { console.error('Error:', error) }
+  }
+
+  const fetchWeeklyReview = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/reviews/weekly/${user.id}/${weekStart}`)
+      setWeeklyReview(await res.json())
+    } catch (error) { console.error('Error:', error) }
   }
 
   const showToast = (text, type, icon = '') => {
@@ -146,8 +185,7 @@ function Productivity({ user }) {
   }
 
   const resetNewTask = () => {
-    setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30, 
-      startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '' })
+    setNewTask({ title: '', description: '', categoryId: '', priority: 'medium', estimatedMinutes: 30, startDate: '', startTime: '', endDate: '', endTime: '', isRecurring: false, recurrenceRule: '', recurrenceEndDate: '' })
   }
 
   const openAddTaskWithTime = (date, startTime, endTime = null) => {
@@ -157,83 +195,25 @@ function Productivity({ user }) {
     setShowAddTask(true)
   }
 
-  // Selection handlers
-  const handleSlotMouseDown = (e, date, time) => {
-    if (e.button !== 0 || draggedTask) return
-    e.preventDefault()
-    setIsSelecting(true)
-    setSelectionStart({ date, time })
-    setSelectionEnd({ date, time })
-  }
-
-  const handleSlotMouseEnter = (date, time) => {
-    if (!isSelecting || !selectionStart) return
-    if (date === selectionStart.date) {
-      setSelectionEnd({ date, time })
-    }
-  }
-
-  const handleMouseUp = () => {
-    if (!isSelecting) return
-    if (selectionStart && selectionEnd && selectionStart.date === selectionEnd.date) {
-      const times = [selectionStart.time, selectionEnd.time].sort()
-      openAddTaskWithTime(selectionStart.date, times[0], calculateEndTime(times[1], 30))
-    }
-    setIsSelecting(false)
-    setSelectionStart(null)
-    setSelectionEnd(null)
-  }
-
-  const getSelectionRange = (date) => {
-    if (!isSelecting || !selectionStart || !selectionEnd || selectionStart.date !== date) return null
-    const startIdx = getSlotIndex(selectionStart.time)
-    const endIdx = getSlotIndex(selectionEnd.time)
-    const minIdx = Math.min(startIdx, endIdx)
-    const maxIdx = Math.max(startIdx, endIdx)
-    return { startIdx: minIdx, endIdx: maxIdx, slots: maxIdx - minIdx + 1 }
-  }
+  // Selection & drag handlers (same as before)
+  const handleSlotMouseDown = (e, date, time) => { if (e.button !== 0 || draggedTask) return; e.preventDefault(); setIsSelecting(true); setSelectionStart({ date, time }); setSelectionEnd({ date, time }) }
+  const handleSlotMouseEnter = (date, time) => { if (!isSelecting || !selectionStart || date !== selectionStart.date) return; setSelectionEnd({ date, time }) }
+  const handleMouseUp = () => { if (!isSelecting) return; if (selectionStart && selectionEnd && selectionStart.date === selectionEnd.date) { const times = [selectionStart.time, selectionEnd.time].sort(); openAddTaskWithTime(selectionStart.date, times[0], calculateEndTime(times[1], 30)) } setIsSelecting(false); setSelectionStart(null); setSelectionEnd(null) }
+  const getSelectionRange = (date) => { if (!isSelecting || !selectionStart || !selectionEnd || selectionStart.date !== date) return null; const startIdx = getSlotIndex(selectionStart.time); const endIdx = getSlotIndex(selectionEnd.time); const minIdx = Math.min(startIdx, endIdx); const maxIdx = Math.max(startIdx, endIdx); return { startIdx: minIdx, endIdx: maxIdx, slots: maxIdx - minIdx + 1 } }
 
   // Task handlers
   const handleAddTask = async (e) => {
     e.preventDefault()
     if (!newTask.title.trim()) return
-    if ((newTask.startDate && !newTask.startTime) || (!newTask.startDate && newTask.startTime)) {
-      showToast('Set both date and time', 'error', '✕')
-      return
-    }
-    
-    // Validate recurring task requirements
-    if (newTask.isRecurring && !newTask.recurrenceRule) {
-      showToast('Select recurrence frequency', 'error', '✕')
-      return
-    }
-    if (newTask.isRecurring && !newTask.startDate) {
-      showToast('Recurring tasks need a start date', 'error', '✕')
-      return
-    }
-    
+    if ((newTask.startDate && !newTask.startTime) || (!newTask.startDate && newTask.startTime)) { showToast('Set both date and time', 'error', '✕'); return }
+    if (newTask.isRecurring && !newTask.recurrenceRule) { showToast('Select recurrence frequency', 'error', '✕'); return }
+    if (newTask.isRecurring && !newTask.startDate) { showToast('Recurring tasks need a start date', 'error', '✕'); return }
     try {
       const res = await fetch(`${API_BASE}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id, title: newTask.title, description: newTask.description,
-          categoryId: newTask.categoryId || null, priority: newTask.priority,
-          estimatedMinutes: newTask.estimatedMinutes,
-          scheduledDate: newTask.startDate || null, scheduledTime: newTask.startTime || null,
-          scheduledEndDate: newTask.endDate || null, scheduledEndTime: newTask.endTime || null,
-          isRecurring: newTask.isRecurring,
-          recurrenceRule: newTask.isRecurring ? newTask.recurrenceRule : null,
-          recurrenceEndDate: newTask.isRecurring ? newTask.recurrenceEndDate : null
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, title: newTask.title, description: newTask.description, categoryId: newTask.categoryId || null, priority: newTask.priority, estimatedMinutes: newTask.estimatedMinutes, scheduledDate: newTask.startDate || null, scheduledTime: newTask.startTime || null, scheduledEndDate: newTask.endDate || null, scheduledEndTime: newTask.endTime || null, isRecurring: newTask.isRecurring, recurrenceRule: newTask.isRecurring ? newTask.recurrenceRule : null, recurrenceEndDate: newTask.isRecurring ? newTask.recurrenceEndDate : null })
       })
-      const data = await res.json()
-      if (data.success) {
-        showToast(newTask.isRecurring ? 'Recurring task created' : (newTask.startDate ? 'Scheduled' : 'Added'), 'success', '✓')
-        resetNewTask()
-        setShowAddTask(false)
-        fetchData()
-      }
+      if ((await res.json()).success) { showToast(newTask.isRecurring ? 'Recurring task created' : (newTask.startDate ? 'Scheduled' : 'Added'), 'success', '✓'); resetNewTask(); setShowAddTask(false); fetchData() }
     } catch { showToast('Failed', 'error', '✕') }
   }
 
@@ -244,99 +224,58 @@ function Productivity({ user }) {
     if ((hasDate && !hasTime) || (!hasDate && hasTime)) { showToast('Set both date and time', 'error', '✕'); return }
     let status = hasDate && hasTime ? (showEditTask.status === 'backlog' ? 'planned' : showEditTask.status) : 'backlog'
     try {
-      await fetch(`${API_BASE}/tasks/${showEditTask.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: showEditTask.title, description: showEditTask.description,
-          categoryId: showEditTask.category_id || null, priority: showEditTask.priority,
-          estimatedMinutes: showEditTask.estimated_minutes, status,
-          scheduledDate: showEditTask.scheduled_date || null, scheduledTime: showEditTask.scheduled_time || null,
-          scheduledEndDate: showEditTask.scheduled_end_date || null, scheduledEndTime: showEditTask.scheduled_end_time || null
-        })
-      })
-      showToast('Updated', 'success', '✓')
-      setShowEditTask(null)
-      fetchData()
+      await fetch(`${API_BASE}/tasks/${showEditTask.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: showEditTask.title, description: showEditTask.description, categoryId: showEditTask.category_id || null, priority: showEditTask.priority, estimatedMinutes: showEditTask.estimated_minutes, status, scheduledDate: showEditTask.scheduled_date || null, scheduledTime: showEditTask.scheduled_time || null, scheduledEndDate: showEditTask.scheduled_end_date || null, scheduledEndTime: showEditTask.scheduled_end_time || null }) })
+      showToast('Updated', 'success', '✓'); setShowEditTask(null); fetchData()
     } catch { showToast('Failed', 'error', '✕') }
   }
 
-  const handleScheduleTask = async (taskId, date, time) => {
-    try {
-      await fetch(`${API_BASE}/tasks/${taskId}/schedule`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, time })
-      })
-      showToast('Scheduled', 'success', '📅')
-      setDraggedTask(null)
-      setIsDragging(false)
-      fetchData()
-    } catch { showToast('Failed', 'error', '✕') }
-  }
-
-  const handleCompleteTask = async (taskId) => {
-    try { 
-      await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' }) 
-      showToast('Done!', 'success', '✓')
-      fetchData() 
-    } catch {}
-  }
-
-  const handleUnschedule = async (taskId) => {
-    try { await fetch(`${API_BASE}/tasks/${taskId}/unschedule`, { method: 'PUT' }); showToast('Moved', 'success', '↩'); setDraggedTask(null); setIsDragging(false); fetchData() } catch {}
-  }
-
-  // Delete task with recurring options
-  const handleDeleteClick = (task) => {
-    if (task.is_recurring || task.parent_task_id) {
-      // Show recurring delete options
-      setRecurringDeleteOptions(task)
-    } else {
-      // Normal delete confirmation
-      setConfirmDelete({ type: 'task', id: task.id, name: task.title })
-    }
-  }
-
-  const handleDeleteTask = async (taskId) => {
-    try { 
-      await fetch(`${API_BASE}/tasks/${taskId}`, { method: 'DELETE' })
-      showToast('Deleted', 'success', '🗑')
-      setConfirmDelete(null)
-      setShowEditTask(null)
-      fetchData() 
-    } catch {}
-  }
-
-  const handleDeleteRecurring = async (mode) => {
-    const task = recurringDeleteOptions
-    if (!task) return
-    
-    try {
-      await fetch(`${API_BASE}/tasks/${task.id}/delete-recurring`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, taskDate: task.scheduled_date })
-      })
-      showToast('Deleted', 'success', '🗑')
-      setRecurringDeleteOptions(null)
-      setShowEditTask(null)
-      fetchData()
-    } catch { showToast('Failed', 'error', '✕') }
-  }
+  const handleScheduleTask = async (taskId, date, time) => { try { await fetch(`${API_BASE}/tasks/${taskId}/schedule`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, time }) }); showToast('Scheduled', 'success', '📅'); setDraggedTask(null); setIsDragging(false); fetchData() } catch { showToast('Failed', 'error', '✕') } }
+  const handleCompleteTask = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' }); showToast('Done!', 'success', '✓'); fetchData() } catch {} }
+  const handleUnschedule = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}/unschedule`, { method: 'PUT' }); showToast('Moved', 'success', '↩'); setDraggedTask(null); setIsDragging(false); fetchData() } catch {} }
+  const handleDeleteClick = (task) => { if (task.is_recurring || task.parent_task_id) setRecurringDeleteOptions(task); else setConfirmDelete({ type: 'task', id: task.id, name: task.title }) }
+  const handleDeleteTask = async (taskId) => { try { await fetch(`${API_BASE}/tasks/${taskId}`, { method: 'DELETE' }); showToast('Deleted', 'success', '🗑'); setConfirmDelete(null); setShowEditTask(null); fetchData() } catch {} }
+  const handleDeleteRecurring = async (mode) => { const task = recurringDeleteOptions; if (!task) return; try { await fetch(`${API_BASE}/tasks/${task.id}/delete-recurring`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, taskDate: task.scheduled_date }) }); showToast('Deleted', 'success', '🗑'); setRecurringDeleteOptions(null); setShowEditTask(null); fetchData() } catch { showToast('Failed', 'error', '✕') } }
 
   // Category handlers
-  const handleAddCategory = async (e) => {
-    e.preventDefault()
-    if (!newCategory.name.trim()) return
-    try { await fetch(`${API_BASE}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, ...newCategory }) }); setNewCategory({ name: '', icon: '📋', color: '#6B7280' }); fetchData() } catch {}
+  const handleAddCategory = async (e) => { e.preventDefault(); if (!newCategory.name.trim()) return; try { await fetch(`${API_BASE}/categories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, ...newCategory }) }); setNewCategory({ name: '', icon: '📋', color: '#6B7280' }); fetchData() } catch {} }
+  const handleUpdateCategory = async (e) => { e.preventDefault(); try { await fetch(`${API_BASE}/categories/${editCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editCategory) }); setEditCategory(null); fetchData() } catch {} }
+  const handleDeleteCategory = async (catId) => { try { await fetch(`${API_BASE}/categories/${catId}`, { method: 'DELETE' }); setConfirmDelete(null); fetchData() } catch {} }
+
+  // Review handlers
+  const handleSaveDailyReview = async (rating, notes, finalize = false) => {
+    try {
+      await fetch(`${API_BASE}/reviews/daily`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, date: selectedDate, productivityRating: rating, notes, isFinalized: finalize }) })
+      showToast(finalize ? 'Day finalized!' : 'Review saved', 'success', '✓')
+      fetchDailyReview()
+    } catch { showToast('Failed', 'error', '✕') }
   }
-  const handleUpdateCategory = async (e) => {
-    e.preventDefault()
-    try { await fetch(`${API_BASE}/categories/${editCategory.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editCategory) }); setEditCategory(null); fetchData() } catch {}
+
+  const handleSaveWeeklyReview = async (score, notes, finalize = false) => {
+    try {
+      await fetch(`${API_BASE}/reviews/weekly`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, weekStart, productivityScore: score, notes, isFinalized: finalize }) })
+      showToast(finalize ? 'Week finalized!' : 'Review saved', 'success', '✓')
+      fetchWeeklyReview()
+    } catch { showToast('Failed', 'error', '✕') }
   }
-  const handleDeleteCategory = async (catId) => {
-    try { await fetch(`${API_BASE}/categories/${catId}`, { method: 'DELETE' }); setConfirmDelete(null); fetchData() } catch {}
+
+  const handleAddGoal = async () => {
+    if (!newGoal.trim()) return
+    try {
+      await fetch(`${API_BASE}/goals/weekly`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, weekStart, goalText: newGoal }) })
+      setNewGoal('')
+      fetchWeeklyReview()
+    } catch {}
+  }
+
+  const handleToggleGoal = async (goalId, isAchieved) => {
+    try {
+      await fetch(`${API_BASE}/goals/weekly/${goalId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isAchieved }) })
+      fetchWeeklyReview()
+    } catch {}
+  }
+
+  const handleDeleteGoal = async (goalId) => {
+    try { await fetch(`${API_BASE}/goals/weekly/${goalId}`, { method: 'DELETE' }); fetchWeeklyReview() } catch {}
   }
 
   // Drag & Drop
@@ -352,20 +291,11 @@ function Productivity({ user }) {
   const goToToday = () => { setSelectedDate(new Date().toISOString().split('T')[0]); setWeekStart(getMonday(new Date())) }
   const isToday = (d) => d === new Date().toISOString().split('T')[0]
 
-  const timeSlots = []
-  for (let h = 0; h < 24; h++) { timeSlots.push(`${h.toString().padStart(2, '0')}:00`); timeSlots.push(`${h.toString().padStart(2, '0')}:30`) }
-
+  const timeSlots = []; for (let h = 0; h < 24; h++) { timeSlots.push(`${h.toString().padStart(2, '0')}:00`); timeSlots.push(`${h.toString().padStart(2, '0')}:30`) }
   const formatDate = (d) => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const formatShortDay = (d) => ({ day: new Date(d).toLocaleDateString('en-US', { weekday: 'short' }), num: new Date(d).getDate() })
-
-  const handleStartTimeChange = (t, isNew) => {
-    if (isNew) { setNewTask({ ...newTask, startTime: t, endTime: calculateEndTime(t, newTask.estimatedMinutes) }) }
-    else { setShowEditTask({ ...showEditTask, scheduled_time: t, scheduled_end_time: calculateEndTime(t, showEditTask?.estimated_minutes || 30) }) }
-  }
-  const handleEndTimeChange = (t, isNew) => {
-    if (isNew) { setNewTask({ ...newTask, endTime: t, estimatedMinutes: calculateDuration(newTask.startTime, t) }) }
-    else { setShowEditTask({ ...showEditTask, scheduled_end_time: t, estimated_minutes: calculateDuration(showEditTask?.scheduled_time, t) }) }
-  }
+  const handleStartTimeChange = (t, isNew) => { if (isNew) setNewTask({ ...newTask, startTime: t, endTime: calculateEndTime(t, newTask.estimatedMinutes) }); else setShowEditTask({ ...showEditTask, scheduled_time: t, scheduled_end_time: calculateEndTime(t, showEditTask?.estimated_minutes || 30) }) }
+  const handleEndTimeChange = (t, isNew) => { if (isNew) setNewTask({ ...newTask, endTime: t, estimatedMinutes: calculateDuration(newTask.startTime, t) }); else setShowEditTask({ ...showEditTask, scheduled_end_time: t, estimated_minutes: calculateDuration(showEditTask?.scheduled_time, t) }) }
 
   const icons = ['📋', '💼', '👤', '🏃', '📚', '🎯', '💡', '🔧', '📞', '✉️', '🎨', '🎵', '🏠', '🚗', '💰', '❤️']
   const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6B7280']
@@ -374,8 +304,7 @@ function Productivity({ user }) {
   if (!user) return null
   const weekDays = getWeekDays(weekStart)
   const getTasksForDate = (taskList, date) => taskList.filter(t => t.scheduled_date?.split('T')[0] === date)
-  const DAY_SLOT_HEIGHT = 24
-  const WEEK_SLOT_HEIGHT = 20
+  const DAY_SLOT_HEIGHT = 24, WEEK_SLOT_HEIGHT = 20
 
   return (
     <div className="productivity-page" onMouseUp={handleMouseUp} onMouseLeave={() => { if (isSelecting) { setIsSelecting(false); setSelectionStart(null); setSelectionEnd(null) } }}>
@@ -388,9 +317,12 @@ function Productivity({ user }) {
       </div>
 
       <div className="prod-tabs">
-        <button className={`prod-tab ${activeTab === 'backlog' ? 'active' : ''}`} onClick={() => setActiveTab('backlog')}>📥 Backlog ({backlog.length})</button>
+        <button className={`prod-tab ${activeTab === 'backlog' ? 'active' : ''}`} onClick={() => setActiveTab('backlog')}>📥 Backlog</button>
         <button className={`prod-tab ${activeTab === 'day' ? 'active' : ''}`} onClick={() => setActiveTab('day')}>📅 Day</button>
         <button className={`prod-tab ${activeTab === 'week' ? 'active' : ''}`} onClick={() => setActiveTab('week')}>📆 Week</button>
+        <button className={`prod-tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>📊 Analytics</button>
+        <button className={`prod-tab ${activeTab === 'daily-review' ? 'active' : ''}`} onClick={() => setActiveTab('daily-review')}>✍️ Daily</button>
+        <button className={`prod-tab ${activeTab === 'weekly-review' ? 'active' : ''}`} onClick={() => setActiveTab('weekly-review')}>📝 Weekly</button>
       </div>
 
       {isDragging && <div className="drag-hint">🎯 Drop on Day or Week calendar to schedule "{draggedTask?.title}"</div>}
@@ -407,10 +339,7 @@ function Productivity({ user }) {
                     <span className="bl-icon">{t.category_icon || '📋'}</span>
                     <div className="bl-info">
                       <span className="bl-title">{t.title} {(t.is_recurring || t.parent_task_id) && <span className="recurring-badge">🔄</span>}</span>
-                      <div className="bl-meta">
-                        <span className={`pri ${t.priority}`}>{t.priority}</span>
-                        <span>{formatDuration(t.estimated_minutes)}</span>
-                      </div>
+                      <div className="bl-meta"><span className={`pri ${t.priority}`}>{t.priority}</span><span>{formatDuration(t.estimated_minutes)}</span></div>
                     </div>
                   </div>
                   <div className="bl-btns">
@@ -421,12 +350,7 @@ function Productivity({ user }) {
               ))}
               {backlog.length === 0 && <div className="empty">🎉 Empty!</div>}
             </div>
-            {isDragging && (
-              <div className="quick-drop-zones">
-                <button className="quick-drop" onClick={() => setActiveTab('day')}>📅 Go to Day View to drop</button>
-                <button className="quick-drop" onClick={() => setActiveTab('week')}>📆 Go to Week View to drop</button>
-              </div>
-            )}
+            {isDragging && <div className="quick-drop-zones"><button className="quick-drop" onClick={() => setActiveTab('day')}>📅 Go to Day View</button><button className="quick-drop" onClick={() => setActiveTab('week')}>📆 Go to Week View</button></div>}
           </div>
         )}
 
@@ -440,51 +364,11 @@ function Productivity({ user }) {
               <button onClick={() => changeDate(1)}>→</button>
             </div>
             <div className={`calendar-grid day-calendar ${isDragging ? 'drag-active' : ''}`}>
-              <div className="time-column">
-                {timeSlots.map((time) => (
-                  <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>
-                ))}
-              </div>
+              <div className="time-column">{timeSlots.map(time => <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>)}</div>
               <div className="slots-column">
-                {timeSlots.map(time => (
-                  <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: DAY_SLOT_HEIGHT }}
-                    onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)}
-                    onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDropOnSlot(e, selectedDate, time)}
-                  />
-                ))}
-                {(() => {
-                  const range = getSelectionRange(selectedDate)
-                  if (!range) return null
-                  return <div className="selection-overlay" style={{ top: range.startIdx * DAY_SLOT_HEIGHT, height: range.slots * DAY_SLOT_HEIGHT }} />
-                })()}
-                {(() => {
-                  const positions = getTaskPositions(dayTasks)
-                  return dayTasks.map(task => {
-                    const startTime = task.scheduled_time?.slice(0, 5) || '00:00'
-                    const slotIdx = getSlotIndex(startTime)
-                    const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT)
-                    const pos = positions[task.id] || { col: 0, total: 1 }
-                    const width = `calc(${100 / pos.total}% - 4px)`
-                    const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`
-                    return (
-                      <div key={task.id} className={`cal-task ${task.status}`}
-                        style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }}
-                        draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}
-                        onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
-                      >
-                        <span className="ct-icon">{task.category_icon || '📋'}</span>
-                        <span className="ct-title">{task.title} {(task.is_recurring || task.parent_task_id) && '🔄'}</span>
-                        <span className="ct-dur">{formatDuration(task.estimated_minutes)}</span>
-                        <div className="ct-btns">
-                          {task.status !== 'completed' && <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button>}
-                          <button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button>
-                        </div>
-                      </div>
-                    )
-                  })
-                })()}
+                {timeSlots.map(time => <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: DAY_SLOT_HEIGHT }} onMouseDown={(e) => handleSlotMouseDown(e, selectedDate, time)} onMouseEnter={() => handleSlotMouseEnter(selectedDate, time)} onDragOver={handleDragOver} onDrop={(e) => handleDropOnSlot(e, selectedDate, time)} />)}
+                {(() => { const range = getSelectionRange(selectedDate); if (!range) return null; return <div className="selection-overlay" style={{ top: range.startIdx * DAY_SLOT_HEIGHT, height: range.slots * DAY_SLOT_HEIGHT }} /> })()}
+                {(() => { const positions = getTaskPositions(dayTasks); return dayTasks.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, DAY_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 4px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 2px)`; return <div key={task.id} className={`cal-task ${task.status}`} style={{ top: slotIdx * DAY_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}><span className="ct-icon">{task.category_icon || '📋'}</span><span className="ct-title">{task.title}</span><span className="ct-dur">{formatDuration(task.estimated_minutes)}</span><div className="ct-btns">{task.status !== 'completed' && <button onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id) }}>✓</button>}<button onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id) }}>↩</button></div></div> }) })()}
               </div>
             </div>
           </div>
@@ -500,63 +384,264 @@ function Productivity({ user }) {
               <button onClick={() => changeWeek(1)}>→</button>
             </div>
             <div className={`calendar-grid week-calendar ${isDragging ? 'drag-active' : ''}`}>
-              <div className="week-header">
-                <div className="time-header"></div>
-                {weekDays.map(d => {
-                  const { day, num } = formatShortDay(d)
-                  return <div key={d} className={`day-header ${isToday(d) ? 'today' : ''}`}><span>{day}</span><span className="day-num">{num}</span></div>
-                })}
-              </div>
+              <div className="week-header"><div className="time-header"></div>{weekDays.map(d => { const { day, num } = formatShortDay(d); return <div key={d} className={`day-header ${isToday(d) ? 'today' : ''}`}><span>{day}</span><span className="day-num">{num}</span></div> })}</div>
               <div className="week-body">
-                <div className="time-column">
-                  {timeSlots.map(time => (
-                    <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: WEEK_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>
+                <div className="time-column">{timeSlots.map(time => <div key={time} className={`time-label ${time.endsWith(':30') ? 'half' : ''}`} style={{ height: WEEK_SLOT_HEIGHT }}>{time.endsWith(':00') ? time : ''}</div>)}</div>
+                {weekDays.map(day => { const tasksForDay = getTasksForDate(weekTasks, day); const selectionRange = getSelectionRange(day); return <div key={day} className={`day-column ${isToday(day) ? 'today' : ''}`}>{timeSlots.map(time => <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: WEEK_SLOT_HEIGHT }} onMouseDown={(e) => handleSlotMouseDown(e, day, time)} onMouseEnter={() => handleSlotMouseEnter(day, time)} onDragOver={handleDragOver} onDrop={(e) => handleDropOnSlot(e, day, time)} />)}{selectionRange && <div className="selection-overlay" style={{ top: selectionRange.startIdx * WEEK_SLOT_HEIGHT, height: selectionRange.slots * WEEK_SLOT_HEIGHT }} />}{(() => { const positions = getTaskPositions(tasksForDay); return tasksForDay.map(task => { const startTime = task.scheduled_time?.slice(0, 5) || '00:00'; const slotIdx = getSlotIndex(startTime); const height = getTaskHeight(task.estimated_minutes, WEEK_SLOT_HEIGHT); const pos = positions[task.id] || { col: 0, total: 1 }; const width = `calc(${100 / pos.total}% - 2px)`; const left = `calc(${(pos.col * 100) / pos.total}% + 1px)`; return <div key={task.id} className={`cal-task week-task ${task.status}`} style={{ top: slotIdx * WEEK_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }} draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd} onClick={() => setShowEditTask(task)} title={`${task.title}`}>{task.title.slice(0, 8)}</div> }) })()}</div> })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ANALYTICS */}
+        {activeTab === 'analytics' && (
+          <div className="analytics-view">
+            <div className="nav-bar">
+              <button onClick={() => { changeDate(-1); changeWeek(-1) }}>←</button>
+              <button className="today-btn" onClick={goToToday}>Today</button>
+              <span className="nav-date">{formatDate(selectedDate)}</span>
+              <button onClick={() => { changeDate(1); changeWeek(1) }}>→</button>
+            </div>
+            
+            <div className="analytics-grid">
+              {/* Daily Stats */}
+              <div className="analytics-card">
+                <h3>📅 Daily Summary</h3>
+                {dailyAnalytics && (
+                  <div className="stats-content">
+                    <div className="stat-row"><span>Tasks</span><strong>{dailyAnalytics.summary.completedTasks}/{dailyAnalytics.summary.totalTasks}</strong></div>
+                    <div className="stat-row"><span>Completion</span><strong>{dailyAnalytics.summary.completionRate}%</strong></div>
+                    <div className="stat-row"><span>Planned</span><strong>{dailyAnalytics.summary.totalPlannedHours}h</strong></div>
+                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${dailyAnalytics.summary.completionRate}%` }} /></div>
+                  </div>
+                )}
+              </div>
+
+              {/* Weekly Stats */}
+              <div className="analytics-card">
+                <h3>📆 Weekly Summary</h3>
+                {weeklyAnalytics && (
+                  <div className="stats-content">
+                    <div className="stat-row"><span>Tasks</span><strong>{weeklyAnalytics.summary.completedTasks}/{weeklyAnalytics.summary.totalTasks}</strong></div>
+                    <div className="stat-row"><span>Completion</span><strong>{weeklyAnalytics.summary.completionRate}%</strong></div>
+                    <div className="stat-row"><span>Planned</span><strong>{weeklyAnalytics.summary.totalPlannedHours}h</strong></div>
+                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${weeklyAnalytics.summary.completionRate}%` }} /></div>
+                  </div>
+                )}
+              </div>
+
+              {/* Category Breakdown */}
+              <div className="analytics-card full-width">
+                <h3>🏷️ Time by Category (Today)</h3>
+                {dailyAnalytics?.categories?.length > 0 ? (
+                  <div className="category-chart">
+                    {dailyAnalytics.categories.map(cat => {
+                      const total = dailyAnalytics.summary.totalPlannedMinutes || 1
+                      const pct = Math.round((cat.planned_minutes / total) * 100)
+                      return (
+                        <div key={cat.id || 'uncategorized'} className="cat-bar-item">
+                          <div className="cat-bar-label">
+                            <span>{cat.icon || '📋'} {cat.name || 'Uncategorized'}</span>
+                            <span>{formatDuration(cat.planned_minutes)} ({pct}%)</span>
+                          </div>
+                          <div className="cat-bar-track">
+                            <div className="cat-bar-fill" style={{ width: `${pct}%`, backgroundColor: cat.color || '#6B7280' }} />
+                          </div>
+                          <div className="cat-bar-tasks">{cat.completed_count}/{cat.task_count} tasks</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : <p className="no-data">No tasks scheduled for this day</p>}
+              </div>
+
+              {/* Weekly by Day */}
+              <div className="analytics-card full-width">
+                <h3>📈 Week Overview</h3>
+                {weeklyAnalytics?.daily?.length > 0 ? (
+                  <div className="week-chart">
+                    {weekDays.map(day => {
+                      const data = weeklyAnalytics.daily.find(d => d.date === day)
+                      const planned = data?.planned_minutes || 0
+                      const maxMinutes = Math.max(...weeklyAnalytics.daily.map(d => d.planned_minutes || 0), 60)
+                      const height = (planned / maxMinutes) * 100
+                      return (
+                        <div key={day} className={`day-bar ${isToday(day) ? 'today' : ''}`}>
+                          <div className="bar-container">
+                            <div className="bar-fill" style={{ height: `${height}%` }}>
+                              {planned > 0 && <span className="bar-value">{formatDuration(planned)}</span>}
+                            </div>
+                          </div>
+                          <div className="bar-label">{formatShortDay(day).day}</div>
+                          <div className="bar-tasks">{data?.completed_tasks || 0}/{data?.total_tasks || 0}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : <p className="no-data">No tasks scheduled this week</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DAILY REVIEW */}
+        {activeTab === 'daily-review' && (
+          <div className="review-view">
+            <div className="nav-bar">
+              <button onClick={() => changeDate(-1)}>←</button>
+              <button className="today-btn" onClick={goToToday}>Today</button>
+              <span className="nav-date">{formatDate(selectedDate)}</span>
+              <button onClick={() => changeDate(1)}>→</button>
+            </div>
+
+            <div className="review-content">
+              <div className="review-summary">
+                <h3>📊 Day Summary</h3>
+                {dailyAnalytics && (
+                  <div className="summary-stats">
+                    <div className="summary-stat"><span className="stat-num">{dailyAnalytics.summary.completedTasks}</span><span className="stat-label">Completed</span></div>
+                    <div className="summary-stat"><span className="stat-num">{dailyAnalytics.summary.totalTasks}</span><span className="stat-label">Planned</span></div>
+                    <div className="summary-stat"><span className="stat-num">{dailyAnalytics.summary.completionRate}%</span><span className="stat-label">Done</span></div>
+                    <div className="summary-stat"><span className="stat-num">{dailyAnalytics.summary.totalPlannedHours}h</span><span className="stat-label">Hours</span></div>
+                  </div>
+                )}
+              </div>
+
+              <div className="review-form">
+                <h3>✍️ Daily Review {dailyReview?.is_finalized && <span className="finalized-badge">✓ Finalized</span>}</h3>
+                
+                <div className="rating-section">
+                  <label>How productive was your day?</label>
+                  <div className="rating-stars">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button key={star} className={`star ${(dailyReview?.productivity_rating || 0) >= star ? 'active' : ''}`}
+                        onClick={() => handleSaveDailyReview(star, dailyReview?.notes || '')}>⭐</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="notes-section">
+                  <label>Notes & Reflections</label>
+                  <textarea placeholder="What went well? What could improve?" value={dailyReview?.notes || ''}
+                    onChange={(e) => setDailyReview({ ...dailyReview, notes: e.target.value })}
+                    disabled={dailyReview?.is_finalized} />
+                </div>
+
+                {!dailyReview?.is_finalized && (
+                  <div className="review-actions">
+                    <button className="btn btn-secondary" onClick={() => handleSaveDailyReview(dailyReview?.productivity_rating || 3, dailyReview?.notes || '', false)}>Save Draft</button>
+                    <button className="btn btn-primary" onClick={() => handleSaveDailyReview(dailyReview?.productivity_rating || 3, dailyReview?.notes || '', true)}>✓ Finalize Day</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Tasks completed today */}
+              {dailyAnalytics?.tasks?.length > 0 && (
+                <div className="review-tasks">
+                  <h4>Tasks ({dailyAnalytics.summary.completedTasks} completed)</h4>
+                  <div className="task-list-mini">
+                    {dailyAnalytics.tasks.map(t => (
+                      <div key={t.id} className={`task-mini ${t.status}`}>
+                        <span className="task-mini-icon">{t.category_icon || '📋'}</span>
+                        <span className="task-mini-title">{t.title}</span>
+                        <span className={`task-mini-status ${t.status}`}>{t.status === 'completed' ? '✓' : '○'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* WEEKLY REVIEW */}
+        {activeTab === 'weekly-review' && (
+          <div className="review-view">
+            <div className="nav-bar">
+              <button onClick={() => changeWeek(-1)}>←</button>
+              <button className="today-btn" onClick={goToToday}>This Week</button>
+              <span className="nav-date">{formatDate(weekDays[0])} - {formatDate(weekDays[6])}</span>
+              <button onClick={() => changeWeek(1)}>→</button>
+            </div>
+
+            <div className="review-content">
+              <div className="review-summary">
+                <h3>📊 Week Summary</h3>
+                {weeklyAnalytics && (
+                  <div className="summary-stats">
+                    <div className="summary-stat"><span className="stat-num">{weeklyAnalytics.summary.completedTasks}</span><span className="stat-label">Completed</span></div>
+                    <div className="summary-stat"><span className="stat-num">{weeklyAnalytics.summary.totalTasks}</span><span className="stat-label">Planned</span></div>
+                    <div className="summary-stat"><span className="stat-num">{weeklyAnalytics.summary.completionRate}%</span><span className="stat-label">Done</span></div>
+                    <div className="summary-stat"><span className="stat-num">{weeklyAnalytics.summary.totalPlannedHours}h</span><span className="stat-label">Hours</span></div>
+                  </div>
+                )}
+              </div>
+
+              <div className="goals-section">
+                <h3>🎯 Weekly Goals</h3>
+                <div className="goals-list">
+                  {weeklyReview.goals.map(goal => (
+                    <div key={goal.id} className={`goal-item ${goal.is_achieved ? 'achieved' : ''}`}>
+                      <button className="goal-check" onClick={() => handleToggleGoal(goal.id, !goal.is_achieved)}>
+                        {goal.is_achieved ? '✓' : '○'}
+                      </button>
+                      <span className="goal-text">{goal.goal_text}</span>
+                      <button className="goal-delete" onClick={() => handleDeleteGoal(goal.id)}>×</button>
+                    </div>
                   ))}
                 </div>
-                {weekDays.map(day => {
-                  const tasksForDay = getTasksForDate(weekTasks, day)
-                  const selectionRange = getSelectionRange(day)
-                  return (
-                    <div key={day} className={`day-column ${isToday(day) ? 'today' : ''}`}>
-                      {timeSlots.map(time => (
-                        <div key={time} className={`slot ${isDragging ? 'drop-target' : ''}`} style={{ height: WEEK_SLOT_HEIGHT }}
-                          onMouseDown={(e) => handleSlotMouseDown(e, day, time)}
-                          onMouseEnter={() => handleSlotMouseEnter(day, time)}
-                          onDragOver={handleDragOver}
-                          onDrop={(e) => handleDropOnSlot(e, day, time)}
-                        />
-                      ))}
-                      {selectionRange && <div className="selection-overlay" style={{ top: selectionRange.startIdx * WEEK_SLOT_HEIGHT, height: selectionRange.slots * WEEK_SLOT_HEIGHT }} />}
-                      {(() => {
-                        const positions = getTaskPositions(tasksForDay)
-                        return tasksForDay.map(task => {
-                          const startTime = task.scheduled_time?.slice(0, 5) || '00:00'
-                          const slotIdx = getSlotIndex(startTime)
-                          const height = getTaskHeight(task.estimated_minutes, WEEK_SLOT_HEIGHT)
-                          const pos = positions[task.id] || { col: 0, total: 1 }
-                          const width = `calc(${100 / pos.total}% - 2px)`
-                          const left = `calc(${(pos.col * 100) / pos.total}% + 1px)`
-                          return (
-                            <div key={task.id} className={`cal-task week-task ${task.status}`}
-                              style={{ top: slotIdx * WEEK_SLOT_HEIGHT, height, width, left, backgroundColor: task.category_color || '#3B82F6' }}
-                              draggable onDragStart={(e) => handleDragStart(e, task)} onDragEnd={handleDragEnd}
-                              onClick={() => setShowEditTask(task)} title={`${task.title} (${formatDuration(task.estimated_minutes)})`}
-                            >
-                              {task.title.slice(0, 8)}
-                            </div>
-                          )
-                        })
-                      })()}
-                    </div>
-                  )
-                })}
+                <div className="add-goal">
+                  <input type="text" placeholder="Add a weekly goal..." value={newGoal} onChange={(e) => setNewGoal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddGoal()} />
+                  <button onClick={handleAddGoal}>+</button>
+                </div>
               </div>
+
+              <div className="review-form">
+                <h3>📝 Weekly Review {weeklyReview.review?.is_finalized && <span className="finalized-badge">✓ Finalized</span>}</h3>
+                
+                <div className="score-section">
+                  <label>Weekly Productivity Score</label>
+                  <div className="score-input">
+                    <input type="number" min="1" max="10" value={weeklyReview.review?.productivity_score || ''} onChange={(e) => setWeeklyReview({ ...weeklyReview, review: { ...weeklyReview.review, productivity_score: e.target.value } })} disabled={weeklyReview.review?.is_finalized} />
+                    <span>/ 10</span>
+                  </div>
+                </div>
+
+                <div className="notes-section">
+                  <label>Weekly Reflections</label>
+                  <textarea placeholder="Key accomplishments? Lessons learned? Goals for next week?" value={weeklyReview.review?.notes || ''} onChange={(e) => setWeeklyReview({ ...weeklyReview, review: { ...weeklyReview.review, notes: e.target.value } })} disabled={weeklyReview.review?.is_finalized} />
+                </div>
+
+                {!weeklyReview.review?.is_finalized && (
+                  <div className="review-actions">
+                    <button className="btn btn-secondary" onClick={() => handleSaveWeeklyReview(weeklyReview.review?.productivity_score, weeklyReview.review?.notes, false)}>Save Draft</button>
+                    <button className="btn btn-primary" onClick={() => handleSaveWeeklyReview(weeklyReview.review?.productivity_score, weeklyReview.review?.notes, true)}>✓ Finalize Week</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Category breakdown for week */}
+              {weeklyAnalytics?.categories?.length > 0 && (
+                <div className="review-categories">
+                  <h4>Time by Category</h4>
+                  <div className="category-list">
+                    {weeklyAnalytics.categories.map(cat => (
+                      <div key={cat.id || 'uncategorized'} className="cat-row">
+                        <span className="cat-icon" style={{ color: cat.color }}>{cat.icon || '📋'}</span>
+                        <span className="cat-name">{cat.name || 'Uncategorized'}</span>
+                        <span className="cat-hours">{formatDuration(cat.planned_minutes)}</span>
+                        <span className="cat-tasks">{cat.completed_count}/{cat.task_count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* ADD MODAL */}
+      {/* MODALS - Same as before */}
       {showAddTask && (
         <div className="modal-bg" onClick={() => setShowAddTask(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -564,10 +649,7 @@ function Productivity({ user }) {
             <h3>➕ New Task</h3>
             <form onSubmit={handleAddTask}>
               <div className="fg"><label>Title *</label><input type="text" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} autoFocus /></div>
-              <div className="fr">
-                <div className="fg"><label>Category</label><select value={newTask.categoryId} onChange={e => setNewTask({...newTask, categoryId: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-                <div className="fg"><label>Priority</label><select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div>
-              </div>
+              <div className="fr"><div className="fg"><label>Category</label><select value={newTask.categoryId} onChange={e => setNewTask({...newTask, categoryId: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div><div className="fg"><label>Priority</label><select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div></div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={newTask.startDate} onChange={e => setNewTask({...newTask, startDate: e.target.value, endDate: e.target.value || newTask.endDate})} /></div><div className="fg"><label>Start Time</label><input type="time" value={newTask.startTime} onChange={e => handleStartTimeChange(e.target.value, true)} disabled={!newTask.startDate} /></div></div>
@@ -575,25 +657,8 @@ function Productivity({ user }) {
                 {newTask.startTime && newTask.endTime && <div className="dur-badge">Duration: {formatDuration(newTask.estimatedMinutes)}</div>}
               </div>
               <div className="recur-box">
-                <label className="recur-toggle">
-                  <input type="checkbox" checked={newTask.isRecurring} onChange={e => setNewTask({...newTask, isRecurring: e.target.checked})} />
-                  <span>🔄 Recurring task</span>
-                </label>
-                {newTask.isRecurring && (
-                  <div className="recur-opts">
-                    <div className="fg">
-                      <label>Frequency *</label>
-                      <select value={newTask.recurrenceRule} onChange={e => setNewTask({...newTask, recurrenceRule: e.target.value})}>
-                        <option value="">Select frequency</option>
-                        {recurrenceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                    </div>
-                    <div className="fg">
-                      <label>End Date (optional)</label>
-                      <input type="date" value={newTask.recurrenceEndDate} onChange={e => setNewTask({...newTask, recurrenceEndDate: e.target.value})} min={newTask.startDate} />
-                    </div>
-                  </div>
-                )}
+                <label className="recur-toggle"><input type="checkbox" checked={newTask.isRecurring} onChange={e => setNewTask({...newTask, isRecurring: e.target.checked})} /><span>🔄 Recurring task</span></label>
+                {newTask.isRecurring && (<div className="recur-opts"><div className="fg"><label>Frequency *</label><select value={newTask.recurrenceRule} onChange={e => setNewTask({...newTask, recurrenceRule: e.target.value})}><option value="">Select frequency</option>{recurrenceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="fg"><label>End Date (optional)</label><input type="date" value={newTask.recurrenceEndDate} onChange={e => setNewTask({...newTask, recurrenceEndDate: e.target.value})} min={newTask.startDate} /></div></div>)}
               </div>
               <div className="modal-btns"><button type="button" className="btn btn-secondary" onClick={() => setShowAddTask(false)}>Cancel</button><button type="submit" className="btn btn-primary">{newTask.startDate ? 'Schedule' : 'Add'}</button></div>
             </form>
@@ -601,18 +666,14 @@ function Productivity({ user }) {
         </div>
       )}
 
-      {/* EDIT MODAL */}
       {showEditTask && (
         <div className="modal-bg" onClick={() => setShowEditTask(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <button className="close-x" onClick={() => setShowEditTask(null)}>×</button>
-            <h3>✏️ Edit Task {(showEditTask.is_recurring || showEditTask.parent_task_id) && <span className="recurring-badge">🔄 Recurring</span>}</h3>
+            <h3>✏️ Edit Task</h3>
             <form onSubmit={handleEditTask}>
               <div className="fg"><label>Title *</label><input type="text" value={showEditTask.title || ''} onChange={e => setShowEditTask({...showEditTask, title: e.target.value})} /></div>
-              <div className="fr">
-                <div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-                <div className="fg"><label>Priority</label><select value={showEditTask.priority || 'medium'} onChange={e => setShowEditTask({...showEditTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div>
-              </div>
+              <div className="fr"><div className="fg"><label>Category</label><select value={showEditTask.category_id || ''} onChange={e => setShowEditTask({...showEditTask, category_id: e.target.value})}><option value="">None</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div><div className="fg"><label>Priority</label><select value={showEditTask.priority || 'medium'} onChange={e => setShowEditTask({...showEditTask, priority: e.target.value})}><option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option></select></div></div>
               <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={showEditTask.scheduled_date?.split('T')[0] || ''} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
@@ -625,7 +686,6 @@ function Productivity({ user }) {
         </div>
       )}
 
-      {/* RECURRING DELETE OPTIONS */}
       {recurringDeleteOptions && (
         <div className="modal-bg" onClick={() => setRecurringDeleteOptions(null)}>
           <div className="confirm-box recur-delete" onClick={e => e.stopPropagation()}>
@@ -641,40 +701,17 @@ function Productivity({ user }) {
         </div>
       )}
 
-      {/* CATEGORIES */}
       {showCategories && (
         <div className="modal-bg" onClick={() => setShowCategories(false)}>
           <div className="modal cat-modal" onClick={e => e.stopPropagation()}>
             <button className="close-x" onClick={() => setShowCategories(false)}>×</button>
             <h3>🏷️ Categories</h3>
-            <div className="cat-list">
-              {categories.map(c => (
-                <div key={c.id} className="cat-item" style={{borderLeftColor: c.color}}>
-                  {editCategory?.id === c.id ? (
-                    <form onSubmit={handleUpdateCategory} className="cat-edit">
-                      <div className="icon-row">{icons.map(i => <button key={i} type="button" className={editCategory.icon===i?'active':''} onClick={() => setEditCategory({...editCategory, icon:i})}>{i}</button>)}</div>
-                      <input value={editCategory.name} onChange={e => setEditCategory({...editCategory, name: e.target.value})} />
-                      <div className="color-row">{colors.map(cl => <button key={cl} type="button" className={editCategory.color===cl?'active':''} style={{background:cl}} onClick={() => setEditCategory({...editCategory, color:cl})} />)}</div>
-                      <div className="cat-btns"><button type="submit" className="btn btn-small btn-primary">Save</button><button type="button" className="btn btn-small" onClick={() => setEditCategory(null)}>Cancel</button></div>
-                    </form>
-                  ) : (<><span>{c.icon}</span><span className="cat-name">{c.name}</span><div className="cat-actions"><button onClick={() => setEditCategory(c)}>✏️</button><button onClick={() => setConfirmDelete({type:'category',id:c.id,name:c.name})}>🗑️</button></div></>)}
-                </div>
-              ))}
-            </div>
-            <div className="add-cat">
-              <h4>Add Category</h4>
-              <form onSubmit={handleAddCategory}>
-                <div className="icon-row">{icons.map(i => <button key={i} type="button" className={newCategory.icon===i?'active':''} onClick={() => setNewCategory({...newCategory, icon:i})}>{i}</button>)}</div>
-                <input value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} placeholder="Name" />
-                <div className="color-row">{colors.map(cl => <button key={cl} type="button" className={newCategory.color===cl?'active':''} style={{background:cl}} onClick={() => setNewCategory({...newCategory, color:cl})} />)}</div>
-                <button type="submit" className="btn btn-primary">+ Add</button>
-              </form>
-            </div>
+            <div className="cat-list">{categories.map(c => (<div key={c.id} className="cat-item" style={{borderLeftColor: c.color}}>{editCategory?.id === c.id ? (<form onSubmit={handleUpdateCategory} className="cat-edit"><div className="icon-row">{icons.map(i => <button key={i} type="button" className={editCategory.icon===i?'active':''} onClick={() => setEditCategory({...editCategory, icon:i})}>{i}</button>)}</div><input value={editCategory.name} onChange={e => setEditCategory({...editCategory, name: e.target.value})} /><div className="color-row">{colors.map(cl => <button key={cl} type="button" className={editCategory.color===cl?'active':''} style={{background:cl}} onClick={() => setEditCategory({...editCategory, color:cl})} />)}</div><div className="cat-btns"><button type="submit" className="btn btn-small btn-primary">Save</button><button type="button" className="btn btn-small" onClick={() => setEditCategory(null)}>Cancel</button></div></form>) : (<><span>{c.icon}</span><span className="cat-name">{c.name}</span><div className="cat-actions"><button onClick={() => setEditCategory(c)}>✏️</button><button onClick={() => setConfirmDelete({type:'category',id:c.id,name:c.name})}>🗑️</button></div></>)}</div>))}</div>
+            <div className="add-cat"><h4>Add Category</h4><form onSubmit={handleAddCategory}><div className="icon-row">{icons.map(i => <button key={i} type="button" className={newCategory.icon===i?'active':''} onClick={() => setNewCategory({...newCategory, icon:i})}>{i}</button>)}</div><input value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} placeholder="Name" /><div className="color-row">{colors.map(cl => <button key={cl} type="button" className={newCategory.color===cl?'active':''} style={{background:cl}} onClick={() => setNewCategory({...newCategory, color:cl})} />)}</div><button type="submit" className="btn btn-primary">+ Add</button></form></div>
           </div>
         </div>
       )}
 
-      {/* CONFIRM */}
       {confirmDelete && (
         <div className="modal-bg" onClick={() => setConfirmDelete(null)}>
           <div className="confirm-box" onClick={e => e.stopPropagation()}>
