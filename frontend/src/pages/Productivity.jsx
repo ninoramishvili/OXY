@@ -62,37 +62,21 @@ function Productivity({ user }) {
   function formatDateForInput(dateStr) {
     if (!dateStr) return ''
     
-    // Convert to string if it's not already
-    const str = String(dateStr)
+    // Convert to string
+    const str = String(dateStr).trim()
     
-    // If already in YYYY-MM-DD format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
-    
-    // If ISO format with T or timestamp, just take the date part
+    // If it contains T (ISO timestamp), extract date part
     if (str.includes('T')) {
       return str.split('T')[0]
     }
     
-    // If it's just a date string like "2025-12-05", return as-is
-    const dateOnlyMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (dateOnlyMatch) {
-      return dateOnlyMatch[0]
+    // Extract YYYY-MM-DD format from any string
+    const match = str.match(/(\d{4})-(\d{2})-(\d{2})/)
+    if (match) {
+      return match[0]
     }
     
-    // Last resort: try to parse it
-    try {
-      // Create date at noon to avoid timezone issues
-      const parts = str.split(/[-/]/)
-      if (parts.length === 3) {
-        const year = parts[0]
-        const month = parts[1].padStart(2, '0')
-        const day = parts[2].padStart(2, '0')
-        return `${year}-${month}-${day}`
-      }
-      return ''
-    } catch { 
-      return '' 
-    }
+    return ''
   }
 
   function getMonday(date) {
@@ -401,10 +385,11 @@ function Productivity({ user }) {
     } catch { showToast('Failed', 'error', '✕') } 
   }
 
-  const handleCompleteTask = async (taskId) => { 
+  const handleCompleteTask = async (taskId, currentStatus) => { 
     try { 
       await fetch(`${API_BASE}/tasks/${taskId}/complete`, { method: 'PUT' })
-      showToast('Done!', 'success', '✓')
+      const isCompleting = currentStatus !== 'completed'
+      showToast(isCompleting ? 'Done!' : 'Uncompleted', 'success', isCompleting ? '✓' : '↩')
       fetchData()
       // Refresh analytics if on those tabs
       if (activeTab === 'analytics' || activeTab === 'daily-review') fetchDailyAnalytics()
@@ -622,10 +607,14 @@ function Productivity({ user }) {
                     <div className="two-min-list">
                       {backlog.filter(t => t.estimated_minutes <= 2).length > 0 ? (
                         backlog.filter(t => t.estimated_minutes <= 2).map(t => (
-                          <div key={t.id} className="two-min-item">
-                            <div className="two-min-item-check" onClick={() => handleCompleteTask(t.id)}>✓</div>
+                          <div key={t.id} className={`two-min-item ${t.status === 'completed' ? 'completed' : ''}`}>
+                            <div className="two-min-item-check" onClick={() => handleCompleteTask(t.id, t.status)}>
+                              {t.status === 'completed' ? '✓' : '○'}
+                            </div>
                             <div className="two-min-item-info" onClick={() => setShowEditTask(t)}>
-                              <div className="two-min-item-title">{t.category_icon || '📋'} {t.title}</div>
+                              <div className={`two-min-item-title ${t.status === 'completed' ? 'done' : ''}`}>
+                                {t.category_icon || '📋'} {t.title}
+                              </div>
                               <div className="two-min-item-time">⏱️ {t.estimated_minutes} min{t.estimated_minutes > 1 ? 's' : ''}</div>
                             </div>
                           </div>
@@ -851,7 +840,7 @@ function Productivity({ user }) {
                 {dayTasks.filter(t => t.estimated_minutes <= 2).length > 0 ? (
                   dayTasks.filter(t => t.estimated_minutes <= 2).map(t => (
                     <div key={t.id} className={`two-min-item ${t.status === 'completed' ? 'completed' : ''}`}>
-                      <div className="two-min-item-check" onClick={() => t.status !== 'completed' && handleCompleteTask(t.id)}>
+                      <div className="two-min-item-check" onClick={() => handleCompleteTask(t.id, t.status)}>
                         {t.status === 'completed' ? '✓' : '○'}
                       </div>
                       <div className="two-min-item-info" onClick={() => setShowEditTask(t)}>

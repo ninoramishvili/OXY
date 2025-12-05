@@ -1733,8 +1733,9 @@ app.get('/api/tasks/:userId/backlog', async (req, res) => {
       SELECT t.*, c.name as category_name, c.icon as category_icon, c.color as category_color
       FROM tasks t
       LEFT JOIN task_categories c ON t.category_id = c.id
-      WHERE t.user_id = $1 AND t.status = 'backlog'
+      WHERE t.user_id = $1 AND (t.scheduled_date IS NULL OR t.scheduled_date = '')
       ORDER BY 
+        CASE WHEN t.status = 'completed' THEN 2 ELSE 1 END,
         CASE 
           WHEN t.is_urgent AND t.is_important THEN 1  -- DO FIRST
           WHEN NOT t.is_urgent AND t.is_important THEN 2  -- SCHEDULE
@@ -1885,16 +1886,30 @@ app.put('/api/tasks/:id/schedule', async (req, res) => {
   }
 });
 
-// PUT /api/tasks/:id/complete - Mark task complete
+// PUT /api/tasks/:id/complete - Mark task complete or uncomplete (toggle)
 app.put('/api/tasks/:id/complete', async (req, res) => {
   try {
-    await pool.query(
-      `UPDATE tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
-      [req.params.id]
-    );
+    // Check current status
+    const checkResult = await pool.query('SELECT status, scheduled_date FROM tasks WHERE id = $1', [req.params.id]);
+    const task = checkResult.rows[0];
+    
+    if (task.status === 'completed') {
+      // Uncomplete: set status back based on whether it's scheduled
+      const newStatus = task.scheduled_date ? 'planned' : 'backlog';
+      await pool.query(
+        `UPDATE tasks SET status = $1, completed_at = NULL WHERE id = $2`,
+        [newStatus, req.params.id]
+      );
+    } else {
+      // Complete
+      await pool.query(
+        `UPDATE tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+        [req.params.id]
+      );
+    }
     res.json({ success: true });
   } catch (error) {
-    console.error('Error completing task:', error);
+    console.error('Error toggling task completion:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
