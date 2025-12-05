@@ -65,10 +65,13 @@ function Productivity({ user }) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
     // If ISO format with T, just take the date part
     if (dateStr.includes('T')) return dateStr.split('T')[0]
-    // Otherwise try to parse
+    // Otherwise try to parse - add T12:00:00 to avoid timezone issues
     try {
-      const d = new Date(dateStr)
-      return d.toISOString().split('T')[0]
+      const d = new Date(dateStr + 'T12:00:00')
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     } catch { return '' }
   }
 
@@ -1346,44 +1349,48 @@ function Productivity({ user }) {
                 <p className="quick-task-hint">Small tasks that take less than 2 minutes should be done immediately!</p>
               </div>
               
-              {showEditTask.estimated_minutes > 2 && <div className="eisenhower-box">
-                <label className="eisenhower-title">
-                  🎯 Eisenhower Matrix
-                  <span className="eis-help-tooltip">
-                    <span className="eis-help-icon">?</span>
-                    <span className="eis-help-text">
-                      Prioritize tasks by urgency and importance:<br/>
-                      🔴 <strong>DO FIRST</strong> - Urgent & Important (crises, deadlines)<br/>
-                      🟠 <strong>SCHEDULE</strong> - Important but not urgent (planning, learning)<br/>
-                      🟡 <strong>DELEGATE</strong> - Urgent but not important (interruptions)<br/>
-                      ⚪ <strong>ELIMINATE</strong> - Neither urgent nor important (time wasters)
+              {/* Always show Eisenhower for non-quick tasks */}
+              {showEditTask.estimated_minutes > 2 && (
+                <div className="eisenhower-box">
+                  <label className="eisenhower-title">
+                    🎯 Eisenhower Matrix
+                    <span className="eis-help-tooltip">
+                      <span className="eis-help-icon">?</span>
+                      <span className="eis-help-text">
+                        Prioritize tasks by urgency and importance:<br/>
+                        🔴 <strong>DO FIRST</strong> - Urgent & Important (crises, deadlines)<br/>
+                        🟠 <strong>SCHEDULE</strong> - Important but not urgent (planning, learning)<br/>
+                        🟡 <strong>DELEGATE</strong> - Urgent but not important (interruptions)<br/>
+                        ⚪ <strong>ELIMINATE</strong> - Neither urgent nor important (time wasters)
+                      </span>
                     </span>
-                  </span>
-                </label>
-                <div className="eisenhower-toggles">
-                  <label className={`eis-toggle ${showEditTask.is_urgent ? 'active' : ''}`}>
-                    <input type="checkbox" checked={showEditTask.is_urgent || false} onChange={e => setShowEditTask({...showEditTask, is_urgent: e.target.checked})} />
-                    <span>⚡ Urgent</span>
                   </label>
-                  <label className={`eis-toggle ${showEditTask.is_important ? 'active' : ''}`}>
-                    <input type="checkbox" checked={showEditTask.is_important || false} onChange={e => setShowEditTask({...showEditTask, is_important: e.target.checked})} />
-                    <span>⭐ Important</span>
-                  </label>
+                  <div className="eisenhower-toggles">
+                    <label className={`eis-toggle ${showEditTask.is_urgent ? 'active' : ''}`}>
+                      <input type="checkbox" checked={showEditTask.is_urgent || false} onChange={e => setShowEditTask({...showEditTask, is_urgent: e.target.checked})} />
+                      <span>⚡ Urgent</span>
+                    </label>
+                    <label className={`eis-toggle ${showEditTask.is_important ? 'active' : ''}`}>
+                      <input type="checkbox" checked={showEditTask.is_important || false} onChange={e => setShowEditTask({...showEditTask, is_important: e.target.checked})} />
+                      <span>⭐ Important</span>
+                    </label>
+                  </div>
+                  <div className={`eisenhower-badge q${(showEditTask.is_urgent ? 1 : 0) + (showEditTask.is_important ? 2 : 0)}`}>
+                    {showEditTask.is_urgent && showEditTask.is_important && '🔴 DO FIRST'}
+                    {!showEditTask.is_urgent && showEditTask.is_important && '🟠 SCHEDULE'}
+                    {showEditTask.is_urgent && !showEditTask.is_important && '🟡 DELEGATE'}
+                    {!showEditTask.is_urgent && !showEditTask.is_important && '⚪ ELIMINATE'}
+                  </div>
                 </div>
-                <div className={`eisenhower-badge q${(showEditTask.is_urgent ? 1 : 0) + (showEditTask.is_important ? 2 : 0)}`}>
-                  {showEditTask.is_urgent && showEditTask.is_important && '🔴 DO FIRST'}
-                  {!showEditTask.is_urgent && showEditTask.is_important && '🟠 SCHEDULE'}
-                  {showEditTask.is_urgent && !showEditTask.is_important && '🟡 DELEGATE'}
-                  {!showEditTask.is_urgent && !showEditTask.is_important && '⚪ ELIMINATE'}
-                </div>
-              </div>}
+              )}
               
-              {showEditTask.estimated_minutes > 2 && <div className="sched-box">
+              {/* Always show Schedule section in edit mode */}
+              <div className="sched-box">
                 <label className="sched-title">📅 Schedule</label>
                 <div className="fr"><div className="fg"><label>Start Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_date: e.target.value, scheduled_end_date: e.target.value || showEditTask.scheduled_end_date})} /></div><div className="fg"><label>Start Time</label><input type="time" value={showEditTask.scheduled_time?.slice(0,5) || ''} onChange={e => handleStartTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 <div className="fr"><div className="fg"><label>End Date</label><input type="date" value={formatDateForInput(showEditTask.scheduled_end_date)} onChange={e => setShowEditTask({...showEditTask, scheduled_end_date: e.target.value})} disabled={!showEditTask.scheduled_date} /></div><div className="fg"><label>End Time</label><input type="time" value={showEditTask.scheduled_end_time?.slice(0,5) || ''} onChange={e => handleEndTimeChange(e.target.value, false)} disabled={!showEditTask.scheduled_date} /></div></div>
                 {showEditTask.scheduled_time && showEditTask.scheduled_end_time && <div className="dur-badge">Duration: {formatDuration(showEditTask.estimated_minutes)}</div>}
-              </div>}
+              </div>
               
               <div className="modal-btns"><button type="button" className="btn btn-danger" onClick={() => handleDeleteClick(showEditTask)}>🗑️</button><button type="button" className="btn btn-secondary" onClick={() => setShowEditTask(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save</button></div>
             </form>
